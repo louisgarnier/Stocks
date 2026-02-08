@@ -20,6 +20,7 @@ from backend.api.middleware.logging_middleware import log_requests
 from backend.api.utils.logger import logger, api_logger
 from backend.api.routes.flex import router as flex_router
 from backend.api.routes.transactions import router as transactions_router
+from backend.api.routes.splits import router as splits_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -43,6 +44,7 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=log_requests)
 # Include routers
 app.include_router(flex_router)
 app.include_router(transactions_router)
+app.include_router(splits_router)
 
 
 @app.on_event("startup")

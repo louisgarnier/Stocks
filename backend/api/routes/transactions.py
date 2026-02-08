@@ -64,7 +64,7 @@ async def list_transactions(
     cursor = conn.cursor()
     
     # Validate sort column
-    valid_columns = ["trade_date", "symbol", "quantity", "t_price", "proceeds", "comm_fee", "id"]
+    valid_columns = ["trade_date", "symbol", "quantity", "t_price", "proceeds", "comm_fee", "id", "updated_quantity", "updated_t_price"]
     if sort_by not in valid_columns:
         sort_by = "trade_date"
     

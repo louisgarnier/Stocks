@@ -63,11 +63,24 @@ CREATE TABLE IF NOT EXISTS sync_status (
 -- Initialize sync_status with one row
 INSERT OR IGNORE INTO sync_status (id, last_fetch_status) VALUES (1, 'never');
 
+-- Stock splits table - stores splits fetched from Yahoo Finance
+CREATE TABLE IF NOT EXISTS stock_splits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    split_date TEXT NOT NULL,
+    split_ratio REAL NOT NULL,  -- e.g., 4.0 for 4-for-1 split
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    applied_at TIMESTAMP,
+    UNIQUE(symbol, split_date)
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol ON transactions(symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_trade_date ON transactions(trade_date);
 CREATE INDEX IF NOT EXISTS idx_transactions_original_id ON transactions(original_transaction_id);
 CREATE INDEX IF NOT EXISTS idx_positions_symbol ON positions(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_splits_symbol ON stock_splits(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_splits_date ON stock_splits(split_date);
 
 
 
