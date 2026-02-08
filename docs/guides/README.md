@@ -12,3 +12,6 @@ This directory contains user guides and documentation for using the application.
 
 **Remember**: Always check `docs/workflow/BEST_PRACTICES.md` before implementing features!
 
+
+
+

@@ -38,3 +38,6 @@ class ExampleResponse(ExampleBase):
     class Config:
         from_attributes = True
 
+
+
+
