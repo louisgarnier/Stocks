@@ -337,6 +337,7 @@ export default function Dashboard() {
                       <tr style={{ backgroundColor: '#f9fafb' }}>
                         <th onClick={() => handleSort('trade_date')} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Date {sortBy === 'trade_date' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('symbol')} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Symbol {sortBy === 'symbol' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Type</th>
                         <th onClick={() => handleSort('quantity')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Quantité {sortBy === 'quantity' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('t_price')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Prix {sortBy === 't_price' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('proceeds')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Montant {sortBy === 'proceeds' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
@@ -349,6 +350,7 @@ export default function Dashboard() {
                         <th style={{ padding: '8px 16px' }}></th>
                         <th style={{ padding: '8px 16px' }}></th>
                         <th style={{ padding: '8px 16px' }}></th>
+                        <th style={{ padding: '8px 16px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -356,6 +358,7 @@ export default function Dashboard() {
                         <tr key={tx.id} style={{ borderTop: '1px solid #e5e7eb' }}>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#1f2937' }}>{tx.trade_date}</td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>{tx.symbol}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', textAlign: 'center' }}><span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', backgroundColor: tx.quantity >= 0 ? '#dcfce7' : '#fef2f2', color: tx.quantity >= 0 ? '#16a34a' : '#dc2626' }}>{tx.quantity >= 0 ? 'BUY' : 'SELL'}</span></td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: tx.quantity >= 0 ? '#16a34a' : '#dc2626', textAlign: 'right' }}>{tx.quantity >= 0 ? '+' : ''}{tx.quantity.toFixed(2)}</td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#1f2937', textAlign: 'right' }}>{tx.t_price ? `$${tx.t_price.toFixed(2)}` : '-'}</td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#1f2937', textAlign: 'right' }}>{tx.proceeds ? `$${tx.proceeds.toFixed(2)}` : '-'}</td>
@@ -442,6 +445,7 @@ export default function Dashboard() {
                       <tr style={{ backgroundColor: '#f9fafb' }}>
                         <th onClick={() => handleSort('trade_date')} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Date {sortBy === 'trade_date' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('symbol')} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Symbol {sortBy === 'symbol' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Type</th>
                         <th onClick={() => handleSort('quantity')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Qté Orig. {sortBy === 'quantity' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('updated_quantity')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#16a34a', textTransform: 'uppercase', cursor: 'pointer' }}>Qté Ajustée {sortBy === 'updated_quantity' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('t_price')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Prix Orig. {sortBy === 't_price' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
@@ -456,6 +460,7 @@ export default function Dashboard() {
                         <th style={{ padding: '8px 16px' }}></th>
                         <th style={{ padding: '8px 16px' }}></th>
                         <th style={{ padding: '8px 16px' }}></th>
+                        <th style={{ padding: '8px 16px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -463,6 +468,7 @@ export default function Dashboard() {
                         <tr key={tx.id} style={{ borderTop: '1px solid #e5e7eb', backgroundColor: tx.stock_splits_applied && tx.stock_splits_applied !== 'no split' ? '#f0fdf4' : 'white' }}>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#1f2937' }}>{tx.trade_date}</td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>{tx.symbol}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', textAlign: 'center' }}><span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', backgroundColor: tx.quantity >= 0 ? '#dcfce7' : '#fef2f2', color: tx.quantity >= 0 ? '#16a34a' : '#dc2626' }}>{tx.quantity >= 0 ? 'BUY' : 'SELL'}</span></td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#6b7280', textAlign: 'right' }}>{tx.quantity.toFixed(2)}</td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#16a34a', textAlign: 'right', fontWeight: '600' }}>{tx.updated_quantity?.toFixed(2) ?? tx.quantity.toFixed(2)}</td>
                           <td style={{ padding: '12px 16px', fontSize: '14px', color: '#6b7280', textAlign: 'right' }}>{tx.t_price ? `$${tx.t_price.toFixed(2)}` : '-'}</td>
