@@ -1,19 +1,19 @@
-# Phase 0: Project Setup
+# Phase 0: Project Setup ✅ COMPLETED
 
 **Set up the foundational infrastructure: database, API, and basic frontend shell.**
 
 ## Requirements
 
 ### Functional Requirements
-- [ ] SQLite database with transactions and positions tables
-- [ ] FastAPI backend with health endpoint
-- [ ] Nuxt3 frontend with basic layout
-- [ ] Frontend-backend connection verification
+- [x] SQLite database with transactions and positions tables
+- [x] FastAPI backend with health endpoint
+- [x] Next.js frontend with basic layout
+- [x] Frontend-backend connection verification
 
 ### Non-Functional Requirements
-- [ ] Performance: API responds in < 100ms for health check
-- [ ] Security: Environment variables for sensitive config
-- [ ] Usability: Clear "connected/disconnected" status in UI
+- [x] Performance: API responds in < 100ms for health check
+- [x] Security: Environment variables for sensitive config
+- [x] Usability: Clear "connected/disconnected" status in UI
 
 ## User Stories
 
@@ -96,21 +96,20 @@ backend/
 
 ### Frontend
 
-**Components**:
-- `ConnectionStatus.vue` - Shows API connection status
+**Technology**: Next.js 16 with React and TypeScript
 
 **Pages/Routes**:
-- `pages/index.vue` - Dashboard (empty state)
+- `app/page.tsx` - Dashboard with connection status
 
 **Directory Structure**:
 ```
 frontend/
-├── app.vue
-├── nuxt.config.ts
-├── pages/
-│   └── index.vue
-├── components/
-│   └── ConnectionStatus.vue
+├── app/
+│   ├── page.tsx          # Main dashboard
+│   ├── layout.tsx        # Root layout
+│   ├── globals.css       # Global styles
+│   └── api/proxy/        # API proxy route
+├── next.config.ts
 └── package.json
 ```
 
@@ -211,27 +210,27 @@ frontend/
 
 ---
 
-### Step 4: Create Nuxt3 Frontend
-**Description**: Initialize Nuxt3 project with TailwindCSS
+### Step 4: Create Next.js Frontend ✅
+**Description**: Initialize Next.js project with TailwindCSS
 
 **Tasks**:
-- [ ] Initialize Nuxt3 in `frontend/` directory
-- [ ] Install and configure TailwindCSS
-- [ ] Create basic layout with navigation placeholder
-- [ ] Create `pages/index.vue` dashboard page
-- [ ] Create `ConnectionStatus.vue` component
+- [x] Initialize Next.js in `frontend/` directory
+- [x] Install and configure TailwindCSS
+- [x] Create basic layout with navigation placeholder
+- [x] Create `app/page.tsx` dashboard page
+- [x] Implement connection status display
 
 **Dependencies**: Step 3
 
 **Deliverables**:
-- Working Nuxt3 app
+- Working Next.js app
 - Dashboard page with connection status
 
 **Acceptance Criteria**:
-- [ ] `npm run dev` starts frontend on port 3000
-- [ ] Dashboard page loads with "IBKR Portfolio Tracker" title
-- [ ] Shows "Connected to API" when backend is running
-- [ ] Shows "No transactions yet" empty state
+- [x] `npm run dev` starts frontend on port 3000
+- [x] Dashboard page loads with "IBKR Portfolio Tracker" title
+- [x] Shows "Connected to API" when backend is running
+- [x] Shows "No transactions yet" empty state
 
 **Estimated Time**: 2 hours
 
@@ -253,9 +252,10 @@ frontend/
 ## Notes
 
 - Use SQLite for simplicity (no external database server needed)
-- FastAPI runs on port 8000, Nuxt3 on port 3000
+- FastAPI runs on port 8000, Next.js on port 3000
 - CORS must be configured for local development
 - `.env` file should never be committed to git
+- Frontend uses API proxy route (`/api/proxy/`) for terminal logging
 
 ---
 

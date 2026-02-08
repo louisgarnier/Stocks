@@ -1,19 +1,22 @@
-# Phase 1: Flex API Integration
+# Phase 1: Flex API Integration ✅ COMPLETED
 
 **Fetch transactions from IBKR Flex Web Service API and display them in the frontend.**
 
 ## Requirements
 
 ### Functional Requirements
-- [ ] Fetch Flex Query reports from IBKR API
-- [ ] Save fetched data to input directory
-- [ ] Display transactions in a table with pagination
-- [ ] Show fetch status and last sync time
+- [x] Fetch Flex Query reports from IBKR API
+- [x] Parse XML and insert transactions into database
+- [x] Display transactions in a table with pagination
+- [x] Show fetch status and last sync time
+- [x] Column sorting (click headers)
+- [x] Symbol filtering (partial match)
 
 ### Non-Functional Requirements
-- [ ] Performance: Fetch completes within 30 seconds
-- [ ] Security: API token stored in environment variable
-- [ ] Reliability: Handle API errors gracefully
+- [x] Performance: Fetch completes within 30 seconds
+- [x] Security: API token stored in environment variable
+- [x] Reliability: Handle API errors gracefully
+- [x] Deduplication: Skip existing transactions (by TransactionID)
 
 ## User Stories
 
@@ -50,14 +53,18 @@ backend/
 
 ### Frontend
 
-**Components**:
-- `FetchButton.vue` - Button to trigger IBKR fetch
-- `SyncStatus.vue` - Shows last sync time
-- `TransactionsTable.vue` - Paginated transaction table
+**Technology**: Next.js 16 with React and TypeScript
+
+**Features** (all in `app/page.tsx`):
+- Sync button to trigger IBKR fetch
+- Sync status with last fetch time
+- Transactions table with pagination
+- Sortable columns (click headers)
+- Filter row for symbol search
+- Page size selector (25/50/100/200)
 
 **Pages/Routes**:
-- `pages/index.vue` - Dashboard with fetch button
-- `pages/transactions.vue` - Full transaction list
+- `app/page.tsx` - Dashboard with all features
 
 ## Testing Requirements
 
@@ -82,40 +89,44 @@ backend/
 
 ## Implementation Plan
 
-### Step 1: Create Flex Fetch Script
+### Step 1: Create Flex Fetch Script ✅
 **Description**: Implement the IBKR Flex Web Service API client
 
 **Tasks**:
-- [ ] Create `backend/scripts/a_flex_fetch.py`
-- [ ] Implement SendRequest API call
-- [ ] Implement GetStatement API call (with 20s wait)
-- [ ] Save response to `input/daily_trades/` as CSV
-- [ ] Add error handling and logging
+- [x] Create `backend/scripts/a_flex_fetch.py`
+- [x] Implement SendRequest API call
+- [x] Implement GetStatement API call (with 20s wait)
+- [x] Save response to `input/daily_trades/` as XML
+- [x] Parse XML and insert transactions into database
+- [x] Add error handling and logging
+- [x] Deduplication by TransactionID
 
 **Dependencies**: Phase 0 complete
 
 **Deliverables**:
 - Working `a_flex_fetch.py` script
-- CSV file saved after successful fetch
+- XML file saved after successful fetch
+- Transactions inserted into database
 
 **Acceptance Criteria**:
-- [ ] Script runs: `python backend/scripts/a_flex_fetch.py`
-- [ ] CSV file created in `input/daily_trades/`
-- [ ] Errors logged clearly
+- [x] Script runs: `python backend/scripts/a_flex_fetch.py`
+- [x] XML file created in `input/daily_trades/`
+- [x] Transactions inserted with deduplication
+- [x] Errors logged clearly
 
 **Estimated Time**: 2 hours
 
 ---
 
-### Step 2: Create Flex API Endpoints
+### Step 2: Create Flex API Endpoints ✅
 **Description**: Add FastAPI endpoints for flex operations
 
 **Tasks**:
-- [ ] Create `backend/api/routes/flex.py`
-- [ ] Add `POST /api/flex/fetch` endpoint (calls a_flex_fetch)
-- [ ] Add `GET /api/flex/status` endpoint
-- [ ] Store last fetch status in database or file
-- [ ] Register routes in main.py
+- [x] Create `backend/api/routes/flex.py`
+- [x] Add `POST /api/flex/fetch` endpoint (calls a_flex_fetch)
+- [x] Add `GET /api/flex/status` endpoint
+- [x] Store last fetch status in database (sync_status table)
+- [x] Register routes in main.py
 
 **Dependencies**: Step 1
 
@@ -124,102 +135,88 @@ backend/
 - Status tracking implemented
 
 **Acceptance Criteria**:
-- [ ] POST `/api/flex/fetch` triggers fetch and returns result
-- [ ] GET `/api/flex/status` returns last fetch info
-- [ ] Errors return proper HTTP status codes
+- [x] POST `/api/flex/fetch` triggers fetch and returns result
+- [x] GET `/api/flex/status` returns last fetch info
+- [x] Errors return proper HTTP status codes
 
 **Estimated Time**: 1.5 hours
 
 ---
 
-### Step 3: Create Transactions API Endpoint
+### Step 3: Create Transactions API Endpoint ✅
 **Description**: Add endpoint to list transactions with pagination
 
 **Tasks**:
-- [ ] Create `backend/api/routes/transactions.py`
-- [ ] Add `GET /api/transactions` with query params:
+- [x] Create `backend/api/routes/transactions.py`
+- [x] Add `GET /api/transactions` with query params:
   - `page` (default: 1)
-  - `limit` (default: 50)
-  - `symbol` (optional filter)
-- [ ] Return total count for pagination
-- [ ] Register routes in main.py
+  - `limit` (default: 25, max: 200)
+  - `symbol` (optional filter, partial match)
+  - `sort_by` (column name)
+  - `sort_order` (asc/desc)
+- [x] Return total count for pagination
+- [x] Add `GET /api/transactions/symbols` for filter dropdown
+- [x] Register routes in main.py
 
 **Dependencies**: Phase 0 (database)
 
 **Deliverables**:
-- Transactions endpoint with pagination
+- Transactions endpoint with pagination, sorting, filtering
 
 **Acceptance Criteria**:
-- [ ] GET `/api/transactions` returns paginated list
-- [ ] Response includes `total`, `page`, `limit`, `data`
-- [ ] Symbol filter works
+- [x] GET `/api/transactions` returns paginated list
+- [x] Response includes `total`, `page`, `limit`, `data`
+- [x] Symbol filter works (partial match with LIKE)
+- [x] Sorting works on all columns
 
 **Estimated Time**: 1 hour
 
 ---
 
-### Step 4: Create Frontend Fetch UI
-**Description**: Add fetch button and status display to dashboard
+### Step 4: Create Frontend UI ✅
+**Description**: Add fetch button, status display, and transactions table to dashboard
 
 **Tasks**:
-- [ ] Create `FetchButton.vue` component
-- [ ] Create `SyncStatus.vue` component
-- [ ] Add to dashboard page
-- [ ] Implement API calls with loading states
-- [ ] Show success/error messages
+- [x] Implement sync button in `app/page.tsx`
+- [x] Implement sync status display
+- [x] Implement transactions table with columns: Date, Symbol, Quantity, Price, Proceeds, Fees
+- [x] Implement pagination controls (25/50/100/200 per page)
+- [x] Implement sortable column headers
+- [x] Implement filter row for symbol search
+- [x] API calls with loading states
+- [x] Success/error messages
 
 **Dependencies**: Steps 2, 3
 
 **Deliverables**:
-- Fetch button with loading state
-- Sync status display
+- Complete dashboard with all features in single page
 
 **Acceptance Criteria**:
-- [ ] Button shows "Fetch from IBKR"
-- [ ] Loading spinner during fetch
-- [ ] Success: "Fetched X records"
-- [ ] Error: Shows error message
-- [ ] Last sync time updates
+- [x] Button shows "Sync from IBKR"
+- [x] Loading spinner during fetch
+- [x] Success: Shows record count
+- [x] Last sync time updates
+- [x] Table displays all transaction columns
+- [x] Pagination works with page size selector
+- [x] Sorting works (click headers)
+- [x] Filtering works (type in filter row)
 
-**Estimated Time**: 2 hours
-
----
-
-### Step 5: Create Transactions Table
-**Description**: Display transactions in a paginated table
-
-**Tasks**:
-- [ ] Create `TransactionsTable.vue` component
-- [ ] Add columns: Symbol, Date, Quantity, Price, Proceeds, Fees
-- [ ] Implement pagination controls
-- [ ] Add to transactions page
-- [ ] Link from dashboard
-
-**Dependencies**: Step 3
-
-**Deliverables**:
-- Transactions table with pagination
-- Transactions page
-
-**Acceptance Criteria**:
-- [ ] Table displays all transaction columns
-- [ ] Pagination shows correct page info
-- [ ] Can navigate between pages
-- [ ] Data matches database
-
-**Estimated Time**: 2 hours
+**Estimated Time**: 4 hours
 
 ---
 
 ## Frontend Checkpoint ✓
 
 ```
-✅ "Fetch from IBKR" button visible on dashboard
+✅ "Sync from IBKR" button visible on dashboard
 ✅ Loading spinner during fetch (~20 seconds)
-✅ Success message: "Fetched X records"
+✅ Success message shows record count
 ✅ Last sync time displayed
-✅ Transactions appear in table after fetch + process
-✅ Table shows correct data with pagination
+✅ Transactions appear in table after fetch
+✅ Table shows correct data with pagination (25/50/100/200)
+✅ Sortable columns (click headers)
+✅ Filter row for symbol search
+✅ 661 transactions imported successfully
 ```
 
 ## Configuration Required

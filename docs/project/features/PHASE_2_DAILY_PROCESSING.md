@@ -1,163 +1,72 @@
-# Phase 2: Daily Trade Processing
+# Phase 2: Daily Trade Processing ⚠️ MERGED INTO PHASE 1
 
-**Process fetched flex files and insert new transactions into database with deduplication.**
+> **Note**: This phase has been merged into Phase 1. The Flex API fetch now automatically parses XML and inserts transactions into the database with deduplication. No separate processing step is needed.
 
-## Requirements
+## What Was Planned vs What Was Implemented
+
+### Original Plan (CSV-based)
+- Process CSV files from `input/daily_trades/`
+- Separate processing step after fetch
+
+### Actual Implementation (in Phase 1)
+- Flex API returns XML (not CSV)
+- XML is parsed and inserted immediately after fetch
+- Deduplication happens automatically (by TransactionID)
+- No manual processing step needed
+
+## Remaining Features (Optional)
+
+### Historical CSV Import ✅ COMPLETED
+- `backend/scripts/b_daily_trades.py` - Import historical CSV files
+- Used for initial import of 2021-2025 data
+- Run manually: `python backend/scripts/b_daily_trades.py --historical`
+
+---
+
+## Original Requirements (For Reference)
 
 ### Functional Requirements
-- [ ] Process CSV files from `input/daily_trades/`
-- [ ] Deduplicate using IBKR TransactionID
-- [ ] Insert new transactions into database
-- [ ] Archive processed files
-- [ ] Show processing results in frontend
+- [x] ~~Process CSV files from `input/daily_trades/`~~ → XML parsed automatically
+- [x] Deduplicate using IBKR TransactionID
+- [x] Insert new transactions into database
+- [ ] Archive processed files (not implemented - not needed)
+- [x] Show processing results in frontend
 
 ### Non-Functional Requirements
-- [ ] Performance: Process 1000+ transactions in < 10 seconds
-- [ ] Reliability: No duplicate transactions ever inserted
-- [ ] Auditability: Log all processing actions
+- [x] Performance: Process 1000+ transactions in < 10 seconds
+- [x] Reliability: No duplicate transactions ever inserted
+- [x] Auditability: Log all processing actions
 
-## User Stories
-
-### As a user
-- I want to process fetched trades with one click
-- So that new transactions are added to my database
-
-### As a user
-- I want to see how many new vs duplicate transactions were found
-- So that I know the sync is working correctly
-
-## Technical Specifications
+## What Was Actually Implemented (in Phase 1)
 
 ### Backend
+- `POST /api/flex/fetch` - Fetches XML from IBKR and inserts directly
+- `a_flex_fetch.py` - Handles fetch + parse + insert in one step
+- `b_daily_trades.py` - Historical CSV import (one-time use)
 
-**API Endpoints**:
-- `POST /api/pipeline/process-trades` - Process pending flex files
+### Frontend (Next.js/React)
+- Single "Sync from IBKR" button in `app/page.tsx`
+- Shows fetch status and record count
+- Transaction table refreshes automatically
 
-**New Files**:
-```
-backend/
-└── scripts/
-    └── b_daily_trades.py    # Trade processor
-```
+## Acceptance Criteria (Achieved in Phase 1)
 
-**Processing Logic**:
-1. Find all CSV files in `input/daily_trades/`
-2. For each file:
-   - Parse CSV rows
-   - Filter for STK (stocks) asset class only
-   - Check `TransactionID` against database
-   - Insert new transactions
-   - Skip duplicates
-3. Archive processed files to `archive/daily_trades/`
-4. Return summary (new, duplicates, errors)
-
-### Frontend
-
-**Components**:
-- `ProcessButton.vue` - Button to trigger processing
-- `ProcessingLog.vue` - Shows processing results
-
-**Updates**:
-- Dashboard shows "Process New Trades" button
-- Transaction table refreshes after processing
-
-## Acceptance Criteria
-
-- [ ] "Process" button triggers processing
-- [ ] Log shows: "X new transactions added, Y duplicates skipped"
-- [ ] Transaction table updates with new entries
-- [ ] New entries highlighted or marked
-- [ ] Processed files moved to archive
-- [ ] No duplicates in database
-
-## Implementation Plan
-
-### Step 1: Create Daily Trades Script
-**Description**: Adapt b_daily_trades.py for new structure
-
-**Tasks**:
-- [ ] Create `backend/scripts/b_daily_trades.py`
-- [ ] Implement CSV parsing
-- [ ] Filter for STK asset class
-- [ ] Implement deduplication check
-- [ ] Insert new transactions
-- [ ] Archive processed files
-- [ ] Return processing summary
-
-**Dependencies**: Phase 1 complete
-
-**Deliverables**:
-- Working `b_daily_trades.py` script
-- Transactions inserted into database
-
-**Acceptance Criteria**:
-- [ ] Script runs: `python backend/scripts/b_daily_trades.py`
-- [ ] New transactions inserted
-- [ ] Duplicates skipped with log message
-- [ ] Files archived
-
-**Estimated Time**: 2 hours
+- [x] ~~"Process" button~~ → "Sync from IBKR" button
+- [x] Shows: "Fetched X trades, inserted Y new"
+- [x] Transaction table updates with new entries
+- [x] No duplicates in database (TransactionID check)
 
 ---
 
-### Step 2: Create Pipeline API Endpoint
-**Description**: Add endpoint to trigger trade processing
+## Historical CSV Import (Completed)
 
-**Tasks**:
-- [ ] Create `backend/api/routes/pipeline.py`
-- [ ] Add `POST /api/pipeline/process-trades` endpoint
-- [ ] Call b_daily_trades script
-- [ ] Return processing summary
-- [ ] Register routes in main.py
+For importing historical CSV files (2021-2025 data):
 
-**Dependencies**: Step 1
-
-**Deliverables**:
-- Pipeline endpoint working
-
-**Acceptance Criteria**:
-- [ ] POST `/api/pipeline/process-trades` processes files
-- [ ] Returns `{new: X, duplicates: Y, errors: Z}`
-- [ ] Errors return proper HTTP status
-
-**Estimated Time**: 1 hour
-
----
-
-### Step 3: Create Frontend Processing UI
-**Description**: Add process button and results display
-
-**Tasks**:
-- [ ] Create `ProcessButton.vue` component
-- [ ] Create `ProcessingLog.vue` component
-- [ ] Add to dashboard
-- [ ] Refresh transaction table after processing
-- [ ] Highlight new transactions (optional)
-
-**Dependencies**: Step 2
-
-**Deliverables**:
-- Process button with results display
-
-**Acceptance Criteria**:
-- [ ] Button shows "Process New Trades"
-- [ ] Loading state during processing
-- [ ] Shows "X new, Y duplicates" after processing
-- [ ] Transaction table refreshes
-
-**Estimated Time**: 1.5 hours
-
----
-
-## Frontend Checkpoint ✓
-
+```bash
+python backend/scripts/b_daily_trades.py --historical
 ```
-✅ "Process New Trades" button visible
-✅ Loading state during processing
-✅ Log shows: "X new transactions added, Y duplicates skipped"
-✅ Transaction table updates with new entries
-✅ Processed files moved to archive
-```
+
+This was used once to import 346 historical transactions from CSV files.
 
 ## Related Requirements
 
@@ -165,10 +74,10 @@ backend/
 
 ## Notes
 
-- Deduplication key: `original_transaction_id` (IBKR_TXN_xxxxx format)
-- Only STK (stocks) asset class processed
-- Archive preserves original filename
+- Deduplication key: `transaction_id` (IBKR TransactionID from XML)
+- Only Stocks asset class processed
 - Processing is idempotent (safe to run multiple times)
+- No separate processing step needed - fetch does everything
 
 ---
 
