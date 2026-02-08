@@ -18,6 +18,33 @@
 3. **Wait for approval** - Get explicit confirmation before proceeding
 4. **Implement** - Only after approval
 5. **Verify** - Check that changes work as expected
+6. **Check logs** - ALWAYS verify logs after any code change (see below)
+
+## ⚠️ Logging Verification - MANDATORY
+
+**After ANY code change (backend or frontend), you MUST:**
+
+1. **Check backend terminal logs** - Verify the API is running and requests are logged:
+   ```
+   📥 GET /endpoint
+   📤 GET /endpoint - 200 - X.XXms
+   ```
+
+2. **Check frontend terminal logs** - Verify API proxy calls are logged:
+   ```
+   📡 [Frontend->API] GET /endpoint
+   ✅ [Frontend->API] GET /endpoint - 200
+   ```
+
+3. **If logs show errors (❌)** - Fix the issue before proceeding
+
+4. **Never assume code works** - Always verify with actual log output
+
+**Commands to check logs:**
+- Backend: Check the terminal running `uvicorn backend.api.main:app`
+- Frontend: Check the terminal running `npm run dev`
+
+**Reference:** See `docs/workflow/LOGGING_SETUP.md` for logging conventions.
 
 ## Testing Requirements
 

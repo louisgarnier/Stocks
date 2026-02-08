@@ -1,25 +1,28 @@
-# Feature Documentation
+# Features Directory - IBKR Portfolio Tracker
 
-This directory contains documentation for project features (functionalities) broken down from analyzed requirements.
+This directory contains detailed feature specifications for each implementation phase.
 
-## Structure
+## Implementation Phases
 
-- Create a new `.md` file for each major functionality
-- Use descriptive names: `FEATURE_NAME.md` (e.g., `USER_AUTHENTICATION.md`)
-- Each file contains the complete breakdown with implementation steps
-- Link back to requirements in `../requirements/ANALYZED_REQUIREMENTS.md`
+| Phase | Feature | Status | Description |
+|-------|---------|--------|-------------|
+| 0 | [Project Setup](./PHASE_0_PROJECT_SETUP.md) | 🔴 Not Started | SQLite DB + FastAPI + Nuxt3 shell |
+| 1 | [Flex API Integration](./PHASE_1_FLEX_API.md) | 🔴 Not Started | Fetch from IBKR + transactions table |
+| 2 | [Daily Processing](./PHASE_2_DAILY_PROCESSING.md) | 🔴 Not Started | Process trades + deduplication |
+| 3 | [Stock Splits](./PHASE_3_STOCK_SPLITS.md) | 🔴 Not Started | Apply split adjustments |
+| 4 | [Positions](./PHASE_4_POSITIONS.md) | 🔴 Not Started | Calculate holdings dashboard |
+| 5 | [Automation](./PHASE_5_AUTOMATION.md) | 🔴 Not Started | Pipeline orchestration + monitoring |
 
-## Workflow
+## Build Philosophy
 
-1. **Requirements** → Added to `../requirements/RAW_REQUIREMENTS.md`
-2. **Analysis** → Rephrased in `../requirements/ANALYZED_REQUIREMENTS.md`
-3. **Functionalities** → Created here as individual `.md` files
-4. **Steps** → Each functionality file contains detailed implementation steps
-5. **Implementation** → Follow steps to build the feature
+**Frontend-First Validation**: Each phase is validated through the Nuxt3 frontend before moving to the next. This ensures visible progress and early issue detection.
 
-See `../requirements/REQUIREMENTS_WORKFLOW.md` for the complete workflow guide.
+## Quick Start
 
-## Template
+1. Start with **Phase 0** - Set up the foundation
+2. Complete each phase in order (dependencies exist)
+3. Use the **Frontend Checkpoint** in each phase to verify completion
+4. Mark status as 🟢 when all acceptance criteria pass
 
 Use `../requirements/TEMPLATE.md` as the starting point for each feature file.
 

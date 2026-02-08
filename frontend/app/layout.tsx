@@ -9,8 +9,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Template Project',
-  description: 'Template Next.js application',
+  title: 'IBKR Portfolio Tracker',
+  description: 'Track your Interactive Brokers portfolio holdings and transactions',
 };
 
 export default function RootLayout({
