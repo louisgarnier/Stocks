@@ -1,8 +1,0 @@
-<FlexQueryResponse queryName="Stocks_app" type="AF">
-<FlexStatements count="1">
-<FlexStatement accountId="U7850924" fromDate="20260206" toDate="20260206" period="LastBusinessDay" whenGenerated="20260208;072332">
-<Trades>
-</Trades>
-</FlexStatement>
-</FlexStatements>
-</FlexQueryResponse>
