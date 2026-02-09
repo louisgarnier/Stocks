@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     currency TEXT,
     symbol TEXT NOT NULL,
     trade_date TEXT NOT NULL,
+    trade_time TEXT,
     quantity REAL NOT NULL,
     t_price REAL,
     c_price REAL,
@@ -24,64 +25,20 @@ CREATE TABLE IF NOT EXISTS transactions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Positions table - current holdings summary
-CREATE TABLE IF NOT EXISTS positions (
+-- Import logs table - tracks each file import
+CREATE TABLE IF NOT EXISTS import_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    symbol TEXT UNIQUE NOT NULL,
-    total_updated_quantity REAL NOT NULL,
-    transaction_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Pipeline runs table - for automation tracking
-CREATE TABLE IF NOT EXISTS pipeline_runs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at TIMESTAMP NOT NULL,
-    completed_at TIMESTAMP,
-    status TEXT NOT NULL,
-    step_a_status TEXT,
-    step_a_message TEXT,
-    step_b_status TEXT,
-    step_b_message TEXT,
-    step_c_status TEXT,
-    step_c_message TEXT,
-    step_d_status TEXT,
-    step_d_message TEXT,
-    error_message TEXT
-);
-
--- Sync status table - tracks last fetch time
-CREATE TABLE IF NOT EXISTS sync_status (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    last_fetch_at TIMESTAMP,
-    last_fetch_status TEXT,
-    last_fetch_message TEXT,
-    records_fetched INTEGER DEFAULT 0
-);
-
--- Initialize sync_status with one row
-INSERT OR IGNORE INTO sync_status (id, last_fetch_status) VALUES (1, 'never');
-
--- Stock splits table - stores splits fetched from Yahoo Finance
-CREATE TABLE IF NOT EXISTS stock_splits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    symbol TEXT NOT NULL,
-    split_date TEXT NOT NULL,
-    split_ratio REAL NOT NULL,  -- e.g., 4.0 for 4-for-1 split
-    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    applied_at TIMESTAMP,
-    UNIQUE(symbol, split_date)
+    filename TEXT NOT NULL,
+    import_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    parsed INTEGER DEFAULT 0,
+    inserted INTEGER DEFAULT 0,
+    skipped INTEGER DEFAULT 0,
+    errors INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'success'
 );
 
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol ON transactions(symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_trade_date ON transactions(trade_date);
 CREATE INDEX IF NOT EXISTS idx_transactions_original_id ON transactions(original_transaction_id);
-CREATE INDEX IF NOT EXISTS idx_positions_symbol ON positions(symbol);
-CREATE INDEX IF NOT EXISTS idx_stock_splits_symbol ON stock_splits(symbol);
-CREATE INDEX IF NOT EXISTS idx_stock_splits_date ON stock_splits(split_date);
-
-
-
-
+CREATE INDEX IF NOT EXISTS idx_import_logs_date ON import_logs(import_date);

@@ -51,20 +51,32 @@ export async function POST(
   console.log(`${formatTimestamp()} 📡 [Frontend->API] POST ${endpoint}`);
   
   try {
-    let body = null;
-    try {
-      body = await request.json();
-    } catch {
-      // No body or invalid JSON
+    const contentType = request.headers.get('content-type') || '';
+    
+    let fetchOptions: RequestInit = {
+      method: 'POST',
+    };
+    
+    // Handle multipart/form-data (file uploads)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      fetchOptions.body = formData;
+      // Don't set Content-Type header - let fetch set it with boundary
+    } else {
+      // Handle JSON
+      let body = null;
+      try {
+        body = await request.json();
+      } catch {
+        // No body or invalid JSON
+      }
+      fetchOptions.headers = {
+        'Content-Type': 'application/json',
+      };
+      fetchOptions.body = body ? JSON.stringify(body) : undefined;
     }
     
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const response = await fetch(`${BACKEND_URL}${endpoint}`, fetchOptions);
     
     const data = await response.json();
     
@@ -73,6 +85,34 @@ export async function POST(
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error(`${formatTimestamp()} ❌ [Frontend->API] POST ${endpoint} - Error:`, error);
+    return NextResponse.json({ error: 'Backend unavailable' }, { status: 503 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  const { path } = await params;
+  const endpoint = '/' + path.join('/');
+  
+  console.log(`${formatTimestamp()} 📡 [Frontend->API] DELETE ${endpoint}`);
+  
+  try {
+    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const data = await response.json();
+    
+    console.log(`${formatTimestamp()} ✅ [Frontend->API] DELETE ${endpoint} - ${response.status}`);
+    
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error(`${formatTimestamp()} ❌ [Frontend->API] DELETE ${endpoint} - Error:`, error);
     return NextResponse.json({ error: 'Backend unavailable' }, { status: 503 });
   }
 }

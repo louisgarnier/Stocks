@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from backend.database.connection import init_database, get_db_connection, get_db_path
 from backend.api.middleware.logging_middleware import log_requests
 from backend.api.utils.logger import logger, api_logger
+from backend.api.routes.transactions import router as transactions_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -37,6 +38,9 @@ app.add_middleware(
 
 # Add request logging middleware
 app.add_middleware(BaseHTTPMiddleware, dispatch=log_requests)
+
+# Include routers
+app.include_router(transactions_router)
 
 
 @app.on_event("startup")
@@ -77,8 +81,8 @@ async def health():
             cursor.execute("SELECT COUNT(*) FROM transactions")
             transaction_count = cursor.fetchone()[0]
             
-            cursor.execute("SELECT COUNT(*) FROM positions")
-            position_count = cursor.fetchone()[0]
+            # positions table no longer exists
+            position_count = 0
             
             conn.close()
             db_status = "connected"
