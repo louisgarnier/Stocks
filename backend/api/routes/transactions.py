@@ -39,8 +39,8 @@ async def list_transactions(
     params = []
     
     if symbol:
-        where_clauses.append("symbol = ?")
-        params.append(symbol.upper())
+        where_clauses.append("symbol LIKE ?")
+        params.append(f"{symbol.upper()}%")
     
     where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
@@ -200,6 +200,17 @@ async def upload_transactions(file: UploadFile = File(...)):
         
         # Insert trades
         result = insert_trades(trades)
+        
+        # Update CA status to 'orange' for imported symbols
+        if result["inserted"] > 0:
+            from backend.utils.ca_status import set_ca_status
+            imported_symbols = list(set([trade.get('symbol') for trade in trades if trade.get('symbol')]))
+            if imported_symbols:
+                try:
+                    set_ca_status(imported_symbols, 'orange')
+                    logger.info(f"🟠 Set CA status to 'orange' for {len(imported_symbols)} symbols")
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to update CA status: {e}")
         
         # Log the import
         conn = get_db_connection()
@@ -384,6 +395,196 @@ async def delete_transactions_batch(transaction_ids: List[str]):
         conn.rollback()
         logger.error(f"❌ Failed to delete transactions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete transactions: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.post("/flex-import")
+async def import_from_flex_query(query_type: str = Query("last_year", regex="^(last_year|last_month)$")):
+    """
+    Import transactions from IBKR Flex Query API.
+    
+    Args:
+        query_type: "last_year" or "last_month"
+    """
+    logger.info(f"📡 Starting Flex Query import ({query_type})")
+    
+    try:
+        from backend.scripts.fetch_flex_trades import fetch_and_import_flex_trades
+        
+        results = fetch_and_import_flex_trades(query_type)
+        
+        if "error" in results:
+            logger.error(f"❌ Flex import failed: {results['error']}")
+            raise HTTPException(status_code=500, detail=results["error"])
+        
+        # Update CA status to 'orange' for imported symbols
+        if results["inserted"] > 0 and "symbols" in results:
+            from backend.utils.ca_status import set_ca_status
+            imported_symbols = results["symbols"]
+            if imported_symbols:
+                try:
+                    set_ca_status(imported_symbols, 'orange')
+                    logger.info(f"🟠 Set CA status to 'orange' for {len(imported_symbols)} symbols")
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to update CA status: {e}")
+        
+        # Log the import
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO import_logs (filename, parsed, inserted, skipped, errors, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            f"flex_api_{query_type}",
+            results["fetched"],
+            results["inserted"],
+            results["skipped"],
+            results.get("errors", 0),
+            "success" if results.get("errors", 0) == 0 else "partial"
+        ))
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ Flex import complete: {results['inserted']} inserted, {results['skipped']} skipped")
+        
+        return {
+            "success": True,
+            "message": f"Imported {results['inserted']} transactions from Flex Query ({query_type})",
+            "query_type": query_type,
+            "fetched": results["fetched"],
+            "inserted": results["inserted"],
+            "skipped": results["skipped"],
+            "errors": results.get("errors", 0),
+            "last_date_in_db": results.get("last_date_in_db")
+        }
+        
+    except ImportError as e:
+        logger.error(f"❌ Import error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to import flex module: {str(e)}")
+    except Exception as e:
+        logger.error(f"❌ Flex import error: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Flex import failed: {str(e)}")
+
+
+@router.get("/export")
+async def export_transactions():
+    """
+    Export all transactions as CSV.
+    """
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT transaction_id, original_transaction_id, source_file, asset_category, currency, symbol,
+               trade_date, trade_time, quantity, t_price, c_price, proceeds, comm_fee, basis,
+               created_at
+        FROM transactions
+        ORDER BY trade_date DESC, symbol ASC
+    """)
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        'transaction_id', 'original_transaction_id', 'source_file', 'asset_category', 'currency', 'symbol',
+        'trade_date', 'trade_time', 'quantity', 't_price', 'c_price', 'proceeds', 'comm_fee', 'basis',
+        'created_at'
+    ])
+    
+    # Data
+    for row in rows:
+        writer.writerow([
+            row['transaction_id'],
+            row['original_transaction_id'] or '',
+            row['source_file'] or '',
+            row['asset_category'] or '',
+            row['currency'] or '',
+            row['symbol'],
+            row['trade_date'],
+            row['trade_time'] or '',
+            row['quantity'],
+            row['t_price'] or '',
+            row['c_price'] or '',
+            row['proceeds'] or '',
+            row['comm_fee'] or '',
+            row['basis'] or '',
+            row['created_at'] or ''
+        ])
+    
+    output.seek(0)
+    
+    logger.info(f"📤 Exported {len(rows)} transactions to CSV")
+    
+    # Return as downloadable CSV
+    from datetime import datetime
+    filename = f"transactions_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/securities")
+async def list_securities():
+    """
+    List all unique securities (symbols) with their position summary.
+    Returns count, total quantity (position), and transaction stats per symbol.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                symbol,
+                COUNT(*) as transaction_count,
+                SUM(quantity) as total_quantity,
+                MIN(trade_date) as first_trade,
+                MAX(trade_date) as last_trade,
+                asset_category,
+                currency
+            FROM transactions
+            GROUP BY symbol
+            ORDER BY symbol ASC
+        """)
+        
+        rows = cursor.fetchall()
+        
+        securities = []
+        for row in rows:
+            securities.append({
+                "symbol": row["symbol"],
+                "transaction_count": row["transaction_count"],
+                "total_quantity": row["total_quantity"],
+                "first_trade": row["first_trade"],
+                "last_trade": row["last_trade"],
+                "asset_category": row["asset_category"],
+                "currency": row["currency"]
+            })
+        
+        logger.info(f"📊 Listed {len(securities)} securities")
+        
+        return {
+            "data": securities,
+            "total": len(securities)
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to list securities: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list securities: {str(e)}")
     finally:
         conn.close()
 

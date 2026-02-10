@@ -65,55 +65,37 @@ def parse_datetime(datetime_str: str) -> tuple[str, str]:
 
 def get_next_transaction_id(cursor) -> str:
     """
-    Generate the next unique transaction_id.
-    Format: YYYYMMDD00xxxxxx where xxxxxx is a sequential number (000001 to 100000).
-    The sequential number never reuses deleted IDs - it always increments.
+    Generate a unique transaction_id that is NEVER reused.
+    Format: YYYYMMDD + timestamp_ms (last 8 digits) + random (2 digits)
+    
+    This ensures uniqueness even if transactions are deleted.
     
     Args:
         cursor: Database cursor (must be within a transaction for thread safety)
     
     Returns:
-        A unique transaction_id for today's date
+        A unique transaction_id
     """
-    from datetime import datetime
+    import random
+    import time
     
     # Get today's date in YYYYMMDD format
     today = datetime.now().strftime("%Y%m%d")
-    prefix = f"{today}00"
     
-    # Find the highest transaction_id for today
-    cursor.execute("""
-        SELECT transaction_id 
-        FROM transactions 
-        WHERE transaction_id LIKE ?
-        ORDER BY transaction_id DESC 
-        LIMIT 1
-    """, (f"{prefix}%",))
+    # Use milliseconds since midnight + random to ensure uniqueness
+    now = datetime.now()
+    ms_since_midnight = (now.hour * 3600 + now.minute * 60 + now.second) * 1000 + now.microsecond // 1000
+    random_suffix = random.randint(0, 99)
     
-    result = cursor.fetchone()
+    # Format: YYYYMMDD + 8 digits (ms) + 2 digits (random)
+    transaction_id = f"{today}{ms_since_midnight:08d}{random_suffix:02d}"
     
-    if result:
-        # Extract the sequential number from the last ID
-        last_id = result[0]
-        if len(last_id) >= len(prefix) + 6:
-            try:
-                last_seq = int(last_id[-6:])  # Last 6 digits
-                next_seq = last_seq + 1
-            except ValueError:
-                next_seq = 1
-        else:
-            next_seq = 1
-    else:
-        # No transactions for today yet, start at 1
-        next_seq = 1
-    
-    # Check if we exceed 100000
-    if next_seq > 100000:
-        logger.error(f"❌ Maximum transaction limit (100000) reached for {today}")
-        raise ValueError(f"Maximum transaction limit (100000) reached for {today}")
-    
-    # Format: YYYYMMDD00xxxxxx (6 digits for sequence)
-    transaction_id = f"{prefix}{next_seq:06d}"
+    # Check if it exists (extremely unlikely but let's be safe)
+    cursor.execute("SELECT 1 FROM transactions WHERE transaction_id = ?", (transaction_id,))
+    if cursor.fetchone():
+        # Retry with different random after a tiny delay
+        time.sleep(0.001)  # Wait 1ms
+        return get_next_transaction_id(cursor)
     
     return transaction_id
 
@@ -254,30 +236,55 @@ def insert_trades(trades: List[Dict]) -> Dict:
     skipped = 0
     errors = 0
     error_details = []
+    skipped_details = []
     
     logger.info(f"🔄 Starting insertion of {len(trades)} trades")
     
     # Use a transaction to ensure atomicity and prevent race conditions
     for trade in trades:
-        # Check for duplicates: symbol + trade_date + trade_time + quantity + t_price
-        cursor.execute("""
-            SELECT id FROM transactions 
-            WHERE symbol = ? 
-            AND trade_date = ? 
-            AND (trade_time = ? OR (trade_time IS NULL AND ? IS NULL))
-            AND quantity = ? 
-            AND t_price = ?
-        """, (
-            trade["symbol"],
-            trade["trade_date"],
-            trade["trade_time"],
-            trade["trade_time"],
-            trade["quantity"],
-            trade["t_price"]
-        ))
+        # Check for duplicates: symbol + trade_date + trade_time + quantity + t_price (with tolerance)
+        # Handle trade_time matching:
+        # - If both have trade_time: must match exactly
+        # - If one is empty: match on symbol + date + qty + price only (Flex vs CSV case)
+        trade_time = trade.get("trade_time", "") or ""
         
-        if cursor.fetchone():
+        if trade_time:
+            # CSV trade with time: check exact match OR match with empty trade_time (Flex)
+            cursor.execute("""
+                SELECT id, source_file FROM transactions 
+                WHERE symbol = ? 
+                AND trade_date = ? 
+                AND (trade_time = ? OR trade_time = '' OR trade_time IS NULL)
+                AND quantity = ? 
+                AND ABS(t_price - ?) < 0.0001
+            """, (
+                trade["symbol"],
+                trade["trade_date"],
+                trade_time,
+                trade["quantity"],
+                trade["t_price"]
+            ))
+        else:
+            # Flex trade without time: check match ignoring trade_time
+            cursor.execute("""
+                SELECT id, source_file FROM transactions 
+                WHERE symbol = ? 
+                AND trade_date = ? 
+                AND quantity = ? 
+                AND ABS(t_price - ?) < 0.0001
+            """, (
+                trade["symbol"],
+                trade["trade_date"],
+                trade["quantity"],
+                trade["t_price"]
+            ))
+        
+        existing = cursor.fetchone()
+        if existing:
             skipped += 1
+            skip_info = f"{trade['symbol']} | {trade['trade_date']} | qty={trade['quantity']} | price={trade['t_price']} | already exists (id={existing['id']}, source={existing['source_file']})"
+            skipped_details.append(skip_info)
+            logger.info(f"⏭️  Skipped: {skip_info}")
             continue
         
         # Generate unique transaction_id for this trade (within the same connection)
@@ -326,11 +333,17 @@ def insert_trades(trades: List[Dict]) -> Dict:
     
     logger.info(f"✅ Insertion complete: {inserted} inserted, {skipped} skipped, {errors} errors out of {len(trades)} total")
     
+    if skipped_details:
+        logger.info(f"⏭️  Skipped trades summary ({len(skipped_details)} total):")
+        for detail in skipped_details:
+            logger.info(f"   - {detail}")
+    
     return {
         "inserted": inserted,
         "skipped": skipped,
         "errors": errors,
-        "error_details": error_details[:10]  # Limit to first 10 errors
+        "error_details": error_details[:10],
+        "skipped_details": skipped_details
     }
 
 

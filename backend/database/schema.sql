@@ -37,8 +37,44 @@ CREATE TABLE IF NOT EXISTS import_logs (
     status TEXT DEFAULT 'success'
 );
 
+-- Corporate Actions table - stores dividends, splits, etc.
+CREATE TABLE IF NOT EXISTS corporate_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sec_id TEXT NOT NULL,
+    ca_type TEXT NOT NULL,
+    ex_date TEXT,
+    record_date TEXT,
+    pay_date TEXT,
+    declared_date TEXT,
+    amount REAL,
+    currency TEXT,
+    split_ratio REAL,
+    split_from REAL,
+    split_to REAL,
+    split_direction TEXT,
+    dividend_type TEXT,
+    frequency TEXT,
+    adjusted INTEGER DEFAULT 1,
+    source TEXT DEFAULT 'yfinance',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(sec_id, ca_type, ex_date)
+);
+
+-- Corporate Actions Status table - tracks fetch status per symbol
+CREATE TABLE IF NOT EXISTS corporate_actions_status (
+    sec_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL CHECK(status IN ('grey', 'green', 'orange')),
+    last_fetched_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol ON transactions(symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_trade_date ON transactions(trade_date);
 CREATE INDEX IF NOT EXISTS idx_transactions_original_id ON transactions(original_transaction_id);
 CREATE INDEX IF NOT EXISTS idx_import_logs_date ON import_logs(import_date);
+CREATE INDEX IF NOT EXISTS idx_corporate_actions_sec_id ON corporate_actions(sec_id);
+CREATE INDEX IF NOT EXISTS idx_corporate_actions_type ON corporate_actions(ca_type);
+CREATE INDEX IF NOT EXISTS idx_corporate_actions_ex_date ON corporate_actions(ex_date);
