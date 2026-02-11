@@ -30,6 +30,24 @@ export async function GET(
       },
     });
     
+    const contentType = response.headers.get('content-type') || '';
+    
+    // Handle non-JSON responses (like CSV files) - stream them directly
+    if (!contentType.includes('application/json')) {
+      console.log(`${formatTimestamp()} ✅ [Frontend->API] GET ${fullPath} - ${response.status} (${contentType})`);
+      
+      // Forward the response with its original headers
+      const headers = new Headers();
+      response.headers.forEach((value, key) => {
+        headers.set(key, value);
+      });
+      
+      return new NextResponse(response.body, {
+        status: response.status,
+        headers,
+      });
+    }
+    
     const data = await response.json();
     
     console.log(`${formatTimestamp()} ✅ [Frontend->API] GET ${fullPath} - ${response.status}`);
@@ -47,8 +65,10 @@ export async function POST(
 ) {
   const { path } = await params;
   const endpoint = '/' + path.join('/');
+  const searchParams = request.nextUrl.searchParams.toString();
+  const fullPath = searchParams ? `${endpoint}?${searchParams}` : endpoint;
   
-  console.log(`${formatTimestamp()} 📡 [Frontend->API] POST ${endpoint}`);
+  console.log(`${formatTimestamp()} 📡 [Frontend->API] POST ${fullPath}`);
   
   try {
     const contentType = request.headers.get('content-type') || '';
@@ -76,7 +96,7 @@ export async function POST(
       fetchOptions.body = body ? JSON.stringify(body) : undefined;
     }
     
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, fetchOptions);
+    const response = await fetch(`${BACKEND_URL}${fullPath}`, fetchOptions);
     
     const data = await response.json();
     

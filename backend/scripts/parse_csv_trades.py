@@ -163,15 +163,29 @@ def parse_csv_file(filepath: Path) -> List[Dict]:
                         asset_category = row[3] if len(row) > 3 else ""
                         currency = row[4] if len(row) > 4 else ""
                         symbol = row[5] if len(row) > 5 else ""
+                        
+                        # Handle Date/Time which may contain a comma (e.g., "2021-11-03, 09:30:02")
+                        # If row[7] looks like a time (starts with space and contains :), combine with row[6]
                         datetime_str = row[6] if len(row) > 6 else ""
+                        offset = 0  # Column offset if datetime was split
+                        
+                        # Check if row[7] is a time part: starts with space/digit and has format HH:MM:SS
+                        if len(row) > 7 and row[7].strip():
+                            # If it has colons and starts with space or digit, likely a time
+                            stripped = row[7].strip()
+                            if ':' in stripped and len(stripped) <= 10 and stripped[0].isdigit():
+                                # Looks like a time (e.g., " 09:30:02" or "09:30:02")
+                                datetime_str = datetime_str + ',' + row[7]
+                                offset = 1  # All subsequent columns are shifted by 1
                         
                         # Handle numeric values with comma as thousands separator
-                        quantity = safe_float(row[7] if len(row) > 7 else "")
-                        t_price = safe_float(row[8] if len(row) > 8 else "")
-                        c_price = safe_float(row[9] if len(row) > 9 else "")
-                        proceeds = safe_float(row[10] if len(row) > 10 else "")
-                        comm_fee = safe_float(row[11] if len(row) > 11 else "")
-                        basis = safe_float(row[12] if len(row) > 12 else "")
+                        # Adjust indices based on offset
+                        quantity = safe_float(row[7 + offset] if len(row) > 7 + offset else "")
+                        t_price = safe_float(row[8 + offset] if len(row) > 8 + offset else "")
+                        c_price = safe_float(row[9 + offset] if len(row) > 9 + offset else "")
+                        proceeds = safe_float(row[10 + offset] if len(row) > 10 + offset else "")
+                        comm_fee = safe_float(row[11 + offset] if len(row) > 11 + offset else "")
+                        basis = safe_float(row[12 + offset] if len(row) > 12 + offset else "")
                         
                         # Skip non-stock trades
                         if asset_category != "Stocks":
@@ -237,6 +251,7 @@ def insert_trades(trades: List[Dict]) -> Dict:
     errors = 0
     error_details = []
     skipped_details = []
+    inserted_symbols = set()
     
     logger.info(f"🔄 Starting insertion of {len(trades)} trades")
     
@@ -322,6 +337,7 @@ def insert_trades(trades: List[Dict]) -> Dict:
                 datetime.now().isoformat()
             ))
             inserted += 1
+            inserted_symbols.add(trade["symbol"])
         except Exception as e:
             errors += 1
             error_msg = f"Failed to insert {trade.get('symbol', '?')} {trade.get('trade_date', '?')}: {str(e)}"
@@ -343,7 +359,8 @@ def insert_trades(trades: List[Dict]) -> Dict:
         "skipped": skipped,
         "errors": errors,
         "error_details": error_details[:10],
-        "skipped_details": skipped_details
+        "skipped_details": skipped_details,
+        "inserted_symbols": list(inserted_symbols)
     }
 
 

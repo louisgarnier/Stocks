@@ -532,10 +532,14 @@ def main():
     return {'df': df, 'db_result': result}
 
 
-def fetch_and_import_corporate_actions() -> dict:
+def fetch_and_import_corporate_actions(incremental: bool = False) -> dict:
     """
     Fetch corporate actions from yfinance and insert into database.
     Called from API endpoint.
+    
+    Args:
+        incremental: If True, only fetch symbols that need updating (orange status, >24h, >7d)
+                    If False, fetch all symbols (full refresh)
     
     Returns:
         Dict with parsed, inserted, skipped, errors counts
@@ -547,6 +551,63 @@ def fetch_and_import_corporate_actions() -> dict:
     
     if not securities:
         raise ValueError("No securities found in database")
+    
+    # Filter securities if incremental mode
+    if incremental:
+        from datetime import datetime, timedelta
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get CA status for all symbols
+        cursor.execute("SELECT sec_id, status, last_fetched_at FROM corporate_actions_status")
+        status_map = {row[0]: {'status': row[1], 'last_fetched': row[2]} for row in cursor.fetchall()}
+        conn.close()
+        
+        filtered_securities = []
+        now = datetime.now()
+        
+        for sec in securities:
+            symbol = sec['symbol']
+            status_info = status_map.get(symbol, {})
+            status = status_info.get('status')
+            last_fetched = status_info.get('last_fetched')
+            
+            # Always fetch if orange (new transactions)
+            if status == 'orange':
+                filtered_securities.append(sec)
+                continue
+            
+            # Fetch if green and >24h
+            if status == 'green' and last_fetched:
+                last_fetch_dt = datetime.fromisoformat(last_fetched)
+                if (now - last_fetch_dt) > timedelta(hours=24):
+                    filtered_securities.append(sec)
+                    continue
+            
+            # Fetch if grey and >7 days
+            if status == 'grey' and last_fetched:
+                last_fetch_dt = datetime.fromisoformat(last_fetched)
+                if (now - last_fetch_dt) > timedelta(days=7):
+                    filtered_securities.append(sec)
+                    continue
+            
+            # Fetch if never fetched
+            if not last_fetched:
+                filtered_securities.append(sec)
+        
+        logger.info(f"⚡ Incremental mode: fetching {len(filtered_securities)}/{len(securities)} symbols")
+        securities = filtered_securities
+        
+        if not securities:
+            logger.info("✅ All symbols are up to date, nothing to fetch")
+            return {
+                'parsed': 0,
+                'inserted': 0,
+                'skipped': 0,
+                'errors': 0,
+                'updated_transactions': 0
+            }
     
     # Fetch all corporate actions
     df = fetch_all_corporate_actions(securities)

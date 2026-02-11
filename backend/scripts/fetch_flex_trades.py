@@ -382,6 +382,7 @@ def insert_flex_trades(trades: list[dict], source_file: str) -> dict:
     warning_details = []
     skipped_exists_details = []  # Details of skipped by original_transaction_id
     skipped_count_match_details = []  # Details of skipped by count match
+    inserted_symbols = set()  # Track symbols that were actually inserted
     
     logger.info(f"📊 Processing {fetched} trades from Flex API")
     
@@ -513,6 +514,7 @@ def insert_flex_trades(trades: list[dict], source_file: str) -> dict:
                 ))
                 inserted += 1
                 inserted_in_group += 1
+                inserted_symbols.add(trade["symbol"])
             except Exception as e:
                 errors += 1
                 logger.error(f"❌ Failed to insert {trade.get('symbol', '?')} {trade.get('trade_date', '?')}: {e}")
@@ -571,7 +573,8 @@ def insert_flex_trades(trades: list[dict], source_file: str) -> dict:
         "warnings": warnings,
         "warning_details": warning_details[:10],
         "errors": errors,
-        "symbols": unique_symbols
+        "symbols": unique_symbols,
+        "inserted_symbols": list(inserted_symbols)
     }
 
 

@@ -28,6 +28,7 @@ def get_db_connection():
     
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    conn.execute("PRAGMA foreign_keys = ON")  # Enable CASCADE delete
     return conn
 
 

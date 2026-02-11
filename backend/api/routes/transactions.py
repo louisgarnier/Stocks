@@ -201,16 +201,15 @@ async def upload_transactions(file: UploadFile = File(...)):
         # Insert trades
         result = insert_trades(trades)
         
-        # Update CA status to 'orange' for imported symbols
-        if result["inserted"] > 0:
+        # Update CA status to 'orange' for actually inserted symbols only
+        inserted_symbols = result.get("inserted_symbols", [])
+        if inserted_symbols:
             from backend.utils.ca_status import set_ca_status
-            imported_symbols = list(set([trade.get('symbol') for trade in trades if trade.get('symbol')]))
-            if imported_symbols:
-                try:
-                    set_ca_status(imported_symbols, 'orange')
-                    logger.info(f"🟠 Set CA status to 'orange' for {len(imported_symbols)} symbols")
-                except Exception as e:
-                    logger.warning(f"⚠️  Failed to update CA status: {e}")
+            try:
+                set_ca_status(inserted_symbols, 'orange')
+                logger.info(f"🟠 Set CA status to 'orange' for {len(inserted_symbols)} symbols: {inserted_symbols}")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to update CA status: {e}")
         
         # Log the import
         conn = get_db_connection()
@@ -289,6 +288,10 @@ async def delete_all_transactions():
     cursor = conn.cursor()
     
     try:
+        # Get affected symbols before deletion
+        cursor.execute("SELECT DISTINCT symbol FROM transactions")
+        affected_symbols = [row[0] for row in cursor.fetchall()]
+        
         # Get count before deletion
         cursor.execute("SELECT COUNT(*) FROM transactions")
         count_before = cursor.fetchone()[0]
@@ -298,6 +301,15 @@ async def delete_all_transactions():
         conn.commit()
         
         logger.info(f"🗑️  Deleted {count_before} transactions")
+        
+        # Set CA status to orange for affected symbols
+        if affected_symbols:
+            try:
+                from backend.utils.ca_status import set_ca_status
+                set_ca_status(affected_symbols, 'orange')
+                logger.info(f"🟠 Set CA status to 'orange' for {len(affected_symbols)} symbols after deletion")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to update CA status: {e}")
         
         return {
             "success": True,
@@ -328,11 +340,21 @@ async def delete_transaction(transaction_id: str):
         if not transaction:
             raise HTTPException(status_code=404, detail=f"Transaction {transaction_id} not found")
         
+        symbol = transaction['symbol']
+        
         # Delete the transaction
         cursor.execute("DELETE FROM transactions WHERE transaction_id = ?", (transaction_id,))
         conn.commit()
         
-        logger.info(f"🗑️  Deleted transaction {transaction_id} ({transaction['symbol']} {transaction['trade_date']})")
+        logger.info(f"🗑️  Deleted transaction {transaction_id} ({symbol} {transaction['trade_date']})")
+        
+        # Set CA status to orange for this symbol
+        try:
+            from backend.utils.ca_status import set_ca_status
+            set_ca_status([symbol], 'orange')
+            logger.info(f"🟠 Set CA status to 'orange' for {symbol} after deletion")
+        except Exception as e:
+            logger.warning(f"⚠️  Failed to update CA status: {e}")
         
         return {
             "success": True,
@@ -361,6 +383,11 @@ async def delete_transactions_batch(transaction_ids: List[str]):
     cursor = conn.cursor()
     
     try:
+        # Get affected symbols before deletion
+        placeholders = ','.join(['?'] * len(transaction_ids))
+        cursor.execute(f"SELECT DISTINCT symbol FROM transactions WHERE transaction_id IN ({placeholders})", transaction_ids)
+        affected_symbols = [row[0] for row in cursor.fetchall()]
+        
         # Verify all transactions exist
         placeholders = ','.join(['?'] * len(transaction_ids))
         cursor.execute(f"SELECT transaction_id FROM transactions WHERE transaction_id IN ({placeholders})", transaction_ids)
@@ -377,6 +404,15 @@ async def delete_transactions_batch(transaction_ids: List[str]):
         placeholders = ','.join(['?'] * len(existing_ids))
         cursor.execute(f"DELETE FROM transactions WHERE transaction_id IN ({placeholders})", existing_ids)
         conn.commit()
+        
+        # Set CA status to orange for affected symbols
+        if affected_symbols:
+            try:
+                from backend.utils.ca_status import set_ca_status
+                set_ca_status(affected_symbols, 'orange')
+                logger.info(f"🟠 Set CA status to 'orange' for {len(affected_symbols)} symbols after deletion")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to update CA status: {e}")
         
         deleted_count = cursor.rowcount
         
@@ -400,14 +436,23 @@ async def delete_transactions_batch(transaction_ids: List[str]):
 
 
 @router.post("/flex-import")
-async def import_from_flex_query(query_type: str = Query("last_year", regex="^(last_year|last_month)$")):
+async def import_from_flex_query(query_type: str = Query(default="last_year")):
     """
     Import transactions from IBKR Flex Query API.
     
     Args:
-        query_type: "last_year" or "last_month"
+        query_type: "last_year" or "last_month" (passed as query parameter)
     """
+    # Log what we received
+    logger.info(f"🔍 DEBUG: Received query_type parameter: '{query_type}'")
+    
+    # Validate query_type
+    if query_type not in ["last_year", "last_month"]:
+        logger.error(f"❌ Invalid query_type received: '{query_type}'")
+        raise HTTPException(status_code=400, detail=f"Invalid query_type: {query_type}")
+    
     logger.info(f"📡 Starting Flex Query import ({query_type})")
+    logger.info(f"   Expected source_file: flex_api_{query_type}")
     
     try:
         from backend.scripts.fetch_flex_trades import fetch_and_import_flex_trades
@@ -418,16 +463,15 @@ async def import_from_flex_query(query_type: str = Query("last_year", regex="^(l
             logger.error(f"❌ Flex import failed: {results['error']}")
             raise HTTPException(status_code=500, detail=results["error"])
         
-        # Update CA status to 'orange' for imported symbols
-        if results["inserted"] > 0 and "symbols" in results:
+        # Update CA status to 'orange' for actually inserted symbols only
+        inserted_symbols = results.get("inserted_symbols", [])
+        if inserted_symbols:
             from backend.utils.ca_status import set_ca_status
-            imported_symbols = results["symbols"]
-            if imported_symbols:
-                try:
-                    set_ca_status(imported_symbols, 'orange')
-                    logger.info(f"🟠 Set CA status to 'orange' for {len(imported_symbols)} symbols")
-                except Exception as e:
-                    logger.warning(f"⚠️  Failed to update CA status: {e}")
+            try:
+                set_ca_status(inserted_symbols, 'orange')
+                logger.info(f"🟠 Set CA status to 'orange' for {len(inserted_symbols)} symbols: {inserted_symbols}")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to update CA status: {e}")
         
         # Log the import
         conn = get_db_connection()
@@ -619,3 +663,122 @@ async def delete_all_import_logs():
         raise HTTPException(status_code=500, detail=f"Failed to delete import logs: {str(e)}")
     finally:
         conn.close()
+
+
+@router.get("/adjusted")
+async def list_adjusted_transactions(
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=500),
+    sort_by: str = Query("trade_date", regex="^(trade_date|symbol|quantity|t_price)$"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    symbol: Optional[str] = None
+):
+    """
+    List adjusted transactions from the transactions_adjusted view.
+    This view combines transactions with updated_transactions, using adjusted values when available.
+    Excludes Forex symbols (containing '.').
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Build WHERE clause
+        where_clauses = []
+        params = []
+        
+        if symbol:
+            where_clauses.append("symbol = ?")
+            params.append(symbol)
+        
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        
+        # Count total
+        count_query = f"SELECT COUNT(*) FROM transactions_adjusted {where_sql}"
+        cursor.execute(count_query, params)
+        total = cursor.fetchone()[0]
+        
+        # Get paginated data
+        offset = (page - 1) * limit
+        query = f"""
+            SELECT 
+                transaction_id,
+                symbol,
+                trade_date,
+                quantity,
+                t_price,
+                original_quantity,
+                original_price,
+                is_adjusted,
+                split_ratio,
+                ca_type,
+                ca_date,
+                currency,
+                commission,
+                cost
+            FROM transactions_adjusted
+            {where_sql}
+            ORDER BY {sort_by} {sort_order}
+            LIMIT ? OFFSET ?
+        """
+        
+        cursor.execute(query, params + [limit, offset])
+        rows = cursor.fetchall()
+        
+        transactions = []
+        for row in rows:
+            transactions.append({
+                "transaction_id": row[0],
+                "symbol": row[1],
+                "trade_date": row[2],
+                "quantity": row[3],
+                "t_price": row[4],
+                "original_quantity": row[5],
+                "original_price": row[6],
+                "is_adjusted": bool(row[7]),
+                "split_ratio": row[8],
+                "ca_type": row[9],
+                "ca_date": row[10],
+                "currency": row[11],
+                "commission": row[12],
+                "cost": row[13]
+            })
+        
+        conn.close()
+        
+        return {
+            "transactions": transactions,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": (total + limit - 1) // limit
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch adjusted transactions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch adjusted transactions: {str(e)}")
+
+
+@router.post("/apply-splits")
+async def apply_splits():
+    """
+    Applique tous les splits/spinoffs aux transactions concernées.
+    Crée/met à jour les entrées dans updated_transactions.
+    """
+    try:
+        from backend.scripts.apply_splits import apply_all_splits
+        
+        logger.info("🔄 Application des splits aux transactions...")
+        
+        result = apply_all_splits()
+        
+        logger.info(f"✅ Splits appliqués: {result['updated']} transaction(s) mise(s) à jour")
+        
+        return {
+            "success": True,
+            "message": f"Splits appliqués à {result['updated']} transaction(s)",
+            "updated": result['updated'],
+            "symbols": result['symbols']
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to apply splits: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to apply splits: {str(e)}")

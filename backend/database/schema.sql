@@ -70,6 +70,25 @@ CREATE TABLE IF NOT EXISTS corporate_actions_status (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Updated Transactions table - stores split/spinoff adjusted transaction values
+CREATE TABLE IF NOT EXISTS updated_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    original_quantity REAL NOT NULL,
+    original_price REAL NOT NULL,
+    updated_quantity REAL NOT NULL,
+    updated_price REAL NOT NULL,
+    split_ratio REAL NOT NULL,
+    ca_id INTEGER,
+    ca_type TEXT NOT NULL,
+    ca_date TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id) ON DELETE CASCADE,
+    FOREIGN KEY (ca_id) REFERENCES corporate_actions(id) ON DELETE CASCADE
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_symbol ON transactions(symbol);
 CREATE INDEX IF NOT EXISTS idx_transactions_trade_date ON transactions(trade_date);
@@ -78,3 +97,68 @@ CREATE INDEX IF NOT EXISTS idx_import_logs_date ON import_logs(import_date);
 CREATE INDEX IF NOT EXISTS idx_corporate_actions_sec_id ON corporate_actions(sec_id);
 CREATE INDEX IF NOT EXISTS idx_corporate_actions_type ON corporate_actions(ca_type);
 CREATE INDEX IF NOT EXISTS idx_corporate_actions_ex_date ON corporate_actions(ex_date);
+CREATE INDEX IF NOT EXISTS idx_updated_transactions_transaction_id ON updated_transactions(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_updated_transactions_symbol ON updated_transactions(symbol);
+CREATE INDEX IF NOT EXISTS idx_updated_transactions_ca_id ON updated_transactions(ca_id);
+
+-- Vue consolidée : transactions ajustées pour les splits
+-- Utilise updated_transactions en priorité, sinon les valeurs originales
+CREATE VIEW IF NOT EXISTS transactions_adjusted AS
+SELECT 
+    t.transaction_id,
+    t.symbol,
+    t.trade_date,
+    t.settle_date,
+    t.currency,
+    t.asset_category,
+    t.sub_category,
+    t.description,
+    t.conid,
+    t.security_id,
+    t.cusip,
+    t.isin,
+    t.listing_exchange,
+    t.multiplier,
+    t.strike,
+    t.expiry,
+    t.put_call,
+    t.principal,
+    t.commission,
+    t.tax,
+    t.transaction_fee,
+    t.broker_fee,
+    t.other_fee,
+    t.allocation_fee,
+    t.notes,
+    t.cost,
+    t.fifopnl_realized,
+    t.mtmpnl,
+    t.code,
+    t.order_time,
+    t.open_close_indicator,
+    t.notes_codes,
+    t.cost_basis,
+    t.transaction_type,
+    t.order_type,
+    t.is_api_order,
+    t.account_id,
+    t.acct_alias,
+    t.model,
+    t.security_id_type,
+    t.created_at,
+    t.updated_at,
+    -- Quantité et prix : utiliser updated si disponible, sinon original
+    COALESCE(ut.updated_quantity, t.quantity) as quantity,
+    COALESCE(ut.updated_price, t.t_price) as t_price,
+    -- Valeurs originales (toujours disponibles)
+    t.quantity as original_quantity,
+    t.t_price as original_price,
+    -- Informations sur l'ajustement
+    CASE WHEN ut.transaction_id IS NOT NULL THEN 1 ELSE 0 END as is_adjusted,
+    ut.split_ratio,
+    ut.ca_id,
+    ut.ca_type,
+    ut.ca_date
+FROM transactions t
+LEFT JOIN updated_transactions ut ON t.transaction_id = ut.transaction_id
+WHERE t.symbol NOT LIKE '%.%';  -- Exclure Forex

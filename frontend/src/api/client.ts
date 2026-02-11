@@ -7,7 +7,7 @@
  * Handles all communication with the backend API
  */
 
-import { logAPI } from '@/src/utils/logger';
+import { logAPI } from '../utils/logger';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 

@@ -1,4 +1,4 @@
-﻿Statement,Header,Field Name,Field Value
+Statement,Header,Field Name,Field Value
 Statement,Data,BrokerName
 Statement,Data,BrokerAddress
 Statement,Data,Title,Activity Statement
@@ -75,15 +75,15 @@ Open Positions,Data,Summary,Stocks,USD,PATH,5.1414,1,44.734348232,229.997178,43.
 Open Positions,Total,Stocks,USD,1238.31621,1188.55,-49.76621
 Open Positions,Total,Stocks,EUR,1088.888592939,1045.1276715,-43.760921439
 Trades,Header,DataDiscriminator,Asset Category,Currency,Symbol,Date/Time,Quantity,T. Price,C. Price,Proceeds,Comm/Fee,Basis,Realized P/L,MTM P/L
-Trades,Data,Order,Stocks,USD,ATRA,2021-11-03, 09:30:02,6,17.39,18.75,-104.34,-1,105.34,0,8.16
+Trades,Data,Order,Stocks,USD,ATRA,"2021-11-03, 09:30:02",6,17.39,18.75,-104.34,-1,105.34,0,8.16
 Trades,SubTotal,Stocks,USD,6,-104.34,-1,105.34,0,8.16
-Trades,Data,Order,Stocks,USD,DOCN,2021-12-28, 09:30:00,3.5683,84.071668582,80.47,-299.992935,-1,300.992935,0,-12.8518
+Trades,Data,Order,Stocks,USD,DOCN,"2021-12-28, 09:30:00",3.5683,84.071668582,80.47,-299.992935,-1,300.992935,0,-12.8518
 Trades,SubTotal,Stocks,USD,3.5683,-299.992935,-1,300.992935,0,-12.8518
-Trades,Data,Order,Stocks,USD,LULU,2021-12-28, 09:30:03,0.7388,406.0497902,400.07,-299.989585,-1,300.989585,0,-4.4178
+Trades,Data,Order,Stocks,USD,LULU,"2021-12-28, 09:30:03",0.7388,406.0497902,400.07,-299.989585,-1,300.989585,0,-4.4178
 Trades,SubTotal,Stocks,USD,0.7388,-299.989585,-1,300.989585,0,-4.4178
-Trades,Data,Order,Stocks,USD,OKTA,2021-12-28, 09:41:41,1.3222,226.891931629,224.47,-299.996512,-1,300.996512,0,-3.2023
+Trades,Data,Order,Stocks,USD,OKTA,"2021-12-28, 09:41:41",1.3222,226.891931629,224.47,-299.996512,-1,300.996512,0,-3.2023
 Trades,SubTotal,Stocks,USD,1.3222,-299.996512,-1,300.996512,0,-3.2023
-Trades,Data,Order,Stocks,USD,PATH,2021-12-28, 09:48:21,5.1414,44.539848738,43.88,-228.9971783,-1,229.9971783,0,-3.3925
+Trades,Data,Order,Stocks,USD,PATH,"2021-12-28, 09:48:21",5.1414,44.539848738,43.88,-228.9971783,-1,229.9971783,0,-3.3925
 Trades,SubTotal,Stocks,USD,5.1414,-228.9971783,-1,229.9971783,0,-3.3925
 Trades,Total,Stocks,USD,-1233.3162103,-5,1238.3162103,0,-15.7044
 Trades,Total,Stocks,EUR,-1088.141445396,-4.39814,1092.539585396,0,-14.074628256

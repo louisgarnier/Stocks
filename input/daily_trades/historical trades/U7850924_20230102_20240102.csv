@@ -1,9 +1,9 @@
-﻿Statement,Header,Field Name,Field Value
-Statement,Data,BrokerName,
+Statement,Header,Field Name,Field Value
+Statement,Data,BrokerName,Interactive Brokers Ireland Limited
 Statement,Data,BrokerAddress,
 Statement,Data,Title,Activity Statement
-Statement,Data,Period,"January 1, 2023 - December 31, 2023"
-Statement,Data,WhenGenerated,"2024-10-08, 17:23:58 EDT"
+Statement,Data,Period,"January 2, 2023 - January 2, 2024"
+Statement,Data,WhenGenerated,"2026-02-10, 16:05:30 EST"
 Account Information,Header,Field Name,Field Value
 Account Information,Data,Name,Louis Garnier
 Account Information,Data,Account,U7850924
@@ -12,97 +12,97 @@ Account Information,Data,Customer Type,Individual
 Account Information,Data,Account Capabilities,Cash
 Account Information,Data,Base Currency,EUR
 Net Asset Value,Header,Asset Class,Prior Total,Current Long,Current Short,Current Total,Change
-Net Asset Value,Data,Cash ,1.484592722,2125.851300531,0,2125.851300531,2124.366707809
-Net Asset Value,Data,Stock,469.8853504,18435.9368368,0,18435.9368368,17966.0514864
-Net Asset Value,Data,Total,471.369943122,20561.788137331,0,20561.788137331,20090.418194209
+Net Asset Value,Data,Cash ,1.484592722,2144.333111467,0,2144.333111467,2142.848518745
+Net Asset Value,Data,Stock,469.8853504,17922.6773114,0,17922.6773114,17452.791961
+Net Asset Value,Data,Total,471.369943122,20067.010422867,0,20067.010422867,19595.640479745
 Net Asset Value,Header,Time Weighted Rate of Return
-Net Asset Value,Data,27.331232186%
+Net Asset Value,Data,24.267264421%
 Change in NAV,Header,Field Name,Field Value
 Change in NAV,Data,Starting Value,471.369943122
-Change in NAV,Data,Mark-to-Market,1742.274864471
+Change in NAV,Data,Mark-to-Market,1247.497149957
 Change in NAV,Data,Deposits & Withdrawals,18404.5282888
 Change in NAV,Data,Dividends,25.8300515
 Change in NAV,Data,Withholding Tax,-6.8729886
 Change in NAV,Data,Change in Dividend Accruals,-0.0528119
-Change in NAV,Data,Commissions,-75.34210378
+Change in NAV,Data,Commissions,-75.342103804
 Change in NAV,Data,Other FX Translations,0.0528119
-Change in NAV,Data,Ending Value,20561.788137331
+Change in NAV,Data,Ending Value,20067.010422867
 Mark-to-Market Performance Summary,Header,Asset Category,Symbol,Prior Quantity,Current Quantity,Prior Price,Current Price,Mark-to-Market P/L Position,Mark-to-Market P/L Transaction,Mark-to-Market P/L Commissions,Mark-to-Market P/L Other,Mark-to-Market P/L Total,Code
-Mark-to-Market Performance Summary,Data,Stocks,AAPL,0,5,--,192.5300,20.302773,1.31338205,-1.86029,0.7740012,20.52986625,
-Mark-to-Market Performance Summary,Data,Stocks,AMD,0,12.8997,--,147.4100,415.10896715,11.82826037,-4.54680784,0,422.39041968,
-Mark-to-Market Performance Summary,Data,Stocks,ATRA,6,0,3.2800,--,-9.358344,0.3313764,-0.10249759,0,-9.12946519,
-Mark-to-Market Performance Summary,Data,Stocks,AVGO,0,0.6615,--,"1,116.2500",139.42152214,0.43139476,-2.70945,4.2163224,141.3597893,
-Mark-to-Market Performance Summary,Data,Stocks,BWA,0,5.1315,--,35.8500,-35.07714054,1.08747559,-1.75706146,0.7238283,-35.02289811,
-Mark-to-Market Performance Summary,Data,Stocks,CHPT,0,22.4315,--,2.3400,-221.56706937,-0.26068366,-2.19405099,0,-224.02180402,
-Mark-to-Market Performance Summary,Data,Stocks,CRM,0,3,--,263.1400,111.0215351,3.76309315,-1.82285,0,112.96177825,
-Mark-to-Market Performance Summary,Data,Stocks,CTSH,0,1.5676,--,75.5300,15.4548289,1.08279481,-0.92049,0.5696467,16.18678041,
-Mark-to-Market Performance Summary,Data,Stocks,DOCN,3.5683,0,25.4700,--,45.80708337,0.71737744,-0.92200126,0,45.60245955,
-Mark-to-Market Performance Summary,Data,Stocks,GOOGL,0,11,--,139.6900,116.66314709,1.34168453,-3.63747,0,114.36736162,
-Mark-to-Market Performance Summary,Data,Stocks,HUBS,0,3,--,580.5400,-21.2681704,25.169701,-3.62186605,0,0.27966455,
-Mark-to-Market Performance Summary,Data,Stocks,IFNNY,0,9.7271,--,41.8500,4.01589746,1.41107392,-1.81107,0,3.61590138,
-Mark-to-Market Performance Summary,Data,Stocks,KLAC,0,1,--,581.3000,92.18375739,-8.19698065,-1.83130125,1.7724054,83.92788089,
-Mark-to-Market Performance Summary,Data,Stocks,LULU,0.7388,0,320.3800,--,33.57350932,5.49486874,-0.92264695,0,38.14573111,
-Mark-to-Market Performance Summary,Data,Stocks,NVDA,0,4,--,495.2200,59.3379636,24.1858167,-4.54075212,0.2035473,79.18657548,
-Mark-to-Market Performance Summary,Data,Stocks,OKTA,1.3222,0,68.3300,--,1.0872261,0.09143411,-0.84637511,0,0.3322851,
-Mark-to-Market Performance Summary,Data,Stocks,PATH,5.1414,0,12.7100,--,18.83764019,-0.36940368,-0.78607237,0,17.68216414,
-Mark-to-Market Performance Summary,Data,Stocks,PHIN,0,0,--,--,0,-2.65993048,0,0,-2.65993048,
-Mark-to-Market Performance Summary,Data,Stocks,PLTR,0,130,--,17.1700,42.52567549,-31.3597364,-11.03086079,0,0.1350783,
-Mark-to-Market Performance Summary,Data,Stocks,PYPL,0,2,--,61.4100,8.9123178,-0.3847914,-0.91617,0,7.6113564,
-Mark-to-Market Performance Summary,Data,Stocks,QCOM,0,6,--,144.6300,126.46964627,2.23894812,-3.65432,5.6828184,130.73709279,
-Mark-to-Market Performance Summary,Data,Stocks,SAP,0,7,--,154.5900,74.23753075,3.63874713,-2.70165,0,75.17462788,
-Mark-to-Market Performance Summary,Data,Stocks,SNAP,0,108,--,16.9300,489.21994,0.3659311,-2.74608,0,486.8397911,
-Mark-to-Market Performance Summary,Data,Stocks,SOFI,0,40,--,9.9500,57.01183,-0.168069,-1.82223,0,55.021531,
-Mark-to-Market Performance Summary,Data,Stocks,STM,0,42.4696,--,50.1300,64.03687699,1.67991448,-4.61356,5.0144932,66.11772467,
-Mark-to-Market Performance Summary,Data,Stocks,WAGA,0,1,--,25.4500,-3.1,-0.05,-3,0,-6.15,
-Mark-to-Market Performance Summary,Data,Stocks,ZS,0,3,--,221.5600,183.7842678,0.4919292,-0.91098,0,183.365217,
-Mark-to-Market Performance Summary,Data,Total,,,,,,1828.6432116,43.21560833,-66.22890378,18.9570629,1824.58697905,
+Mark-to-Market Performance Summary,Data,Stocks,AAPL,0,5,--,185.6400,-11.18246,1.31338205,-1.86029,0.7740012,-10.95536675,
+Mark-to-Market Performance Summary,Data,Stocks,AMD,0,12.8997,--,138.5800,311.011201152,11.82826037,-4.546807846,0,318.292653676,
+Mark-to-Market Performance Summary,Data,Stocks,ATRA,6,0,3.2800,--,-9.358344,0.3313764,-0.102497592,0,-9.129465192,
+Mark-to-Market Performance Summary,Data,Stocks,AVGO,0,0.6615,--,"1,085.3800",120.758867342,0.43139476,-2.70945,4.2163224,122.697134501,
+Mark-to-Market Performance Summary,Data,Stocks,BWA,0,5.1315,--,35.9400,-34.647588744,1.087475586,-1.757061456,0.7238283,-34.593346314,
+Mark-to-Market Performance Summary,Data,Stocks,CHPT,0,22.4315,--,2.1700,-225.04918077,-0.260683656,-2.194050993,0,-227.503915419,
+Mark-to-Market Performance Summary,Data,Stocks,CRM,0,3,--,256.1300,91.8013769,3.76309315,-1.82285,0,93.74162005,
+Mark-to-Market Performance Summary,Data,Stocks,CTSH,0,1.5676,--,74.4000,13.837155097,1.08279481,-0.92049,0.5696467,14.569106607,
+Mark-to-Market Performance Summary,Data,Stocks,DOCN,3.5683,0,25.4700,--,45.807083372,0.717377438,-0.92200126,0,45.60245955,
+Mark-to-Market Performance Summary,Data,Stocks,GOOGL,0,11,--,138.1700,101.382070294,1.341684529,-3.63747,0,99.086284823,
+Mark-to-Market Performance Summary,Data,Stocks,HUBS,0,3,--,547.8600,-110.870848,25.169701,-3.621866047,0,-89.323013047,
+Mark-to-Market Performance Summary,Data,Stocks,IFNNY,0,9.7271,--,40.1450,-11.146367145,1.41107392,-1.81107,0,-11.546363225,
+Mark-to-Market Performance Summary,Data,Stocks,KLAC,0,1,--,560.3900,73.073271987,-8.19698065,-1.831301247,1.7724054,64.817395491,
+Mark-to-Market Performance Summary,Data,Stocks,LULU,0.7388,0,320.3800,--,33.573509323,5.494868737,-0.922646957,0,38.145731103,
+Mark-to-Market Performance Summary,Data,Stocks,NVDA,0,4,--,481.6800,9.8389732,24.1858167,-4.540752123,0.2035473,29.687585077,
+Mark-to-Market Performance Summary,Data,Stocks,OKTA,1.3222,0,68.3300,--,1.087226101,0.091434113,-0.846375118,0,0.332285096,
+Mark-to-Market Performance Summary,Data,Stocks,PATH,5.1414,0,12.7100,--,18.837640185,-0.369403683,-0.786072373,0,17.682164129,
+Mark-to-Market Performance Summary,Data,Stocks,PHIN,0,0,--,--,0,-2.659930484,0,0,-2.659930484,
+Mark-to-Market Performance Summary,Data,Stocks,PLTR,0,130,--,16.5800,-27.573522511,-31.359736404,-11.030860791,0,-69.964119705,
+Mark-to-Market Performance Summary,Data,Stocks,PYPL,0,2,--,61.4600,9.0037118,-0.3847914,-0.91617,0,7.7027504,
+Mark-to-Market Performance Summary,Data,Stocks,QCOM,0,6,--,140.2300,102.341630273,2.238948121,-3.65432,5.6828184,106.609076793,
+Mark-to-Market Performance Summary,Data,Stocks,SAP,0,7,--,150.2100,46.216130352,3.63874713,-2.70165,0,47.153227482,
+Mark-to-Market Performance Summary,Data,Stocks,SNAP,0,108,--,16.1400,411.2425792,0.3659311,-2.74608,0,408.8624303,
+Mark-to-Market Performance Summary,Data,Stocks,SOFI,0,40,--,9.6500,46.04455,-0.168069,-1.82223,0,44.054251,
+Mark-to-Market Performance Summary,Data,Stocks,STM,0,42.4696,--,48.3500,-5.047847612,1.679914482,-4.61356,5.0144932,-2.96699993,
+Mark-to-Market Performance Summary,Data,Stocks,WAGA,0,1,--,24.2500,-4.3,-0.05,-3,0,-7.35,
+Mark-to-Market Performance Summary,Data,Stocks,ZS,0,3,--,212.3700,158.586942,0.4919292,-0.91098,0,158.1678912,
+Mark-to-Market Performance Summary,Data,Total,,,,,,1155.267759796,43.215608319,-66.228903804,18.9570629,1151.211527211,
 Mark-to-Market Performance Summary,Data,Forex,EUR,1.4846,0.7714,1.0000,1.0000,0,0,0,0,0,
-Mark-to-Market Performance Summary,Data,Forex,USD,-0.00000779,2345.40747912,0.93424,0.90606,-141.54430238,11.960429,-9.1132,0,-138.69707338,
-Mark-to-Market Performance Summary,Data,Total,,,,,,-141.54430238,11.960429,-9.1132,0,-138.69707338,
-Mark-to-Market Performance Summary,Data,Total (All Assets),,,,,,1687.09890922,55.17603733,-75.34210378,18.9570629,1685.88990567,
+Mark-to-Market Performance Summary,Data,Forex,USD,-0.00000779,2345.40747912,0.93424,0.91394,37.05343491,11.960429,-9.1132,0,39.90066391,
+Mark-to-Market Performance Summary,Data,Total,,,,,,37.05343491,11.960429,-9.1132,0,39.90066391,
+Mark-to-Market Performance Summary,Data,Total (All Assets),,,,,,1192.321194706,55.176037319,-75.342103804,18.9570629,1191.112191121,
 Realized & Unrealized Performance Summary,Header,Asset Category,Symbol,Cost Adj.,Realized S/T Profit,Realized S/T Loss,Realized L/T Profit,Realized L/T Loss,Realized Total,Unrealized S/T Profit,Unrealized S/T Loss,Unrealized L/T Profit,Unrealized L/T Loss,Unrealized Total,Total,Code
-Realized & Unrealized Performance Summary,Data,Stocks,AAPL,0,0,0,0,0,0,19.3126689,0,0,0,19.3126689,19.3126689,
-Realized & Unrealized Performance Summary,Data,Stocks,AMD,0,0,0,0,0,0,414.348134023,-0.005775226,0,0,414.342358796,414.342358796,
-Realized & Unrealized Performance Summary,Data,Stocks,ATRA,0,0,0,0,-87.73314559,-87.73314559,0,0,0,0,0,-87.73314559,
-Realized & Unrealized Performance Summary,Data,Stocks,AVGO,0,0,0,0,0,0,133.614022505,0,0,0,133.614022505,133.614022505,
-Realized & Unrealized Performance Summary,Data,Stocks,BWA,0,0,0,0,0,0,0,-38.567791211,0,0,-38.567791211,-38.567791211,
-Realized & Unrealized Performance Summary,Data,Stocks,CHPT,0,0,-120.48024708,0,0,-120.48024708,0,-97.048197139,0,0,-97.048197139,-217.528444219,
-Realized & Unrealized Performance Summary,Data,Stocks,CRM,0,0,0,0,0,0,111.9754251,0,0,0,111.9754251,111.9754251,
-Realized & Unrealized Performance Summary,Data,Stocks,CTSH,0,0,0,0,0,0,15.768542725,0,0,0,15.768542725,15.768542725,
-Realized & Unrealized Performance Summary,Data,Stocks,DOCN,0,0,0,0,-148.60843699,-148.60843699,0,0,0,0,0,-148.60843699,
-Realized & Unrealized Performance Summary,Data,Stocks,GOOGL,0,0,0,0,0,0,115.201731703,0,0,0,115.201731703,115.201731703,
-Realized & Unrealized Performance Summary,Data,Stocks,HUBS,0,0,-39.35908275,0,0,-39.35908275,48.066483,0,0,0,48.066483,8.70740025,
-Realized & Unrealized Performance Summary,Data,Stocks,IFNNY,0,0,0,0,0,0,9.24534654,-4.637598343,0,0,4.607748197,4.607748197,
-Realized & Unrealized Performance Summary,Data,Stocks,KLAC,0,0,0,0,0,0,80.661917203,0,0,0,80.661917203,80.661917203,
-Realized & Unrealized Performance Summary,Data,Stocks,LULU,0,0,0,0,-20.68740179,-20.68740179,0,0,0,0,0,-20.68740179,
-Realized & Unrealized Performance Summary,Data,Stocks,NVDA,0,0,-14.24558072,0,0,-14.24558072,93.3377709,0,0,0,93.3377709,79.09219018,
-Realized & Unrealized Performance Summary,Data,Stocks,OKTA,0,0,0,0,-193.63435853,-193.63435853,0,0,0,0,0,-193.63435853,
-Realized & Unrealized Performance Summary,Data,Stocks,PATH,0,0,0,0,-134.02034105,-134.02034105,0,0,0,0,0,-134.02034105,
-Realized & Unrealized Performance Summary,Data,Stocks,PHIN,0,2.03236774,0,0,0,2.03236774,0,0,0,0,0,2.03236774,
-Realized & Unrealized Performance Summary,Data,Stocks,PLTR,0,99.05499982,-158.46448993,0,0,-59.40949011,116.187187928,-66.006471,0,0,50.180716928,-9.228773182,
-Realized & Unrealized Performance Summary,Data,Stocks,PYPL,0,0,0,0,0,0,7.5384192,0,0,0,7.5384192,7.5384192,
-Realized & Unrealized Performance Summary,Data,Stocks,QCOM,0,0,0,0,0,0,122.552733298,0,0,0,122.552733298,122.552733298,
-Realized & Unrealized Performance Summary,Data,Stocks,SAP,0,0,0,0,0,0,72.995999052,0,0,0,72.995999052,72.995999052,
-Realized & Unrealized Performance Summary,Data,Stocks,SNAP,0,0,0,0,0,0,481.75028988,-4.303785,0,0,477.44650488,477.44650488,
-Realized & Unrealized Performance Summary,Data,Stocks,SOFI,0,0,0,0,0,0,56.809962,-2.26515,0,0,54.544812,54.544812,
-Realized & Unrealized Performance Summary,Data,Stocks,STM,0,0,0,0,0,0,94.483296216,-27.73259025,0,0,66.750705966,66.750705966,
-Realized & Unrealized Performance Summary,Data,Stocks,WAGA,0,0,0,0,0,0,0,-6.15,0,0,-6.15,-6.15,
-Realized & Unrealized Performance Summary,Data,Stocks,ZS,0,0,0,0,0,0,179.8257282,0,0,0,179.8257282,179.8257282,
-Realized & Unrealized Performance Summary,Data,Total,,0,101.08736756,-332.54940048,0,-584.68368395,-816.14571687,2173.675658372,-246.71735817,0,0,1926.958300202,1110.812583332,
-Realized & Unrealized Performance Summary,Data,Forex,USD,0,56.669485,-77.437132,0,0,-20.767647,0.00033,-23.395078,0,0,-23.394748,-44.162395,
-Realized & Unrealized Performance Summary,Data,Total,,0,56.669485,-77.437132,0,0,-20.767647,0.00033,-23.395078,0,0,-23.394748,-44.162395,
-Realized & Unrealized Performance Summary,Data,Total (All Assets),,0,157.75685256,-409.98653248,0,-584.68368395,-836.91336387,2173.675988372,-270.11243617,0,0,1903.563552202,1066.650188332,
+Realized & Unrealized Performance Summary,Data,Stocks,AAPL,0,0,0,0,0,0,1.6313829,-13.6359848,0,0,-12.0046019,-12.0046019,
+Realized & Unrealized Performance Summary,Data,Stocks,AMD,0,0,0,0,0,0,313.854759006,-0.006632463,0,0,313.848126544,313.848126544,
+Realized & Unrealized Performance Summary,Data,Stocks,ATRA,0,0,0,0,-87.733145592,-87.733145592,0,0,0,0,0,-87.733145592,
+Realized & Unrealized Performance Summary,Data,Stocks,AVGO,0,0,0,0,0,0,116.113408295,0,0,0,116.113408295,116.113408295,
+Realized & Unrealized Performance Summary,Data,Stocks,BWA,0,0,0,0,0,0,0,-38.473663329,0,0,-38.473663329,-38.473663329,
+Realized & Unrealized Performance Summary,Data,Stocks,CHPT,0,0,-120.480247081,0,0,-120.480247081,0,-101.374336301,0,0,-101.374336301,-221.854583382,
+Realized & Unrealized Performance Summary,Data,Stocks,CRM,0,0,0,0,0,0,93.7291167,0,0,0,93.7291167,93.7291167,
+Realized & Unrealized Performance Summary,Data,Stocks,CTSH,0,0,0,0,0,0,14.288007875,0,0,0,14.288007875,14.288007875,
+Realized & Unrealized Performance Summary,Data,Stocks,DOCN,0,0,0,0,-148.608436988,-148.608436988,0,0,0,0,0,-148.608436988,
+Realized & Unrealized Performance Summary,Data,Stocks,GOOGL,0,0,0,0,0,0,100.922563877,0,0,0,100.922563877,100.922563877,
+Realized & Unrealized Performance Summary,Data,Stocks,HUBS,0,0,-39.359082747,0,0,-39.359082747,0,-41.1181606,0,0,-41.1181606,-80.477243347,
+Realized & Unrealized Performance Summary,Data,Stocks,IFNNY,0,0,0,0,0,0,1.459288912,-11.973732663,0,0,-10.514443751,-10.514443751,
+Realized & Unrealized Performance Summary,Data,Stocks,KLAC,0,0,0,0,0,0,62.252948157,0,0,0,62.252948157,62.252948157,
+Realized & Unrealized Performance Summary,Data,Stocks,LULU,0,0,0,0,-20.687401793,-20.687401793,0,0,0,0,0,-20.687401793,
+Realized & Unrealized Performance Summary,Data,Stocks,NVDA,0,0,-14.245580723,0,0,-14.245580723,49.0100325,-4.3594938,0,0,44.6505387,30.404957977,
+Realized & Unrealized Performance Summary,Data,Stocks,OKTA,0,0,0,0,-193.634358535,-193.634358535,0,0,0,0,0,-193.634358535,
+Realized & Unrealized Performance Summary,Data,Stocks,PATH,0,0,0,0,-134.020341049,-134.020341049,0,0,0,0,0,-134.020341049,
+Realized & Unrealized Performance Summary,Data,Stocks,PHIN,0,2.032367734,0,0,0,2.032367734,0,0,0,0,0,2.032367734,
+Realized & Unrealized Performance Summary,Data,Stocks,PLTR,0,99.054999818,-158.464489924,0,0,-59.409490106,76.755822412,-96.237882,0,0,-19.482059588,-78.891549694,
+Realized & Unrealized Performance Summary,Data,Stocks,PYPL,0,0,0,0,0,0,7.6953748,0,0,0,7.6953748,7.6953748,
+Realized & Unrealized Performance Summary,Data,Stocks,QCOM,0,0,0,0,0,0,99.490557902,0,0,0,99.490557902,99.490557902,
+Realized & Unrealized Performance Summary,Data,Stocks,SAP,0,0,0,0,0,0,45.609444548,0,0,0,45.609444548,45.609444548,
+Realized & Unrealized Performance Summary,Data,Stocks,SNAP,0,0,0,0,0,0,429.62308732,-26.001593,0,0,403.62149432,403.62149432,
+Realized & Unrealized Performance Summary,Data,Stocks,SOFI,0,0,0,0,0,0,51.820398,-7.76849,0,0,44.051908,44.051908,
+Realized & Unrealized Performance Summary,Data,Stocks,STM,0,0,0,0,0,0,53.495236919,-55.248723117,0,0,-1.753486198,-1.753486198,
+Realized & Unrealized Performance Summary,Data,Stocks,WAGA,0,0,0,0,0,0,0,-7.35,0,0,-7.35,-7.35,
+Realized & Unrealized Performance Summary,Data,Stocks,ZS,0,0,0,0,0,0,156.192346,0,0,0,156.192346,156.192346,
+Realized & Unrealized Performance Summary,Data,Total,,0,101.087367553,-332.549400476,0,-584.683683958,-816.145716881,1673.943776124,-403.548692072,0,0,1270.395084052,454.249367171,
+Realized & Unrealized Performance Summary,Data,Forex,USD,0,56.669485,-77.437132,0,0,-20.767647,0.216388,-5.129326,0,0,-4.912938,-25.680585,
+Realized & Unrealized Performance Summary,Data,Total,,0,56.669485,-77.437132,0,0,-20.767647,0.216388,-5.129326,0,0,-4.912938,-25.680585,
+Realized & Unrealized Performance Summary,Data,Total (All Assets),,0,157.756852553,-409.986532476,0,-584.683683958,-836.913363881,1674.160164124,-408.678018072,0,0,1265.482146052,428.568782171,
 Cash Report,Header,Currency Summary,Currency,Total,Securities,Futures,
 Cash Report,Data,Starting Cash,Base Currency Summary,1.484592722,1.484592722,0,
-Cash Report,Data,Commissions,Base Currency Summary,-75.34210378,-75.34210378,0,
+Cash Report,Data,Commissions,Base Currency Summary,-75.342103804,-75.342103804,0,
 Cash Report,Data,Deposits,Base Currency Summary,18404.5282888,18404.5282888,0,
 Cash Report,Data,Dividends,Base Currency Summary,25.8300515,25.8300515,0,
-Cash Report,Data,Trades (Sales),Base Currency Summary,10397.18146482,10397.18146482,0,
-Cash Report,Data,Trades (Purchase),Base Currency Summary,-26572.16683728,-26572.16683728,0,
+Cash Report,Data,Trades (Sales),Base Currency Summary,10397.181464831,10397.181464831,0,
+Cash Report,Data,Trades (Purchase),Base Currency Summary,-26572.166837265,-26572.166837265,0,
 Cash Report,Data,Withholding Tax,Base Currency Summary,-6.8729886,-6.8729886,0,
-Cash Report,Data,Cash FX Translation Gain/Loss,Base Currency Summary,-48.79116768,-48.79116768,0,
-Cash Report,Data,Ending Cash,Base Currency Summary,2125.851300531,2125.851300531,0,
-Cash Report,Data,Ending Settled Cash,Base Currency Summary,3246.783429531,3246.783429531,0,
+Cash Report,Data,Cash FX Translation Gain/Loss,Base Currency Summary,-30.30935679,-30.30935679,0,
+Cash Report,Data,Ending Cash,Base Currency Summary,2144.333111467,2144.333111467,0,
+Cash Report,Data,Ending Settled Cash,Base Currency Summary,3275.013982467,3275.013982467,0,
 Cash Report,Data,Starting Cash,EUR,1.4846,1.4846,0,
 Cash Report,Data,Commissions,EUR,-12.1132,-12.1132,0,
 Cash Report,Data,Deposits,EUR,6800,6800,0,
@@ -119,35 +119,34 @@ Cash Report,Data,Withholding Tax,USD,-7.44,-7.44,0,
 Cash Report,Data,Ending Cash,USD,2345.40747912,2345.40747912,0,
 Cash Report,Data,Ending Settled Cash,USD,3582.55747912,3582.55747912,0,
 Open Positions,Header,DataDiscriminator,Asset Category,Currency,Symbol,Quantity,Mult,Cost Price,Cost Basis,Close Price,Value,Unrealized P/L,Code
-Open Positions,Data,Summary,Stocks,EUR,WAGA,1,1,31.6,31.6,25.45,25.45,-6.15,
-Open Positions,Total,,Stocks,EUR,,,,,31.6,,25.45,-6.15,
-Open Positions,Data,Summary,Stocks,USD,AAPL,5,1,188.267,941.335,192.53,962.65,21.315,
-Open Positions,Data,Summary,Stocks,USD,AMD,12.8997,1,111.959096956,1444.238763,147.41,1901.54,457.301237,
-Open Positions,Data,Summary,Stocks,USD,AVGO,0.6615,1,893.322630385,590.93292,1116.25,738.4,147.46708,
-Open Positions,Data,Summary,Stocks,USD,BWA,5.1315,1,44.144302251,226.526487,35.85,183.96,-42.566487,
-Open Positions,Data,Summary,Stocks,USD,CHPT,22.4315,1,7.114999978,159.600122,2.34,52.49,-107.110122,
-Open Positions,Data,Summary,Stocks,USD,CRM,3,1,221.945,665.835,263.14,789.42,123.585,
-Open Positions,Data,Summary,Stocks,USD,CTSH,1.5676,1,64.427519775,100.99658,75.53,118.4,17.40342,
-Open Positions,Data,Summary,Stocks,USD,GOOGL,11,1,128.131290091,1409.444191,139.69,1536.59,127.145809,
-Open Positions,Data,Summary,Stocks,USD,HUBS,3,1,562.856666667,1688.57,580.54,1741.62,53.05,
-Open Positions,Data,Summary,Stocks,USD,IFNNY,9.7271,1,41.327273596,401.994523,41.85,407.08,5.085478,
-Open Positions,Data,Summary,Stocks,USD,KLAC,1,1,492.275082,492.275082,581.3,581.3,89.024918,
-Open Positions,Data,Summary,Stocks,USD,NVDA,4,1,469.46625,1877.865,495.22,1980.88,103.015,
-Open Positions,Data,Summary,Stocks,USD,PLTR,130,1,16.743973562,2176.716563,17.17,2232.1,55.383437,
-Open Positions,Data,Summary,Stocks,USD,PYPL,2,1,57.25,114.5,61.41,122.82,8.32,
-Open Positions,Data,Summary,Stocks,USD,QCOM,6,1,122.08684,732.52104,144.63,867.78,135.25896,
-Open Positions,Data,Summary,Stocks,USD,SAP,7,1,143.080828571,1001.5658,154.59,1082.13,80.5642,
-Open Positions,Data,Summary,Stocks,USD,SNAP,108,1,12.050851852,1301.492,16.93,1828.44,526.948,
-Open Positions,Data,Summary,Stocks,USD,SOFI,40,1,8.445,337.8,9.95,398,60.2,
-Open Positions,Data,Summary,Stocks,USD,STM,42.4696,1,48.395289878,2055.328603,50.13,2129,73.671397,
-Open Positions,Data,Summary,Stocks,USD,ZS,3,1,155.403333333,466.21,221.56,664.68,198.47,
-Open Positions,Total,,Stocks,USD,,,,,18185.747674,,20319.28,2133.532327,
-Open Positions,Total,,Stocks,EUR,,,,,16477.378537504,,18410.4868368,1933.108300202,
-Open Positions,Total,,Stocks,EUR,,,,,16508.978537504,,18435.9368368,1926.958300202,
+Open Positions,Data,Summary,Stocks,EUR,WAGA,1,1,31.6,31.6,24.25,24.25,-7.35,
+Open Positions,Total,,Stocks,EUR,,,,,31.6,,24.25,-7.35,
+Open Positions,Data,Summary,Stocks,USD,AAPL,5,1,188.267,941.335,185.64,928.2,-13.135,
+Open Positions,Data,Summary,Stocks,USD,AMD,12.8997,1,111.959096956,1444.238763,138.58,1787.64,343.401237,
+Open Positions,Data,Summary,Stocks,USD,AVGO,0.6615,1,893.322630385,590.93292,1085.38,717.98,127.04708,
+Open Positions,Data,Summary,Stocks,USD,CHPT,22.4315,1,7.114999978,159.600122,2.17,48.68,-110.920122,
+Open Positions,Data,Summary,Stocks,USD,CRM,3,1,221.945,665.835,256.13,768.39,102.555,
+Open Positions,Data,Summary,Stocks,USD,CTSH,1.5676,1,64.427519775,100.99658,74.4,116.63,15.63342,
+Open Positions,Data,Summary,Stocks,USD,GOOGL,11,1,128.131290091,1409.444191,138.17,1519.87,110.425809,
+Open Positions,Data,Summary,Stocks,USD,HUBS,3,1,562.856666667,1688.57,547.86,1643.58,-44.99,
+Open Positions,Data,Summary,Stocks,USD,IFNNY,9.7271,1,41.327273596,401.994523,40.145,390.49,-11.504523,
+Open Positions,Data,Summary,Stocks,USD,KLAC,1,1,492.275082,492.275082,560.39,560.39,68.114918,
+Open Positions,Data,Summary,Stocks,USD,NVDA,4,1,469.46625,1877.865,481.68,1926.72,48.855,
+Open Positions,Data,Summary,Stocks,USD,PLTR,130,1,16.743973562,2176.716563,16.58,2155.4,-21.316563,
+Open Positions,Data,Summary,Stocks,USD,PYPL,2,1,57.25,114.5,61.46,122.92,8.42,
+Open Positions,Data,Summary,Stocks,USD,QCOM,6,1,122.08684,732.52104,140.23,841.38,108.85896,
+Open Positions,Data,Summary,Stocks,USD,SAP,7,1,143.080828571,1001.5658,150.21,1051.47,49.9042,
+Open Positions,Data,Summary,Stocks,USD,SNAP,108,1,12.050851852,1301.492,16.14,1743.12,441.628,
+Open Positions,Data,Summary,Stocks,USD,SOFI,40,1,8.445,337.8,9.65,386,48.2,
+Open Positions,Data,Summary,Stocks,USD,STM,42.4696,1,48.395289878,2055.328603,48.35,2053.41,-1.918601,
+Open Positions,Data,Summary,Stocks,USD,ZS,3,1,155.403333333,466.21,212.37,637.11,170.9,
+Open Positions,Total,,Stocks,USD,,,,,18185.747674,,19583.81,1398.062328,
+Open Positions,Total,,Stocks,EUR,,,,,16620.682229176,,17898.4273114,1277.745084052,
+Open Positions,Total,,Stocks,EUR,,,,,16652.282229176,,17922.6773114,1270.395084052,
 Forex Balances,Header,Asset Category,Currency,Description,Quantity,Cost Price,Cost Basis in EUR,Close Price,Value in EUR,Unrealized P/L in EUR,Code
 Forex Balances,Data,Forex,EUR,EUR,0.7714,0,-0.7714,1,0.7714,0,
-Forex Balances,Data,Forex,EUR,USD,2345.407481,0.916034705,-2148.474651,0.90606,2125.079903,-23.394748,
-Forex Balances,Data,Total,,,,,-2149.246051,,2125.851303,-23.394748,
+Forex Balances,Data,Forex,EUR,USD,2345.407481,0.916034705,-2148.474651,0.91394,2143.561713,-4.912938,
+Forex Balances,Data,Total,,,,,-2149.246051,,2144.333113,-4.912938,
 Trades,Header,DataDiscriminator,Asset Category,Currency,Symbol,Date/Time,Quantity,T. Price,C. Price,Proceeds,Comm/Fee,Basis,Realized P/L,MTM P/L,Code
 Trades,Data,Order,Stocks,EUR,WAGA,"2023-07-19, 03:00:05",1,28.6,28.55,-28.6,-3,31.6,0,-0.05,O
 Trades,SubTotal,,Stocks,EUR,WAGA,,1,,,-28.6,-3,31.6,0,-0.05,
@@ -167,9 +166,6 @@ Trades,Data,Order,Stocks,USD,AVGO,"2023-06-29, 11:02:37",0.1749,857.48,862.57,-1
 Trades,Data,Order,Stocks,USD,AVGO,"2023-07-12, 10:59:28",0.1542,894.76,889.95,-137.971992,-1,138.971992,0,-0.7417,FP;O
 Trades,Data,Order,Stocks,USD,AVGO,"2023-07-18, 11:08:53",0.3324,902.49,903.43,-299.987676,-1,300.987676,0,0.3125,O;RP
 Trades,SubTotal,,Stocks,USD,AVGO,,0.6615,,,-587.93292,-3,590.93292,0,0.461,
-Trades,Data,Order,Stocks,USD,BWA,"2023-06-29, 11:05:16",3.1315,47.9,48.19,-149.99885,-1,150.99885,0,0.9081,O;P;RPA
-Trades,Data,Order,Stocks,USD,BWA,"2023-07-12, 10:58:09",2,46.26,46.4,-92.52,-0.9312,93.4512,0,0.28,O
-Trades,SubTotal,,Stocks,USD,BWA,,5.1315,,,-242.51885,-1.9312,244.45005,0,1.1881,
 Trades,Data,Order,Stocks,USD,CHPT,"2023-06-29, 11:04:53",17.4315,8.605091597,8.69,-149.99965418,-1,150.99965418,0,1.4801,FPA;O;P;RPA
 Trades,Data,Order,Stocks,USD,CHPT,"2023-09-06, 12:55:03",25,7.075,7.06,-176.875,-1,177.875,0,-0.375,O
 Trades,Data,Order,Stocks,USD,CHPT,"2023-11-28, 11:30:30",-20,1.86,1.93,37.2,-0.3751976,-169.274532,-132.449729,-1.4,C
@@ -209,8 +205,6 @@ Trades,Data,Order,Stocks,USD,OKTA,"2023-06-29, 11:06:22",-1.3222,69.245126305,69
 Trades,SubTotal,,Stocks,USD,OKTA,,-1.3222,,,91.555906,-0.919483226,-300.996512,-210.360089,0.0993,
 Trades,Data,Order,Stocks,USD,PATH,"2023-06-29, 11:07:15",-5.1414,16.581944996,16.66,85.254412,-0.853971658,-229.997178,-145.596737,-0.4013,C;FPA;P
 Trades,SubTotal,,Stocks,USD,PATH,,-5.1414,,,85.254412,-0.853971658,-229.997178,-145.596737,-0.4013,
-Trades,Data,Order,Stocks,USD,PHIN,"2023-07-04, 20:25:00",-0.6263,32.1403,36.75,20.12946989,0,-17.923563,2.205906,-2.8871,C
-Trades,SubTotal,,Stocks,USD,PHIN,,-0.6263,,,20.12946989,0,-17.923563,2.205906,-2.8871,
 Trades,Data,Order,Stocks,USD,PLTR,"2023-05-30, 11:09:17",20.0735,14.945018308,14.71,-299.998825,-1,300.998825,0,-4.7176,FPA;O;P
 Trades,Data,Order,Stocks,USD,PLTR,"2023-06-07, 10:25:19",30.0029,16.665000483,14.69,-499.998343,-1,500.998343,0,-59.2557,FPA;O;P
 Trades,Data,Order,Stocks,USD,PLTR,"2023-07-12, 10:53:11",23.8449,16.775056722,16.59,-399.99955002,-1,400.99955002,0,-4.4126,FPA;O;P;RPA
@@ -422,6 +416,7 @@ Codes,Data,INV,Investment Transfer from Investor
 Codes,Data,IPO,This transaction was executed as part of an IPO in which IB was a member of the selling group and is classified as a Principal trade.
 Codes,Data,L,Ordered by IB (Margin Violation)
 Codes,Data,LD,Adjusted by Loss Disallowed from Wash Sale
+Codes,Data,LF,Liquidation of fractional position by IB
 Codes,Data,LI,"Last In, First Out (LIFO) tax basis election"
 Codes,Data,LT,Long Term P/L
 Codes,Data,Lo,Direct Loan
@@ -465,7 +460,6 @@ Notes/Legal Notes,Data,Notes,Initial and maintenance margin requirements are ava
 Notes/Legal Notes,Data,Notes,"Quantities preceded by a ""-"" sign indicate sell transactions. Other transactions are purchases. "
 Notes/Legal Notes,Data,Notes,"For shares traded on US markets, Interactive Brokers Ireland Limited (IBIE) acts as agent in executing the fractional portion of your order. In certain circumstances, IBIE routes that portion to an affiliate, which may execute it either as principal or riskless principal. If an IB affiliate executes as i) principal, the order will be executed at the price displayed for the opposite side of the NBBO from your order (the offer if you are buying and the bid if you are selling) at the time of execution, ii) riskless principal, the affiliate will execute that portion of your order at the price it receives for the execution of the whole share. The way in which the fractional portion of the order is executed is indicated by the codes associated with the trade. For shares traded on European Markets, IBIE will generally act as counterparty for any fractional portion of your order for shares, which it will execute as principal, for a total consideration which is equal to (or better than), the total consideration for the execution of a full share available at the European trading venues and SIs to which IBIE has access. In certain circumstances, IBIE may route a full share order to the available European trading venues acting in an Agency capacity and the fractional portion of the order will be allocated to your account at the price traded in the trading venue and the remaining fractional portion will be allocated to an affiliate. "
 Notes/Legal Notes,Data,Notes,"In case of partial executions, commissions are charged on the total quantity executed on the original order. The commission is displayed on the first partial execution only."
-Notes/Legal Notes,Data,Notes,Each closed lot indicated above with a reference to note (6) was chosen by the end of the trading day to be sold versus the specific opening purchase identified in that row.
 Notes/Legal Notes,Data,Notes,Trade execution times are displayed in Eastern Time.
 Notes/Legal Notes,Data,Notes,Applicable regulatory fees for your transactions are available on the IB website at www.interactivebrokers.com/en/accounts/fees/exchangeAndRegulatoryFees.php.
 Notes/Legal Notes,Data,Notes,"Borrow Fee Rate represents the cost to borrow stock expressed in percent per annum. It is applied to the collateral value on the stock borrow contract and is separate from any interest earned on credit cash balances. Similarly, Loan Fee Rate represents the benefit to lend stock. A positive rate indicates a cost to the borrower/benefit to the lender and a negative rate indicates a benefit to the borrower/cost to the lender. In general, the fee rates for hard-to-borrow stocks are higher than for normal availability stocks."
@@ -473,11 +467,12 @@ Notes/Legal Notes,Data,Notes,Interest Rate on Customer Collateral represents the
 Notes/Legal Notes,Data,Notes,"The closing prices on this Activity Statement are indicative and may come from third-party sources. Interactive Brokers does not warrant the accuracy of the prices provided by third-party sources. Due to time zone differences, certain non-US mutual funds may deliver closing prices after the Activity Statement has been produced and the closing prices for such funds will reflect the previous day's price."
 Notes/Legal Notes,Data,Notes,All Market Data and Research services are provided through Global Financial Information Services (GmbH).
 Notes/Legal Notes,Data,Notes,"Market data is provided by Global Financial Information Services (GmbH). Your local broker collects amounts owed for fees and tax for such data on behalf of Global Financial Information Services (GmbH). Note, you are responsible for any applicable taxes relating to the provision of these services."
-Notes/Legal Notes,Data,Notes,"Directive 2014/65/EU and its implementing measures (MiFID II) applies to all client funds and client financial instruments (Client Assets) on this statement except those Client Assets that are not classified as segregated assets, namely securities lent under the Stock Yield Enhancement Programme as identified in the IBKR Managed Securities Lent section of this statement and Client Assets noted as Not Segregated in the Collateral for Customer Borrowing section of this statement.  IBIE applies the MiFID II Client Asset protection requirements to funds and instruments that are not subject to MiFID II in the same way as it applies those requirements to Client Assets. IBIE is also subject to the client asset requirements set out in the Central Bank (Supervision and Enforcement) Act 2013 (Section 48(1))(Investment Firms) Regulations 2017."
+Notes/Legal Notes,Data,Notes,"Directive 2014/65/EU and its implementing measures (MiFID II) applies to all client funds and client financial instruments (Client Assets) on this statement except those Client Assets that are not classified as segregated assets, namely securities lent under the Stock Yield Enhancement Programme as identified in the IBKR Managed Securities Lent section of this statement and Client Assets noted as Not Segregated in the Collateral for Customer Borrowing section of this statement.  IBIE applies the MiFID II Client Asset protection requirements to funds and instruments that are not subject to MiFID II in the same way as it applies those requirements to Client Assets. IBIE is also subject to the client asset requirements set out in the Central Bank (Supervision and Enforcement) Act 2013 (Section 48(1))(Investment Firms) Regulations 2023 (=S.I. No. 10 of 2023)."
+Notes/Legal Notes,Data,Notes,RUS denotes Ruble balances that have been restricted by Russian authorities.
 Notes/Legal Notes,Data,Mutual Fund Notes,"All purchase and sales of mutual funds are calculated against the published NAV (Net Asset Value) of the underlying fund and is displayed on this confirmation as the ""C. Price"" (Closing Price). Due to any fees charged by a fund and/or any share rounding, the net price you pay may vary from the published NAV and is shown on this confirmation as the ""T. Price"" (Trade Price)."
-Notes/Legal Notes,Data,Fixed Income Notes,"Call features for bonds or preferred stocks may affect the yield. For zero coupon, compound interest and multiplier securities, there are no periodic payments and securities may be callable below maturity value without notice to holder unless registered. For asset-backed securities, the actual yield may vary depending on the speed at which the underlying note is pre-paid. For additional information regarding bond yield, please contact the IB Help Desk at: help@interactivebrokers.com. If this debt security is unrated by a nationally recognized statistical rating organization, it may pose a high risk of default. You should consult an independent advisor to determine whether unrated bonds are appropriate for your portfolio in light of your goals and your financial circumstances. Fees charged by bond trading centers are included in the cost of bond transactions."
+Notes/Legal Notes,Data,Fixed Income Notes,"Call features for bonds or preferred stocks may affect the yield. For zero coupon, compound interest and multiplier securities, there are no periodic payments and securities may be callable below maturity value without notice to holder unless registered. For asset-backed securities, the actual yield may vary depending on the speed at which the underlying note is pre-paid. For additional information regarding bond yield, please contact the IB Help Desk at: ibkr.com/help. If this debt security is unrated by a nationally recognized statistical rating organization, it may pose a high risk of default. You should consult an independent advisor to determine whether unrated bonds are appropriate for your portfolio in light of your goals and your financial circumstances. Fees charged by bond trading centers are included in the cost of bond transactions."
 Notes/Legal Notes,Data,Legal Notes,"Please promptly report any inaccuracy or discrepancy in this statement, or in your account, to Interactive Brokers Ireland Limited (""IBIE""). You can contact us by telephone or electronically through the IBIE website at, www.interactivebrokers.ie. If you report an error by telephone, you should re-confirm such oral communication in writing in order to protect your rights, including your rights under the Investor Compensation Scheme."
-Notes/Legal Notes,Data,Legal Notes,"Unless otherwise noted, IBIE acted as agent in the execution of the above transactions. IBIE may execute your trades through affiliates or third-party brokers who are members of the relevant exchange or market center. IBIE uses its affiliates Interactive Brokers LLC (""IBLLC"") and Interactive Brokers (U.K.) Limited to custody financial instruments."
+Notes/Legal Notes,Data,Legal Notes,"Unless otherwise noted, IBIE acted as agent in the execution of the above transactions. IBIE may execute your trades through affiliates or third-party brokers who are members of the relevant exchange or market center. Please see the IBIE CAKID Bank Account List at www.ibkr.ie/cakid for custody details."
 Notes/Legal Notes,Data,Legal Notes,"IBIE acts as agent or riskless principal in foreign currency exchange transactions and CFDs. Such transactions are executed against an IBIE affiliate, which acts as principal in such transactions and may have a long or short position and may have profited or lost in connection with the transaction."
 Notes/Legal Notes,Data,Legal Notes,"IBIE routes orders in US products through its US affiliate, IBLLC. IBLLC accepts liquidity rebates or other order flow payments from Alternative Trading Systems, market makers and exchanges for certain orders in US stocks. IBLLC receives payment for some US option orders pursuant to exchange-mandated marketing fee programs or other arrangements."
 Notes/Legal Notes,Data,Legal Notes,Please promptly notify IB-IE of any material change in your investment objectives or financial situation or circumstances.
@@ -485,5 +480,5 @@ Notes/Legal Notes,Data,Legal Notes,"An up-to-date financial statement of IBIE is
 Notes/Legal Notes,Data,Legal Notes,"IBIE is a member of the Investor Compensation Scheme, which provides protection for customers in the event of the failure of IBIE. Further information on the Investor Compensation Scheme can be found at  www.investorcompensation.ie  ."
 Notes/Legal Notes,Data,Legal Notes,IBIE is incorporated under the laws of Ireland and registered with the Irish Companies Registration Office with company registration number 657406.
 Notes/Legal Notes,Data,Legal Notes,IBIE is regulated by the Central Bank of Ireland.
-Notes/Legal Notes,Data,Legal Notes,"IBIE's Registered Office address is 10 Earlsfort Terrace, Dublin, D02 T380, Ireland."
+Notes/Legal Notes,Data,Legal Notes,"IBIE's Registered Office address is 91 North Wall Quay, Dublin, D01 H7V7, Ireland."
 Notes/Legal Notes,Data,Legal Notes,"IBIE is included in the Central Bank of Ireland's register of authorised firms under number C423427. The CBI's address is New Wapping Street, North Wall Quay, Dublin 1, D01 F7X3. The CBI's website is www.centralbank.ie."

@@ -237,6 +237,37 @@ async def get_corporate_actions_status(symbol: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
 
 
+@router.post("/refresh")
+async def refresh_corporate_actions():
+    """
+    Quick refresh: fetch corporate actions only for symbols that need updating.
+    - Orange status (new transactions): always fetch
+    - Green status: fetch if >24h since last fetch
+    - Grey status: fetch if >7 days since last fetch
+    """
+    try:
+        from backend.scripts.fetch_corporate_actions import fetch_and_import_corporate_actions
+        
+        logger.info("⚡ Starting quick refresh (incremental)...")
+        
+        result = fetch_and_import_corporate_actions(incremental=True)
+        
+        logger.info(f"✅ Quick refresh complete: {result['parsed']} parsed, {result['inserted']} inserted, {result['skipped']} skipped")
+        
+        return {
+            "success": True,
+            "message": f"Quick refresh: parsed {result['parsed']} corporate actions",
+            "parsed": result['parsed'],
+            "inserted": result['inserted'],
+            "skipped": result['skipped'],
+            "errors": result['errors'],
+            "updated_transactions": result.get('updated_transactions', 0)
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to refresh corporate actions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh: {str(e)}")
+
+
 @router.post("/fetch")
 async def fetch_corporate_actions():
     """
