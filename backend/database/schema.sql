@@ -108,43 +108,12 @@ SELECT
     t.transaction_id,
     t.symbol,
     t.trade_date,
-    t.settle_date,
     t.currency,
     t.asset_category,
-    t.sub_category,
-    t.description,
-    t.conid,
-    t.security_id,
-    t.cusip,
-    t.isin,
-    t.listing_exchange,
-    t.multiplier,
-    t.strike,
-    t.expiry,
-    t.put_call,
-    t.principal,
-    t.commission,
-    t.tax,
-    t.transaction_fee,
-    t.broker_fee,
-    t.other_fee,
-    t.allocation_fee,
-    t.notes,
-    t.cost,
-    t.fifopnl_realized,
-    t.mtmpnl,
-    t.code,
-    t.order_time,
-    t.open_close_indicator,
-    t.notes_codes,
-    t.cost_basis,
-    t.transaction_type,
-    t.order_type,
-    t.is_api_order,
-    t.account_id,
-    t.acct_alias,
-    t.model,
-    t.security_id_type,
+    t.source_file,
+    t.proceeds,
+    t.comm_fee,
+    t.basis,
     t.created_at,
     t.updated_at,
     -- Quantité et prix : utiliser updated si disponible, sinon original
@@ -163,8 +132,8 @@ FROM transactions t
 LEFT JOIN updated_transactions ut ON t.transaction_id = ut.transaction_id
 WHERE t.symbol NOT LIKE '%.%';  -- Exclure Forex
 
--- Positions table - stores calculated portfolio positions
-CREATE TABLE IF NOT EXISTS positions (
+-- Positions calculated from transactions (for reconciliation)
+CREATE TABLE IF NOT EXISTS positions_calculated (
     symbol TEXT PRIMARY KEY,
     quantity REAL NOT NULL,
     average_price REAL NOT NULL,
@@ -174,4 +143,20 @@ CREATE TABLE IF NOT EXISTS positions (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_positions_quantity ON positions(quantity);
+CREATE INDEX IF NOT EXISTS idx_positions_calculated_quantity ON positions_calculated(quantity);
+
+-- Positions imported from IBKR Flex Query (source of truth)
+CREATE TABLE IF NOT EXISTS positions_ibkr (
+    symbol TEXT PRIMARY KEY,
+    quantity REAL NOT NULL,
+    cost_basis_money REAL,
+    cost_basis_price REAL,
+    mark_price REAL,
+    position_value REAL,
+    unrealized_pnl REAL,
+    currency TEXT,
+    asset_category TEXT,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_ibkr_symbol ON positions_ibkr(symbol);

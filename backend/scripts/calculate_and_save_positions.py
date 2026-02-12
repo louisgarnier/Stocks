@@ -70,7 +70,7 @@ def calculate_and_save_positions() -> dict:
             positions[symbol]['adjusted_count'] += 1
     
     # Supprimer les anciennes positions et insérer les nouvelles
-    cursor.execute("DELETE FROM positions")
+    cursor.execute("DELETE FROM positions_calculated")
     
     now = datetime.now().isoformat()
     inserted = 0
@@ -81,7 +81,7 @@ def calculate_and_save_positions() -> dict:
         avg_price = total_cost / total_qty if total_qty != 0 else 0
         
         cursor.execute("""
-            INSERT INTO positions (symbol, quantity, average_price, total_cost, transaction_count, adjusted_count, last_updated)
+            INSERT INTO positions_calculated (symbol, quantity, average_price, total_cost, transaction_count, adjusted_count, last_updated)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             symbol,
@@ -124,7 +124,7 @@ def get_positions() -> dict:
     
     cursor.execute("""
         SELECT symbol, quantity, average_price, total_cost, transaction_count, adjusted_count, last_updated
-        FROM positions
+        FROM positions_calculated
         ORDER BY symbol
     """)
     

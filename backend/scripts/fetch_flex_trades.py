@@ -204,6 +204,107 @@ def parse_trades_from_xml(xml_content: str) -> list[dict]:
     return trades
 
 
+def parse_positions_from_xml(xml_content: str) -> list[dict]:
+    """
+    Parse open positions from Flex Query XML response.
+    
+    Args:
+        xml_content: XML string from Flex Query
+        
+    Returns:
+        List of position dictionaries
+    """
+    positions = []
+    
+    try:
+        root = ET.fromstring(xml_content)
+        
+        # Find all OpenPosition elements
+        position_elements = root.findall(".//OpenPosition")
+        
+        if not position_elements:
+            position_elements = root.findall(".//OpenPositions/OpenPosition")
+        
+        logger.info(f"📊 Found {len(position_elements)} position elements in XML")
+        
+        for pos in position_elements:
+            position_data = {
+                "symbol": pos.get("symbol", ""),
+                "quantity": safe_float(pos.get("position", "")),
+                "cost_basis_money": safe_float(pos.get("costBasisMoney", "")),
+                "cost_basis_price": safe_float(pos.get("costBasisPrice", "")),
+                "mark_price": safe_float(pos.get("markPrice", "")),
+                "position_value": safe_float(pos.get("positionValue", "")),
+                "unrealized_pnl": safe_float(pos.get("fifoPnlUnrealized", "")),
+                "currency": pos.get("currency", ""),
+                "asset_category": pos.get("assetCategory", "Stocks"),
+            }
+            
+            # Only include positions with valid data
+            if position_data["symbol"] and position_data["quantity"] != 0:
+                positions.append(position_data)
+                
+    except ET.ParseError as e:
+        logger.error(f"❌ Failed to parse positions XML: {e}")
+        
+    return positions
+
+
+def save_positions_ibkr(positions: list[dict]) -> dict:
+    """
+    Save IBKR positions to positions_ibkr table.
+    Replaces all existing data (DELETE + INSERT).
+    
+    Args:
+        positions: List of position dicts from parse_positions_from_xml
+        
+    Returns:
+        Dict with save results
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    now = datetime.now().isoformat()
+    
+    # Clear existing positions
+    cursor.execute("DELETE FROM positions_ibkr")
+    
+    inserted = 0
+    for pos in positions:
+        try:
+            cursor.execute("""
+                INSERT INTO positions_ibkr (
+                    symbol, quantity, cost_basis_money, cost_basis_price,
+                    mark_price, position_value, unrealized_pnl,
+                    currency, asset_category, last_updated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                pos["symbol"],
+                pos["quantity"],
+                pos["cost_basis_money"],
+                pos["cost_basis_price"],
+                pos["mark_price"],
+                pos["position_value"],
+                pos["unrealized_pnl"],
+                pos["currency"],
+                pos["asset_category"],
+                now
+            ))
+            inserted += 1
+        except Exception as e:
+            logger.error(f"❌ Failed to insert position {pos.get('symbol', '?')}: {e}")
+    
+    conn.commit()
+    conn.close()
+    
+    logger.info(f"✅ Saved {inserted} IBKR positions to positions_ibkr")
+    
+    return {
+        "positions_inserted": inserted,
+        "last_updated": now
+    }
+
+
 def convert_date_format(date_str: str) -> str:
     """
     Convert date from YYYYMMDD to YYYY-MM-DD format.
@@ -634,6 +735,16 @@ def fetch_and_import_flex_trades(query_type: str = "last_year") -> dict:
     
     # Step 5: Insert trades
     results = insert_flex_trades(trades, source_file)
+    
+    # Step 6: Parse and save positions
+    positions = parse_positions_from_xml(xml_content)
+    if positions:
+        positions_results = save_positions_ibkr(positions)
+        results["positions_imported"] = positions_results["positions_inserted"]
+        results["positions_last_updated"] = positions_results["last_updated"]
+    else:
+        logger.info("ℹ️  No positions found in Flex Query response")
+        results["positions_imported"] = 0
     
     return results
 

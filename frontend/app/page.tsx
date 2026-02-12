@@ -128,21 +128,31 @@ interface UpdatedTransactionsResponse {
 interface Position {
   symbol: string;
   quantity: number;
-  average_price: number;
-  total_cost: number;
-  transaction_count: number;
-  adjusted_count: number;
+  cost_basis_money: number;
+  cost_basis_price: number;
+  mark_price: number;
+  position_value: number;
+  unrealized_pnl: number;
+  currency: string;
+  asset_category: string;
   last_updated: string;
+  qty_calculated: number;
+  transaction_count: number;
+  qty_diff: number;
+  qty_diff_pct: number;
+  rec_status: 'match' | 'warning' | 'error';
 }
 
 interface PositionsResponse {
   success: boolean;
-  open_positions: Position[];
-  closed_positions: Position[];
-  total_symbols: number;
-  open_count: number;
-  closed_count: number;
-  last_updated: string | null;
+  positions: Position[];
+  summary: {
+    total_positions: number;
+    matched: number;
+    warnings: number;
+    errors: number;
+    last_updated: string | null;
+  };
 }
 
 type TabType = 'load' | 'transactions' | 'updated-transactions' | 'adjusted-transactions' | 'corporate-actions' | 'positions';
@@ -179,7 +189,7 @@ export default function Dashboard() {
   const [selectedUpdatedTx, setSelectedUpdatedTx] = useState<Set<number>>(new Set());
   const [positions, setPositions] = useState<PositionsResponse | null>(null);
   const [positionsLoading, setPositionsLoading] = useState(false);
-  const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'average_price' | 'total_cost' | 'transaction_count'>('total_cost');
+  const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl' | 'rec_status'>('position_value');
   const [positionsSortOrder, setPositionsSortOrder] = useState<'asc' | 'desc'>('desc');
   const [positionsSymbolFilter, setPositionsSymbolFilter] = useState<string>('');
 
@@ -427,26 +437,26 @@ export default function Dashboard() {
     }
   };
 
-  const handlePositionsSort = (column: 'symbol' | 'quantity' | 'average_price' | 'total_cost' | 'transaction_count') => {
+  const handlePositionsSort = (column: 'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl' | 'rec_status') => {
     const newOrder = positionsSortBy === column && positionsSortOrder === 'desc' ? 'asc' : 'desc';
     setPositionsSortBy(column);
     setPositionsSortOrder(newOrder);
   };
 
-  const getSortedAndFilteredPositions = () => {
-    if (!positions?.open_positions) return [];
+  const getSortedAndFilteredPositions = (): Position[] => {
+    if (!positions?.positions) return [];
     
-    let filtered = positions.open_positions;
+    let filtered = positions.positions;
     
     // Apply symbol filter
     if (positionsSymbolFilter) {
-      filtered = filtered.filter(pos => 
+      filtered = filtered.filter((pos: Position) => 
         pos.symbol.toLowerCase().includes(positionsSymbolFilter.toLowerCase())
       );
     }
     
     // Apply sorting
-    return [...filtered].sort((a, b) => {
+    return [...filtered].sort((a: Position, b: Position) => {
       let aVal: number | string = a[positionsSortBy];
       let bVal: number | string = b[positionsSortBy];
       
@@ -760,9 +770,10 @@ export default function Dashboard() {
 
       if (response.ok) {
         const result = await response.json();
+        const positionsMsg = result.positions_imported ? ` | ${result.positions_imported} positions imported` : '';
         setUploadResult({
           success: true,
-          message: result.message,
+          message: (result.message || '') + positionsMsg,
           parsed: result.fetched,
           inserted: result.inserted,
           skipped: result.skipped,
@@ -927,18 +938,6 @@ export default function Dashboard() {
       </header>
 
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        {/* Stats Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-          <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '8px' }}>Base de données</h3>
-            <p style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937' }}>{health?.database === 'connected' ? '✅ Connectée' : '❌ Erreur'}</p>
-          </div>
-          <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '8px' }}>Transactions</h3>
-            <p style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937' }}>{health?.transactions ?? 0}</p>
-          </div>
-        </div>
-
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0', marginBottom: '0', borderBottom: '1px solid #e5e7eb' }}>
           {(['load', 'transactions', 'updated-transactions', 'corporate-actions', 'positions'] as TabType[]).map((tab) => (
@@ -978,6 +977,20 @@ export default function Dashboard() {
           {/* Tab 1: Load Trades */}
           {activeTab === 'load' && (
             <div style={{ padding: '48px 24px' }}>
+              {/* Database Stats Panel */}
+              {health && (
+                <div style={{ maxWidth: '400px', margin: '0 auto 32px', padding: '16px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>Base de données</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>✅</span>
+                    <span style={{ fontSize: '14px', color: '#16a34a', fontWeight: '500' }}>Connectée</span>
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <strong>Transactions:</strong> {health.transactions?.toLocaleString() || 0}
+                  </div>
+                </div>
+              )}
+              
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📥</div>
                 <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Load Trades</h2>
@@ -1921,10 +1934,10 @@ export default function Dashboard() {
               {/* Header with Refresh Button */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>📊 Portfolio Positions</h3>
-                  {positions?.last_updated && (
+                  <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>📊 Portfolio Positions (IBKR)</h3>
+                  {positions?.summary?.last_updated && (
                     <p style={{ fontSize: '12px', color: '#9ca3af' }}>
-                      Dernière mise à jour: {new Date(positions.last_updated).toLocaleString()}
+                      Last sync: {new Date(positions.summary.last_updated).toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -1945,35 +1958,39 @@ export default function Dashboard() {
                     gap: '8px'
                   }}
                 >
-                  {positionsLoading ? '⏳ Calcul...' : '🔄 Refresh Positions'}
+                  {positionsLoading ? '⏳ Calcul...' : '🔄 Recalculate Rec'}
                 </button>
               </div>
 
               {/* Summary Cards */}
-              {positions && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>Positions Ouvertes</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#15803d' }}>{positions.open_count}</p>
-                  </div>
-                  <div style={{ backgroundColor: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#737373', fontWeight: '500' }}>Positions Fermées</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#525252' }}>{positions.closed_count}</p>
-                  </div>
+              {positions?.summary && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
                   <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>Total Symboles</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#1d4ed8' }}>{positions.total_symbols}</p>
+                    <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>Total Positions</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#1d4ed8' }}>{positions.summary.total_positions}</p>
+                  </div>
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px' }}>
+                    <p style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>✅ Matched</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#15803d' }}>{positions.summary.matched}</p>
+                  </div>
+                  <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '16px' }}>
+                    <p style={{ fontSize: '12px', color: '#d97706', fontWeight: '500' }}>⚠️ Warnings</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#b45309' }}>{positions.summary.warnings}</p>
+                  </div>
+                  <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px' }}>
+                    <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: '500' }}>❌ Errors</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#b91c1c' }}>{positions.summary.errors}</p>
                   </div>
                 </div>
               )}
 
-              {/* Open Positions Table with Filter and Sort */}
+              {/* Positions Table with Filter and Sort */}
               <div style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>🔓 Positions Ouvertes</h4>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>IBKR Open Positions</h4>
                   <input
                     type="text"
-                    placeholder="Filtrer par symbol..."
+                    placeholder="Filter by symbol..."
                     value={positionsSymbolFilter}
                     onChange={(e) => setPositionsSymbolFilter(e.target.value.toUpperCase())}
                     style={{
@@ -1985,153 +2002,157 @@ export default function Dashboard() {
                     }}
                   />
                 </div>
-                {positions?.open_positions && positions.open_positions.length > 0 ? (
+                {positions?.positions && positions.positions.length > 0 ? (
                   <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ backgroundColor: '#f9fafb' }}>
-                          <th 
-                            onClick={() => handlePositionsSort('symbol')}
-                            style={{ 
-                              padding: '12px', 
-                              textAlign: 'left', 
-                              fontSize: '12px', 
-                              fontWeight: '600', 
-                              color: '#6b7280', 
-                              borderBottom: '1px solid #e5e7eb',
-                              cursor: 'pointer',
-                              userSelect: 'none'
-                            }}
-                          >
-                            Symbol {positionsSortBy === 'symbol' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
-                          </th>
-                          <th 
-                            onClick={() => handlePositionsSort('quantity')}
-                            style={{ 
-                              padding: '12px', 
-                              textAlign: 'right', 
-                              fontSize: '12px', 
-                              fontWeight: '600', 
-                              color: '#6b7280', 
-                              borderBottom: '1px solid #e5e7eb',
-                              cursor: 'pointer',
-                              userSelect: 'none'
-                            }}
-                          >
-                            Quantity {positionsSortBy === 'quantity' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
-                          </th>
-                          <th 
-                            onClick={() => handlePositionsSort('average_price')}
-                            style={{ 
-                              padding: '12px', 
-                              textAlign: 'right', 
-                              fontSize: '12px', 
-                              fontWeight: '600', 
-                              color: '#6b7280', 
-                              borderBottom: '1px solid #e5e7eb',
-                              cursor: 'pointer',
-                              userSelect: 'none'
-                            }}
-                          >
-                            Avg Price {positionsSortBy === 'average_price' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
-                          </th>
-                          <th 
-                            onClick={() => handlePositionsSort('total_cost')}
-                            style={{ 
-                              padding: '12px', 
-                              textAlign: 'right', 
-                              fontSize: '12px', 
-                              fontWeight: '600', 
-                              color: '#6b7280', 
-                              borderBottom: '1px solid #e5e7eb',
-                              cursor: 'pointer',
-                              userSelect: 'none'
-                            }}
-                          >
-                            Total Cost {positionsSortBy === 'total_cost' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
-                          </th>
-                          <th 
-                            onClick={() => handlePositionsSort('transaction_count')}
-                            style={{ 
-                              padding: '12px', 
-                              textAlign: 'center', 
-                              fontSize: '12px', 
-                              fontWeight: '600', 
-                              color: '#6b7280', 
-                              borderBottom: '1px solid #e5e7eb',
-                              cursor: 'pointer',
-                              userSelect: 'none'
-                            }}
-                          >
-                            Transactions {positionsSortBy === 'transaction_count' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
-                          </th>
-                          <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
-                            Adjusted
-                          </th>
+                          {[
+                            { key: 'symbol' as const, label: 'Symbol', align: 'left' },
+                            { key: 'quantity' as const, label: 'Qty', align: 'right' },
+                            { key: 'cost_basis_price' as const, label: 'Avg Cost', align: 'right' },
+                            { key: 'position_value' as const, label: 'Market Value', align: 'right' },
+                            { key: 'unrealized_pnl' as const, label: 'Unrealized P&L', align: 'right' },
+                            { key: 'rec_status' as const, label: 'Qty Rec', align: 'center' },
+                          ].map((col) => (
+                            <th
+                              key={col.key}
+                              onClick={() => handlePositionsSort(col.key)}
+                              style={{
+                                padding: '12px',
+                                textAlign: col.align as 'left' | 'right' | 'center',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                color: '#6b7280',
+                                borderBottom: '1px solid #e5e7eb',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {col.label} {positionsSortBy === col.key && (positionsSortOrder === 'asc' ? '▲' : '▼')}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {getSortedAndFilteredPositions().map((pos) => (
+                        {getSortedAndFilteredPositions().map((pos: Position) => {
+                          const currencySymbol = pos.currency === 'EUR' ? '€' : pos.currency === 'GBP' ? '£' : '$';
+                          return (
                           <tr key={pos.symbol} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                            <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>{pos.symbol}</td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: pos.quantity < 0 ? '#dc2626' : '#1f2937' }}>
-                              {pos.quantity.toFixed(2)}
+                            <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                              {pos.symbol}
+                              <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '400', marginLeft: '6px' }}>{pos.currency}</span>
                             </td>
                             <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
-                              ${pos.average_price.toFixed(2)}
+                              {pos.quantity.toFixed(0)}
                             </td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: pos.total_cost < 0 ? '#dc2626' : '#16a34a' }}>
-                              ${pos.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
+                              {currencySymbol}{pos.cost_basis_price.toFixed(2)}
                             </td>
-                            <td style={{ padding: '12px', textAlign: 'center', fontSize: '13px', color: '#6b7280' }}>
-                              {pos.transaction_count}
+                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                              {currencySymbol}{(pos.position_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: pos.unrealized_pnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                              {pos.unrealized_pnl >= 0 ? '+' : ''}{currencySymbol}{(pos.unrealized_pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td style={{ padding: '12px', textAlign: 'center' }}>
-                              {pos.adjusted_count > 0 ? (
-                                <span style={{ padding: '2px 8px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                  🔄 {pos.adjusted_count}
+                              {pos.rec_status === 'match' ? (
+                                <span style={{ padding: '2px 8px', backgroundColor: '#f0fdf4', color: '#16a34a', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                                  ✅
+                                </span>
+                              ) : pos.rec_status === 'warning' ? (
+                                <span title={`Diff: ${pos.qty_diff} (${pos.qty_diff_pct}%)`} style={{ padding: '2px 8px', backgroundColor: '#fffbeb', color: '#d97706', borderRadius: '4px', fontSize: '11px', fontWeight: '500', cursor: 'help' }}>
+                                  ⚠️ {pos.qty_diff > 0 ? '+' : ''}{pos.qty_diff.toFixed(0)}
                                 </span>
                               ) : (
-                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>-</span>
+                                <span title={`IBKR: ${pos.quantity}, Calc: ${pos.qty_calculated}, Diff: ${pos.qty_diff} (${pos.qty_diff_pct}%)`} style={{ padding: '2px 8px', backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: '4px', fontSize: '11px', fontWeight: '500', cursor: 'help' }}>
+                                  ❌ {pos.qty_diff > 0 ? '+' : ''}{pos.qty_diff.toFixed(0)}
+                                </span>
                               )}
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
+                      <tfoot>
+                        {(() => {
+                          const filteredPos = getSortedAndFilteredPositions();
+                          const usdPositions = filteredPos.filter(p => p.currency === 'USD');
+                          const eurPositions = filteredPos.filter(p => p.currency === 'EUR');
+                          const otherPositions = filteredPos.filter(p => p.currency !== 'USD' && p.currency !== 'EUR');
+                          
+                          const usdTotal = usdPositions.reduce((sum, pos) => sum + (pos.position_value || 0), 0);
+                          const usdPnl = usdPositions.reduce((sum, pos) => sum + (pos.unrealized_pnl || 0), 0);
+                          const eurTotal = eurPositions.reduce((sum, pos) => sum + (pos.position_value || 0), 0);
+                          const eurPnl = eurPositions.reduce((sum, pos) => sum + (pos.unrealized_pnl || 0), 0);
+                          const otherTotal = otherPositions.reduce((sum, pos) => sum + (pos.position_value || 0), 0);
+                          const otherPnl = otherPositions.reduce((sum, pos) => sum + (pos.unrealized_pnl || 0), 0);
+                          
+                          return (
+                            <>
+                              {usdPositions.length > 0 && (
+                                <tr style={{ backgroundColor: '#f9fafb', borderTop: '2px solid #d1d5db' }}>
+                                  <td colSpan={3} style={{ padding: '12px', fontSize: '14px', fontWeight: '700', color: '#1f2937' }}>
+                                    TOTAL USD ({usdPositions.length} positions)
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: '#1f2937' }}>
+                                    ${usdTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: usdPnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                                    {usdPnl >= 0 ? '+' : ''}${usdPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td style={{ padding: '12px' }}></td>
+                                </tr>
+                              )}
+                              {eurPositions.length > 0 && (
+                                <tr style={{ backgroundColor: '#f9fafb', borderTop: usdPositions.length === 0 ? '2px solid #d1d5db' : '1px solid #e5e7eb' }}>
+                                  <td colSpan={3} style={{ padding: '12px', fontSize: '14px', fontWeight: '700', color: '#1f2937' }}>
+                                    TOTAL EUR ({eurPositions.length} positions)
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: '#1f2937' }}>
+                                    €{eurTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: eurPnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                                    {eurPnl >= 0 ? '+' : ''}€{eurPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td style={{ padding: '12px' }}></td>
+                                </tr>
+                              )}
+                              {otherPositions.length > 0 && (
+                                <tr style={{ backgroundColor: '#f9fafb', borderTop: (usdPositions.length === 0 && eurPositions.length === 0) ? '2px solid #d1d5db' : '1px solid #e5e7eb' }}>
+                                  <td colSpan={3} style={{ padding: '12px', fontSize: '14px', fontWeight: '700', color: '#1f2937' }}>
+                                    TOTAL OTHER ({otherPositions.length} positions)
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: '#1f2937' }}>
+                                    ${otherTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: otherPnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                                    {otherPnl >= 0 ? '+' : ''}${otherPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td style={{ padding: '12px' }}></td>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </tfoot>
                     </table>
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
-                    <p>Aucune position ouverte.</p>
-                    <p style={{ fontSize: '12px' }}>Cliquez sur &quot;Refresh Positions&quot; pour calculer les positions.</p>
+                    <p>No IBKR positions loaded.</p>
+                    <p style={{ fontSize: '12px' }}>Import trades via &quot;Load Data&quot; tab to sync positions from IBKR.</p>
                   </div>
                 )}
               </div>
 
-              {/* Closed Positions */}
-              <div>
-                <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>🔒 Positions Fermées ({positions?.closed_count || 0})</h4>
-                {positions?.closed_positions && positions.closed_positions.length > 0 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {positions.closed_positions.map((pos) => (
-                      <span
-                        key={pos.symbol}
-                        style={{
-                          padding: '4px 12px',
-                          backgroundColor: '#f3f4f6',
-                          color: '#6b7280',
-                          borderRadius: '16px',
-                          fontSize: '12px',
-                          fontWeight: '500'
-                        }}
-                      >
-                        {pos.symbol}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: '#9ca3af', fontSize: '14px' }}>Aucune position fermée.</p>
-                )}
+              {/* Disclaimer */}
+              <div style={{ padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <p style={{ fontSize: '11px', color: '#9ca3af' }}>
+                  ℹ️ Positions and cost basis are imported directly from IBKR (source of truth). Qty Rec compares IBKR quantity vs quantity calculated from imported transactions.
+                  ❌ = missing transactions.
+                </p>
               </div>
             </div>
           )}
