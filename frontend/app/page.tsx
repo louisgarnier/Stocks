@@ -125,6 +125,26 @@ interface UpdatedTransactionsResponse {
   pages: number;
 }
 
+interface Position {
+  symbol: string;
+  quantity: number;
+  average_price: number;
+  total_cost: number;
+  transaction_count: number;
+  adjusted_count: number;
+  last_updated: string;
+}
+
+interface PositionsResponse {
+  success: boolean;
+  open_positions: Position[];
+  closed_positions: Position[];
+  total_symbols: number;
+  open_count: number;
+  closed_count: number;
+  last_updated: string | null;
+}
+
 type TabType = 'load' | 'transactions' | 'updated-transactions' | 'adjusted-transactions' | 'corporate-actions' | 'positions';
 
 export default function Dashboard() {
@@ -157,6 +177,11 @@ export default function Dashboard() {
   const [updatedTxPage, setUpdatedTxPage] = useState(1);
   const [updatedTxSymbolFilter, setUpdatedTxSymbolFilter] = useState<string>('');
   const [selectedUpdatedTx, setSelectedUpdatedTx] = useState<Set<number>>(new Set());
+  const [positions, setPositions] = useState<PositionsResponse | null>(null);
+  const [positionsLoading, setPositionsLoading] = useState(false);
+  const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'average_price' | 'total_cost' | 'transaction_count'>('total_cost');
+  const [positionsSortOrder, setPositionsSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [positionsSymbolFilter, setPositionsSymbolFilter] = useState<string>('');
 
   const fetchHealth = async () => {
     try {
@@ -376,6 +401,66 @@ export default function Dashboard() {
     }
   };
 
+  const fetchPositions = async () => {
+    try {
+      const response = await fetch('/api/proxy/api/positions');
+      if (response.ok) {
+        const data = await response.json();
+        setPositions(data);
+      }
+    } catch (err) {
+      console.error('❌ Failed to fetch positions:', err);
+    }
+  };
+
+  const refreshPositions = async () => {
+    setPositionsLoading(true);
+    try {
+      const response = await fetch('/api/proxy/api/positions/refresh', { method: 'POST' });
+      if (response.ok) {
+        await fetchPositions();
+      }
+    } catch (err) {
+      console.error('❌ Failed to refresh positions:', err);
+    } finally {
+      setPositionsLoading(false);
+    }
+  };
+
+  const handlePositionsSort = (column: 'symbol' | 'quantity' | 'average_price' | 'total_cost' | 'transaction_count') => {
+    const newOrder = positionsSortBy === column && positionsSortOrder === 'desc' ? 'asc' : 'desc';
+    setPositionsSortBy(column);
+    setPositionsSortOrder(newOrder);
+  };
+
+  const getSortedAndFilteredPositions = () => {
+    if (!positions?.open_positions) return [];
+    
+    let filtered = positions.open_positions;
+    
+    // Apply symbol filter
+    if (positionsSymbolFilter) {
+      filtered = filtered.filter(pos => 
+        pos.symbol.toLowerCase().includes(positionsSymbolFilter.toLowerCase())
+      );
+    }
+    
+    // Apply sorting
+    return [...filtered].sort((a, b) => {
+      let aVal: number | string = a[positionsSortBy];
+      let bVal: number | string = b[positionsSortBy];
+      
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = (bVal as string).toLowerCase();
+      }
+      
+      if (aVal < bVal) return positionsSortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return positionsSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
   const handleUpdatedTxSymbolFilter = (symbol: string) => {
     setUpdatedTxSymbolFilter(symbol);
     setUpdatedTxPage(1);
@@ -469,6 +554,8 @@ export default function Dashboard() {
         const data = await response.json();
         alert(`✅ ${data.message}`);
         await fetchUpdatedTransactions(1, updatedTxSymbolFilter);
+        // Auto-refresh positions after applying splits
+        await fetch('/api/proxy/api/positions/refresh', { method: 'POST' });
       } else {
         const error = await response.json().catch(() => ({ detail: 'Apply splits failed' }));
         alert(`❌ Error: ${error.detail || 'Failed to apply splits'}`);
@@ -681,12 +768,13 @@ export default function Dashboard() {
           skipped: result.skipped,
           errors: result.errors,
         });
-        // Refresh all data
+        // Refresh all data including positions
         await Promise.all([
           fetchHealth(),
           fetchImportLogs(),
           fetchCAStatus(),
-          activeTab === 'transactions' ? fetchTransactions(1, pageSize) : Promise.resolve()
+          activeTab === 'transactions' ? fetchTransactions(1, pageSize) : Promise.resolve(),
+          fetch('/api/proxy/api/positions/refresh', { method: 'POST' })
         ]);
         setTimeout(() => fetchHealth(), 500);
       } else {
@@ -736,12 +824,13 @@ export default function Dashboard() {
       if (response.ok) {
         const result = await response.json();
         setUploadResult(result);
-        // Refresh all data after upload
+        // Refresh all data after upload including positions
         await Promise.all([
           fetchHealth(),
           fetchImportLogs(),
           fetchCAStatus(),
-          activeTab === 'transactions' ? fetchTransactions(1, pageSize) : Promise.resolve()
+          activeTab === 'transactions' ? fetchTransactions(1, pageSize) : Promise.resolve(),
+          fetch('/api/proxy/api/positions/refresh', { method: 'POST' })
         ]);
         // Force a second refresh after a short delay to ensure data is synced
         setTimeout(() => {
@@ -868,6 +957,10 @@ export default function Dashboard() {
                 console.log('📡 Fetching securities and corporate actions on tab click...');
                 fetchSecurities();
                 fetchCorporateActions();
+              }
+              if (tab === 'positions') {
+                console.log('📡 Fetching positions on tab click...');
+                fetchPositions();
               }
             }} style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === tab ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tab ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}>
               {tab === 'load' && '📥 Load Trades'}
@@ -1824,12 +1917,222 @@ export default function Dashboard() {
 
           {/* Tab 5: Positions */}
           {activeTab === 'positions' && (
-            <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Positions</h3>
-              <p style={{ fontSize: '14px', color: '#6b7280' }}>
-                Onglet positions - à implémenter
-              </p>
+            <div style={{ padding: '24px' }}>
+              {/* Header with Refresh Button */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>📊 Portfolio Positions</h3>
+                  {positions?.last_updated && (
+                    <p style={{ fontSize: '12px', color: '#9ca3af' }}>
+                      Dernière mise à jour: {new Date(positions.last_updated).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={refreshPositions}
+                  disabled={positionsLoading}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: positionsLoading ? '#9ca3af' : '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: positionsLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {positionsLoading ? '⏳ Calcul...' : '🔄 Refresh Positions'}
+                </button>
+              </div>
+
+              {/* Summary Cards */}
+              {positions && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px' }}>
+                    <p style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>Positions Ouvertes</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#15803d' }}>{positions.open_count}</p>
+                  </div>
+                  <div style={{ backgroundColor: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '16px' }}>
+                    <p style={{ fontSize: '12px', color: '#737373', fontWeight: '500' }}>Positions Fermées</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#525252' }}>{positions.closed_count}</p>
+                  </div>
+                  <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px' }}>
+                    <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>Total Symboles</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#1d4ed8' }}>{positions.total_symbols}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Open Positions Table with Filter and Sort */}
+              <div style={{ marginBottom: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>🔓 Positions Ouvertes</h4>
+                  <input
+                    type="text"
+                    placeholder="Filtrer par symbol..."
+                    value={positionsSymbolFilter}
+                    onChange={(e) => setPositionsSymbolFilter(e.target.value.toUpperCase())}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      width: '180px'
+                    }}
+                  />
+                </div>
+                {positions?.open_positions && positions.open_positions.length > 0 ? (
+                  <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb' }}>
+                          <th 
+                            onClick={() => handlePositionsSort('symbol')}
+                            style={{ 
+                              padding: '12px', 
+                              textAlign: 'left', 
+                              fontSize: '12px', 
+                              fontWeight: '600', 
+                              color: '#6b7280', 
+                              borderBottom: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              userSelect: 'none'
+                            }}
+                          >
+                            Symbol {positionsSortBy === 'symbol' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
+                          </th>
+                          <th 
+                            onClick={() => handlePositionsSort('quantity')}
+                            style={{ 
+                              padding: '12px', 
+                              textAlign: 'right', 
+                              fontSize: '12px', 
+                              fontWeight: '600', 
+                              color: '#6b7280', 
+                              borderBottom: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              userSelect: 'none'
+                            }}
+                          >
+                            Quantity {positionsSortBy === 'quantity' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
+                          </th>
+                          <th 
+                            onClick={() => handlePositionsSort('average_price')}
+                            style={{ 
+                              padding: '12px', 
+                              textAlign: 'right', 
+                              fontSize: '12px', 
+                              fontWeight: '600', 
+                              color: '#6b7280', 
+                              borderBottom: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              userSelect: 'none'
+                            }}
+                          >
+                            Avg Price {positionsSortBy === 'average_price' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
+                          </th>
+                          <th 
+                            onClick={() => handlePositionsSort('total_cost')}
+                            style={{ 
+                              padding: '12px', 
+                              textAlign: 'right', 
+                              fontSize: '12px', 
+                              fontWeight: '600', 
+                              color: '#6b7280', 
+                              borderBottom: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              userSelect: 'none'
+                            }}
+                          >
+                            Total Cost {positionsSortBy === 'total_cost' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
+                          </th>
+                          <th 
+                            onClick={() => handlePositionsSort('transaction_count')}
+                            style={{ 
+                              padding: '12px', 
+                              textAlign: 'center', 
+                              fontSize: '12px', 
+                              fontWeight: '600', 
+                              color: '#6b7280', 
+                              borderBottom: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              userSelect: 'none'
+                            }}
+                          >
+                            Transactions {positionsSortBy === 'transaction_count' && (positionsSortOrder === 'asc' ? '▲' : '▼')}
+                          </th>
+                          <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                            Adjusted
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getSortedAndFilteredPositions().map((pos) => (
+                          <tr key={pos.symbol} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>{pos.symbol}</td>
+                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: pos.quantity < 0 ? '#dc2626' : '#1f2937' }}>
+                              {pos.quantity.toFixed(2)}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
+                              ${pos.average_price.toFixed(2)}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: pos.total_cost < 0 ? '#dc2626' : '#16a34a' }}>
+                              ${pos.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'center', fontSize: '13px', color: '#6b7280' }}>
+                              {pos.transaction_count}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                              {pos.adjusted_count > 0 ? (
+                                <span style={{ padding: '2px 8px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                                  🔄 {pos.adjusted_count}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+                    <p>Aucune position ouverte.</p>
+                    <p style={{ fontSize: '12px' }}>Cliquez sur &quot;Refresh Positions&quot; pour calculer les positions.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Closed Positions */}
+              <div>
+                <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>🔒 Positions Fermées ({positions?.closed_count || 0})</h4>
+                {positions?.closed_positions && positions.closed_positions.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {positions.closed_positions.map((pos) => (
+                      <span
+                        key={pos.symbol}
+                        style={{
+                          padding: '4px 12px',
+                          backgroundColor: '#f3f4f6',
+                          color: '#6b7280',
+                          borderRadius: '16px',
+                          fontSize: '12px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {pos.symbol}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: '#9ca3af', fontSize: '14px' }}>Aucune position fermée.</p>
+                )}
+              </div>
             </div>
           )}
         </div>

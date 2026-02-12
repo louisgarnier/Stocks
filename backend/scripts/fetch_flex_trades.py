@@ -188,6 +188,8 @@ def parse_trades_from_xml(xml_content: str) -> list[dict]:
                 "proceeds": safe_float(trade.get("proceeds", "")),
                 "comm_fee": safe_float(trade.get("ibCommission", "")),
                 "cost": safe_float(trade.get("cost", "")),
+                "basis": safe_float(trade.get("costBasis", "")),
+                "fifo_pnl": safe_float(trade.get("fifoPnlRealized", "")),
                 "buy_sell": trade.get("buySell", ""),
             }
             
@@ -494,9 +496,9 @@ def insert_flex_trades(trades: list[dict], source_file: str) -> dict:
                         transaction_id, original_transaction_id, source_file, 
                         asset_category, currency, symbol,
                         trade_date, trade_time, quantity, t_price, 
-                        proceeds, comm_fee,
+                        proceeds, comm_fee, basis,
                         created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     transaction_id,
                     trade["original_transaction_id"],
@@ -510,6 +512,7 @@ def insert_flex_trades(trades: list[dict], source_file: str) -> dict:
                     trade["t_price"],
                     trade["proceeds"],
                     trade["comm_fee"],
+                    trade.get("basis", 0),
                     datetime.now().isoformat()
                 ))
                 inserted += 1

@@ -162,3 +162,16 @@ SELECT
 FROM transactions t
 LEFT JOIN updated_transactions ut ON t.transaction_id = ut.transaction_id
 WHERE t.symbol NOT LIKE '%.%';  -- Exclure Forex
+
+-- Positions table - stores calculated portfolio positions
+CREATE TABLE IF NOT EXISTS positions (
+    symbol TEXT PRIMARY KEY,
+    quantity REAL NOT NULL,
+    average_price REAL NOT NULL,
+    total_cost REAL NOT NULL,
+    transaction_count INTEGER NOT NULL,
+    adjusted_count INTEGER NOT NULL,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_quantity ON positions(quantity);

@@ -21,6 +21,7 @@ from backend.api.utils.logger import logger, api_logger
 from backend.api.routes.transactions import router as transactions_router
 from backend.api.routes.corporate_actions import router as corporate_actions_router
 from backend.api.routes.updated_transactions import router as updated_transactions_router
+from backend.api.routes.positions import router as positions_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -45,6 +46,7 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=log_requests)
 app.include_router(transactions_router)
 app.include_router(corporate_actions_router)
 app.include_router(updated_transactions_router, prefix="/api/updated-transactions", tags=["updated-transactions"])
+app.include_router(positions_router)
 
 
 @app.on_event("startup")
