@@ -78,11 +78,121 @@ cd frontend
 npm run dev
 ```
 
-## 📝 Notes
+## � Troubleshooting
+
+### Frontend Won't Start
+
+**Check for running processes:**
+```bash
+# Check if port 3000 is in use
+lsof -ti:3000
+
+# Check for any Next.js processes
+ps aux | grep "next dev"
+```
+
+**Kill running processes:**
+```bash
+# Kill process on port 3000
+lsof -ti:3000 | xargs kill -9
+
+# Kill all Node processes (use with caution)
+killall node
+
+# Kill specific process by PID
+kill -9 <PID>
+```
+
+**Clear Next.js cache and restart:**
+```bash
+cd frontend
+rm -rf .next
+npm run dev
+```
+
+**If you see "Unable to acquire lock" error:**
+```bash
+cd frontend
+rm -rf .next
+lsof -ti:3000,3001 | xargs kill -9
+npm run dev
+```
+
+### Backend Won't Start
+
+**Check for running processes:**
+```bash
+# Check if port 8000 is in use
+lsof -ti:8000
+
+# Check for any uvicorn processes
+ps aux | grep uvicorn
+```
+
+**Kill running processes:**
+```bash
+# Kill process on port 8000
+lsof -ti:8000 | xargs kill -9
+
+# Kill all Python processes (use with caution)
+killall python3
+
+# Kill specific process by PID
+kill -9 <PID>
+```
+
+### Common Issues
+
+**Port already in use:**
+- Another instance is running
+- Previous process didn't terminate cleanly
+- Use `lsof -ti:<PORT>` to find and kill the process
+
+**Lock file errors (Next.js):**
+- Delete `.next` directory: `rm -rf frontend/.next`
+- Kill all node processes: `killall node`
+- Restart dev server
+
+**iCloud Drive sync issues:**
+- Project is in iCloud Drive which can cause file lock issues
+- Consider moving project to local directory for development
+- Or exclude `.next` and `node_modules` from iCloud sync
+
+### Clean Restart (Nuclear Option)
+
+**Frontend:**
+```bash
+cd frontend
+rm -rf .next node_modules
+npm install
+npm run dev
+```
+
+**Backend:**
+```bash
+cd backend
+rm -rf __pycache__ **/__pycache__
+python3 -m uvicorn api.main:app --reload --port 8000
+```
+
+**Both:**
+```bash
+# Kill all processes
+lsof -ti:3000,8000 | xargs kill -9
+killall node
+killall python3
+
+# Clean and restart
+cd frontend && rm -rf .next && npm run dev &
+cd backend && python3 -m uvicorn api.main:app --reload --port 8000
+```
+
+## �📝 Notes
 
 - **Always check `docs/workflow/BEST_PRACTICES.md` before making code changes**
 - **Always propose tests after developing new code**
 - **Always get user approval before committing or pushing**
+- **If dev servers hang, check for stale processes and lock files**
 
 
 
