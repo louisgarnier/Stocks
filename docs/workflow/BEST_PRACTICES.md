@@ -104,6 +104,175 @@
 - Get user confirmation before marking steps complete
 - Follow the exact workflow sequence
 
+## Architectural Guidelines
+
+### Component Size Limits
+
+**Frontend Components (React/Next.js)**:
+- ✅ Single component file: **< 300 lines**
+- ✅ Page component: **< 200 lines** (orchestration only)
+- ✅ Reusable component: **< 150 lines**
+- ⚠️ **REFACTORING TRIGGER**: If component exceeds 300 lines, STOP and propose refactoring
+
+**Backend Modules (Python)**:
+- ✅ Single module file: **< 500 lines**
+- ✅ API route file: **< 300 lines**
+- ✅ Utility/helper file: **< 200 lines**
+- ⚠️ **REFACTORING TRIGGER**: If module exceeds 500 lines, STOP and propose refactoring
+
+### Code Organization Patterns
+
+**Frontend Structure**:
+```
+frontend/
+├── app/
+│   ├── page.tsx              # < 200 lines - tab orchestration only
+│   └── [feature]/
+│       └── page.tsx          # Feature-specific pages
+├── src/
+│   ├── components/           # Reusable components
+│   │   ├── [Feature]Tab.tsx  # Tab components
+│   │   └── [Feature]Card.tsx # Card components
+│   ├── hooks/                # Custom React hooks
+│   ├── api/                  # API client services
+│   └── types/                # TypeScript types
+```
+
+**Backend Structure**:
+```
+backend/
+├── api/
+│   └── routes/               # API endpoints (< 300 lines each)
+├── scripts/                  # Standalone scripts
+├── utils/                    # Helper functions
+├── services/                 # Business logic
+└── database/                 # Database operations
+```
+
+### When to Extract Components/Modules
+
+**Extract a new component when**:
+- Component exceeds 300 lines
+- Logic is repeated in multiple places
+- Component has more than 3 distinct responsibilities
+- Component manages more than 5 state variables
+- Component has more than 10 props
+
+**Extract a new module when**:
+- Module exceeds 500 lines
+- Functions are used across multiple files
+- Module has more than 3 distinct responsibilities
+- Module becomes difficult to test
+
+### Refactoring Triggers - MANDATORY STOPS
+
+**⚠️ STOP and propose refactoring when**:
+
+1. **File Size Exceeded**:
+   - Frontend component > 300 lines
+   - Backend module > 500 lines
+   - Page component > 200 lines
+
+2. **Complexity Indicators**:
+   - Function has > 50 lines
+   - Nested conditionals > 3 levels deep
+   - Cyclomatic complexity > 10
+   - More than 5 function parameters
+
+3. **Code Duplication**:
+   - Same logic appears in 3+ places
+   - Copy-paste code detected
+
+4. **Performance Issues**:
+   - Component re-renders excessively
+   - Database queries are slow (> 1 second)
+   - API responses are slow (> 2 seconds)
+   - Page load time > 3 seconds
+
+**Refactoring Workflow**:
+1. **STOP** adding features to the file
+2. **Propose** refactoring plan to user
+3. **Wait** for approval
+4. **Refactor** into smaller components/modules
+5. **Test** that functionality still works
+6. **Get confirmation** before continuing with new features
+
+### Performance Requirements
+
+**Frontend Performance**:
+- ✅ Initial page load: **< 3 seconds**
+- ✅ Tab switching: **< 500ms**
+- ✅ API response rendering: **< 1 second**
+- ✅ Table with 100 rows: **< 2 seconds**
+- ✅ Table with 1,000 rows: Use virtualization
+
+**Backend Performance**:
+- ✅ Simple API endpoint: **< 100ms**
+- ✅ Database query: **< 500ms**
+- ✅ Complex calculation: **< 2 seconds**
+- ✅ Batch processing (100 items): **< 10 seconds**
+- ✅ Batch processing (1,000 items): **< 60 seconds**
+
+**Database Performance**:
+- ✅ All queries must use indexes
+- ✅ No full table scans on tables > 10,000 rows
+- ✅ Batch inserts for > 100 records
+- ✅ Connection pooling for concurrent requests
+
+### Scalability Considerations
+
+**Before implementing a feature, consider**:
+
+1. **Data Volume**:
+   - Will this work with 10 records? 100? 1,000? 10,000?
+   - What happens with 8,000 securities?
+   - What happens with 2 years of daily data per security?
+
+2. **Concurrent Users**:
+   - Can this handle multiple users simultaneously?
+   - Are there race conditions?
+   - Is caching needed?
+
+3. **API Rate Limits**:
+   - External API rate limits
+   - Retry logic and exponential backoff
+   - Fallback data sources
+
+4. **Memory Usage**:
+   - Loading 8,000 securities into memory?
+   - Streaming/pagination needed?
+   - Garbage collection considerations?
+
+### Code Quality Checklist
+
+**Before proposing code, verify**:
+
+- [ ] Component/module is < size limit
+- [ ] No code duplication
+- [ ] Functions have single responsibility
+- [ ] Proper error handling
+- [ ] Performance requirements met
+- [ ] Scalability considered
+- [ ] Tests included
+- [ ] Documentation/comments for complex logic
+
+### Architecture Review Triggers
+
+**Propose architecture review when**:
+- Adding a major new feature (new phase)
+- File size limits repeatedly exceeded
+- Performance issues detected
+- Scalability concerns arise
+- Technical debt accumulates
+
+**Architecture Review Process**:
+1. **Document current pain points**
+2. **Propose architectural changes**
+3. **Estimate refactoring effort**
+4. **Get user approval**
+5. **Create refactoring plan**
+6. **Execute incrementally**
+
 ## Reminder
 
 **This document serves as a permanent reminder. These rules must be followed EVERY TIME, without exception. If you find yourself checking [x] after creating code, STOP and follow the workflow above.**
