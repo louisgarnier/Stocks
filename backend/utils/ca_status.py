@@ -33,7 +33,7 @@ def set_ca_status(symbols: List[str], status: str, conn: Optional[sqlite3.Connec
     
     try:
         cursor = conn.cursor()
-        now = datetime.now().isoformat()
+        now = datetime.now().astimezone().isoformat()
         
         for symbol in symbols:
             # Check if status exists

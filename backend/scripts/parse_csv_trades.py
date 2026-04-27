@@ -334,7 +334,7 @@ def insert_trades(trades: List[Dict]) -> Dict:
                 trade["proceeds"],
                 trade["comm_fee"],
                 trade["basis"],
-                datetime.now().isoformat()
+                datetime.now().astimezone().isoformat()
             ))
             inserted += 1
             inserted_symbols.add(trade["symbol"])

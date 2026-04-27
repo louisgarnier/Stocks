@@ -307,7 +307,7 @@ def save_positions_ibkr(positions: list[dict]) -> dict:
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    now = datetime.now().isoformat()
+    now = datetime.now().astimezone().isoformat()
     
     # Clear existing positions
     cursor.execute("DELETE FROM positions_ibkr")
@@ -657,7 +657,7 @@ def insert_flex_trades(trades: list[dict], source_file: str) -> dict:
                     trade["proceeds"],
                     trade["comm_fee"],
                     trade.get("basis", 0),
-                    datetime.now().isoformat()
+                    datetime.now().astimezone().isoformat()
                 ))
                 inserted += 1
                 inserted_in_group += 1
