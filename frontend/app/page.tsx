@@ -147,10 +147,12 @@ interface PositionsResponse {
   };
 }
 
-type TabType = 'load' | 'transactions' | 'updated-transactions' | 'adjusted-transactions' | 'corporate-actions' | 'positions';
+type TabType = 'positions' | 'transactions' | 'configuration';
+type TransactionsSubTab = 'original' | 'split-adjusted' | 'corporate-actions';
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>('load');
+  const [activeTab, setActiveTab] = useState<TabType>('positions');
+  const [transactionsSubTab, setTransactionsSubTab] = useState<TransactionsSubTab>('original');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [transactions, setTransactions] = useState<TransactionsResponse | null>(null);
   const [securities, setSecurities] = useState<SecuritiesResponse | null>(null);
@@ -184,6 +186,16 @@ export default function Dashboard() {
   const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl'>('position_value');
   const [positionsSortOrder, setPositionsSortOrder] = useState<'asc' | 'desc'>('desc');
   const [positionsSymbolFilter, setPositionsSymbolFilter] = useState<string>('');
+
+  type SyncStepStatus = 'pending' | 'ok' | 'error';
+  type SyncStepName = 'positions' | 'transactions' | 'corporate_actions' | 'splits';
+  const STEP_LABELS: Record<SyncStepName, string> = {
+    positions: '📊 Positions',
+    transactions: '📋 Transactions',
+    corporate_actions: '📑 Corporate Actions',
+    splits: '✂️ Splits',
+  };
+  const [syncSteps, setSyncSteps] = useState<{ name: SyncStepName; status: SyncStepStatus }[] | null>(null);
 
   const fetchHealth = async () => {
     try {
@@ -589,14 +601,14 @@ export default function Dashboard() {
           fetchImportLogs(),
           fetchSecurities(),
           fetchCAStatus(),
-          activeTab === 'corporate-actions' ? fetchCorporateActions() : Promise.resolve()
+          (activeTab === 'transactions' && transactionsSubTab === 'corporate-actions') ? fetchCorporateActions() : Promise.resolve()
         ]);
         // Force a second refresh after a short delay to ensure data is synced
         setTimeout(() => {
           fetchHealth();
           fetchSecurities();
           fetchCAStatus();
-          if (activeTab === 'corporate-actions') {
+          if (activeTab === 'transactions' && transactionsSubTab === 'corporate-actions') {
             fetchCorporateActions();
           }
         }, 500);
@@ -738,6 +750,12 @@ export default function Dashboard() {
   const handleFlexImport = async () => {
     setFlexLoading(true);
     setShowFlexDropdown(false);
+    setSyncSteps([
+      { name: 'positions', status: 'pending' },
+      { name: 'transactions', status: 'pending' },
+      { name: 'corporate_actions', status: 'pending' },
+      { name: 'splits', status: 'pending' },
+    ]);
 
     try {
       const response = await fetch('/api/proxy/api/sync/full', { method: 'POST' });
@@ -755,6 +773,11 @@ export default function Dashboard() {
           skipped: 0,
           errors: result.success ? 0 : 1,
         });
+        setSyncSteps((result.steps || []).map((s: { name: string; status: string }) => ({
+          name: s.name as SyncStepName,
+          status: (s.status === 'ok' ? 'ok' : 'error') as SyncStepStatus,
+        })));
+        setTimeout(() => setSyncSteps(null), 5000);
         await Promise.all([
           fetchHealth(),
           fetchImportLogs(),
@@ -774,6 +797,13 @@ export default function Dashboard() {
           errors: 1,
           error_details: [error.detail || 'Unknown error']
         });
+        setSyncSteps([
+          { name: 'positions', status: 'error' },
+          { name: 'transactions', status: 'error' },
+          { name: 'corporate_actions', status: 'error' },
+          { name: 'splits', status: 'error' },
+        ]);
+        setTimeout(() => setSyncSteps(null), 5000);
         await fetchImportLogs();
       }
     } catch (err) {
@@ -787,6 +817,13 @@ export default function Dashboard() {
         errors: 1,
         error_details: [err instanceof Error ? err.message : 'Unknown error']
       });
+      setSyncSteps([
+        { name: 'positions', status: 'error' },
+        { name: 'transactions', status: 'error' },
+        { name: 'corporate_actions', status: 'error' },
+        { name: 'splits', status: 'error' },
+      ]);
+      setTimeout(() => setSyncSteps(null), 5000);
       await fetchImportLogs();
     } finally {
       setFlexLoading(false);
@@ -857,8 +894,9 @@ export default function Dashboard() {
     fetchHealth();
     fetchImportLogs();
     fetchCAStatus();
+    fetchPositions();
     if (activeTab === 'transactions') {
-    fetchTransactions();
+      fetchTransactions();
     }
     // Refresh health every 5 seconds to keep stats updated
     const interval = setInterval(() => {
@@ -866,7 +904,7 @@ export default function Dashboard() {
     }, 5000);
     return () => clearInterval(interval);
   }, [activeTab]);
-  
+
   // Fetch transactions when switching to transactions tab
   useEffect(() => {
     if (activeTab === 'transactions') {
@@ -876,6 +914,26 @@ export default function Dashboard() {
   }, [activeTab]);
 
   const isConnected = health?.database === 'connected';
+
+  const getStalenessBadge = (): { text: string; bg: string; fg: string } | null => {
+    const ts = positions?.summary?.last_updated;
+    if (!ts) return null;
+    const ageMs = Date.now() - new Date(ts).getTime();
+    const ageHours = ageMs / 3_600_000;
+    let text: string;
+    if (ageHours < 1) {
+      const mins = Math.max(1, Math.round(ageMs / 60_000));
+      text = `Last sync: ${mins}m ago`;
+    } else if (ageHours < 24) {
+      text = `Last sync: ${Math.round(ageHours)}h ago`;
+    } else {
+      const days = Math.round(ageHours / 24);
+      text = `Last sync: ${days}d ago`;
+    }
+    if (ageHours < 6) return { text, bg: '#dcfce7', fg: '#166534' };
+    if (ageHours < 24) return { text, bg: '#fef9c3', fg: '#854d0e' };
+    return { text, bg: '#fef2f2', fg: '#dc2626' };
+  };
 
   if (loading) {
     return (
@@ -925,6 +983,14 @@ export default function Dashboard() {
             >
               {flexLoading ? '⏳ Syncing…' : '🔄 Sync IBKR'}
             </button>
+            {(() => {
+              const badge = getStalenessBadge();
+              return badge ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: '9999px', fontSize: '13px', fontWeight: '500', backgroundColor: badge.bg, color: badge.fg }}>
+                  {badge.text}
+                </span>
+              ) : null;
+            })()}
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: '9999px', fontSize: '14px', fontWeight: '500', backgroundColor: isConnected ? '#dcfce7' : '#fef2f2', color: isConnected ? '#166534' : '#dc2626' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', marginRight: '8px', backgroundColor: isConnected ? '#22c55e' : '#ef4444' }} />
               {isConnected ? 'Connecté' : 'Déconnecté'}
@@ -933,45 +999,79 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '0', marginBottom: '0', borderBottom: '1px solid #e5e7eb' }}>
-          {(['load', 'transactions', 'updated-transactions', 'corporate-actions', 'positions'] as TabType[]).map((tab) => (
-            <button key={tab} onClick={() => {
-              console.log(`🔄 Tab clicked: ${tab}`);
-              setActiveTab(tab);
-              if (tab === 'transactions') {
-                console.log('📡 Fetching transactions on tab click...');
-                fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter);
-              }
-              if (tab === 'updated-transactions') {
-                console.log('📡 Fetching updated transactions on tab click...');
-                fetchUpdatedTransactions();
-              }
-              if (tab === 'corporate-actions') {
-                console.log('📡 Fetching securities and corporate actions on tab click...');
-                fetchSecurities();
-                fetchCorporateActions();
-              }
-              if (tab === 'positions') {
-                console.log('📡 Fetching positions on tab click...');
-                fetchPositions();
-              }
-            }} style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === tab ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tab ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}>
-              {tab === 'load' && '📥 Load Trades'}
-              {tab === 'transactions' && '📄 Transactions'}
-              {tab === 'updated-transactions' && '🔄 Updated Transactions'}
-              {tab === 'corporate-actions' && '🏢 Corporate Actions'}
-              {tab === 'positions' && '📊 Positions'}
-            </button>
-          ))}
+      {syncSteps && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '12px 20px', display: 'flex', gap: '12px' }}>
+          {syncSteps.map((step) => {
+            const icon = step.status === 'pending' ? '⏳' : step.status === 'ok' ? '✅' : '❌';
+            const bg = step.status === 'pending' ? '#f3f4f6' : step.status === 'ok' ? '#dcfce7' : '#fef2f2';
+            const fg = step.status === 'pending' ? '#6b7280' : step.status === 'ok' ? '#166534' : '#dc2626';
+            return (
+              <div key={step.name} style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', backgroundColor: bg, color: fg, fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{icon}</span>
+                <span>{STEP_LABELS[step.name]}</span>
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
+        {/* Top-level Tabs */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '0', borderBottom: '1px solid #e5e7eb' }}>
+          <button
+            onClick={() => { setActiveTab('positions'); fetchPositions(); }}
+            style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'positions' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'positions' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+          >
+            📊 Positions
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('transactions');
+              if (transactionsSubTab === 'original') fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter);
+              else if (transactionsSubTab === 'split-adjusted') fetchUpdatedTransactions();
+              else if (transactionsSubTab === 'corporate-actions') { fetchSecurities(); fetchCorporateActions(); }
+            }}
+            style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'transactions' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'transactions' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+          >
+            📋 Transactions
+          </button>
+          <button
+            onClick={() => setActiveTab('configuration')}
+            style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'configuration' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'configuration' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+          >
+            ⚙️ Configuration
+          </button>
+        </div>
+
+        {/* Sub-tabs for Transactions */}
+        {activeTab === 'transactions' && (
+          <div style={{ display: 'flex', gap: '0', marginBottom: '0', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+            <button
+              onClick={() => { setTransactionsSubTab('original'); fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter); }}
+              style={{ padding: '8px 20px', fontSize: '13px', fontWeight: '500', border: 'none', borderBottom: transactionsSubTab === 'original' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: transactionsSubTab === 'original' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+            >
+              Original
+            </button>
+            <button
+              onClick={() => { setTransactionsSubTab('split-adjusted'); fetchUpdatedTransactions(); }}
+              style={{ padding: '8px 20px', fontSize: '13px', fontWeight: '500', border: 'none', borderBottom: transactionsSubTab === 'split-adjusted' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: transactionsSubTab === 'split-adjusted' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+            >
+              Split-Adjusted
+            </button>
+            <button
+              onClick={() => { setTransactionsSubTab('corporate-actions'); fetchSecurities(); fetchCorporateActions(); }}
+              style={{ padding: '8px 20px', fontSize: '13px', fontWeight: '500', border: 'none', borderBottom: transactionsSubTab === 'corporate-actions' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: transactionsSubTab === 'corporate-actions' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+            >
+              Corporate Actions
+            </button>
+          </div>
+        )}
 
         {/* Tab Content */}
         <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           
-          {/* Tab 1: Load Trades */}
-          {activeTab === 'load' && (
+          {/* Tab 1: Configuration (formerly Load Trades) */}
+          {activeTab === 'configuration' && (
             <div style={{ padding: '48px 24px' }}>
               {/* Database Stats Panel */}
               {health && (
@@ -989,8 +1089,8 @@ export default function Dashboard() {
               
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📥</div>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Load Trades</h2>
-                <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>Upload a CSV file to import transactions</p>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Configuration</h2>
+                <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>Upload a CSV file or sync from IBKR</p>
                 
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center' }}>
                   {/* CSV Upload Button */}
@@ -1253,8 +1353,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Tab 2: Transactions */}
-          {activeTab === 'transactions' && (
+          {/* Tab 2: Transactions - Original */}
+          {activeTab === 'transactions' && transactionsSubTab === 'original' && (
             <div>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -1425,8 +1525,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Tab 3: Updated Transactions */}
-          {activeTab === 'updated-transactions' && (
+          {/* Tab 3: Transactions - Split-Adjusted */}
+          {activeTab === 'transactions' && transactionsSubTab === 'split-adjusted' && (
             <div>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -1618,8 +1718,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Tab 4: Corporate Actions */}
-          {activeTab === 'corporate-actions' && (
+          {/* Tab 4: Transactions - Corporate Actions */}
+          {activeTab === 'transactions' && transactionsSubTab === 'corporate-actions' && (
             <div style={{ padding: '24px' }}>
               {/* Securities Summary Card */}
               <div style={{ 
