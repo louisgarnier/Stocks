@@ -127,6 +127,23 @@ def test_sync_transactions_writes_only_transactions_table(temp_db, stub_flex_htt
     assert ca_status is not None and ca_status[0] == "orange"
 
 
+def test_sync_transactions_writes_import_log(temp_db, stub_flex_http, monkeypatch):
+    """Each transactions sync should append a row to import_logs so the UI history shows it."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    resp = client.post("/api/sync/transactions")
+    assert resp.status_code == 200, resp.text
+
+    conn = sqlite3.connect(str(temp_db))
+    rows = conn.execute(
+        "SELECT filename, inserted, status FROM import_logs ORDER BY id DESC LIMIT 1"
+    ).fetchall()
+    conn.close()
+    assert rows and rows[0][0] == "api_sync_transactions"
+    assert rows[0][2] == "success"
+
+
 def test_sync_corporate_actions_returns_success(temp_db, monkeypatch):
     """POST /api/sync/corporate-actions wraps the existing CA refresh logic."""
     import backend.scripts.fetch_corporate_actions as ca

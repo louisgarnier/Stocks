@@ -6,6 +6,7 @@ transactions steps to avoid double-fetching.
 """
 from fastapi import APIRouter, HTTPException
 from backend.api.utils.logger import logger
+from backend.database.connection import get_db_connection
 from backend.scripts.fetch_flex_trades import (
     fetch_flex_response,
     parse_positions_from_xml,
@@ -44,6 +45,7 @@ async def sync_transactions():
         trades = parse_trades_from_xml(xml)
         result = insert_flex_trades(trades, source_file="api_sync_transactions")
         _flag_orange(result.get("inserted_symbols", []))
+        _log_import("api_sync_transactions", result)
         return {
             "success": True,
             "fetched": result.get("fetched", len(trades)),
@@ -141,6 +143,7 @@ def _step_positions(xml: str) -> dict:
 def _step_transactions(xml: str) -> dict:
     result = insert_flex_trades(parse_trades_from_xml(xml), source_file="api_sync_full")
     _flag_orange(result.get("inserted_symbols", []))
+    _log_import("api_sync_full", result)
     return result
 
 
@@ -162,3 +165,27 @@ def _flag_orange(symbols: list) -> None:
         set_ca_status(symbols, "orange")
     except Exception as e:
         logger.warning(f"⚠️  CA status update failed: {e}")
+
+
+def _log_import(source_file: str, result: dict) -> None:
+    """Append a row to import_logs so the Load tab's history surfaces this sync."""
+    errors = result.get("errors", 0) or 0
+    status = "success" if errors == 0 else "partial"
+    try:
+        conn = get_db_connection()
+        conn.execute(
+            "INSERT INTO import_logs (filename, parsed, inserted, skipped, errors, status) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                source_file,
+                result.get("fetched", 0) or 0,
+                result.get("inserted", 0) or 0,
+                result.get("skipped", 0) or 0,
+                errors,
+                status,
+            ),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"⚠️  import_logs write failed for {source_file}: {e}")
