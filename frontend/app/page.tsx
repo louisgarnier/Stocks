@@ -735,27 +735,26 @@ export default function Dashboard() {
     }
   };
 
-  const handleFlexImport = async (queryType: 'last_year' | 'last_month') => {
+  const handleFlexImport = async () => {
     setFlexLoading(true);
     setShowFlexDropdown(false);
-    
+
     try {
-      const response = await fetch(`/api/proxy/api/transactions/flex-import?query_type=${queryType}`, {
-        method: 'POST',
-      });
+      const response = await fetch('/api/proxy/api/sync/full', { method: 'POST' });
 
       if (response.ok) {
         const result = await response.json();
-        const positionsMsg = result.positions_imported ? ` | ${result.positions_imported} positions imported` : '';
+        const stepSummary = (result.steps || [])
+          .map((s: { name: string; status: string }) => `${s.status === 'ok' ? '✅' : '❌'} ${s.name}`)
+          .join(' · ');
         setUploadResult({
-          success: true,
-          message: (result.message || '') + positionsMsg,
-          parsed: result.fetched,
-          inserted: result.inserted,
-          skipped: result.skipped,
-          errors: result.errors,
+          success: result.success,
+          message: stepSummary || 'Sync complete',
+          parsed: 0,
+          inserted: 0,
+          skipped: 0,
+          errors: result.success ? 0 : 1,
         });
-        // Refresh all data including positions
         await Promise.all([
           fetchHealth(),
           fetchImportLogs(),
@@ -765,10 +764,10 @@ export default function Dashboard() {
         await fetchPositions();
         setTimeout(() => fetchHealth(), 500);
       } else {
-        const error = await response.json().catch(() => ({ detail: 'Flex import failed' }));
+        const error = await response.json().catch(() => ({ detail: 'Sync failed' }));
         setUploadResult({
           success: false,
-          message: error.detail || 'Flex import failed',
+          message: error.detail || 'Sync failed',
           parsed: 0,
           inserted: 0,
           skipped: 0,
@@ -778,10 +777,10 @@ export default function Dashboard() {
         await fetchImportLogs();
       }
     } catch (err) {
-      console.error('Flex import error:', err);
+      console.error('Sync error:', err);
       setUploadResult({
         success: false,
-        message: `Flex import error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        message: `Sync error: ${err instanceof Error ? err.message : 'Unknown error'}`,
         parsed: 0,
         inserted: 0,
         skipped: 0,
@@ -907,7 +906,7 @@ export default function Dashboard() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>IBKR Portfolio Tracker</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
-              onClick={() => handleFlexImport('last_month')}
+              onClick={() => handleFlexImport()}
               disabled={flexLoading}
               title="Test API connection, fetch latest IBKR holdings and transactions"
               style={{
@@ -1060,7 +1059,7 @@ export default function Dashboard() {
                         minWidth: '160px',
                       }}>
                         <button
-                          onClick={() => handleFlexImport('last_year')}
+                          onClick={() => handleFlexImport()}
                           style={{
                             display: 'block',
                             width: '100%',
@@ -1078,7 +1077,7 @@ export default function Dashboard() {
                           📅 Last Year
                         </button>
                         <button
-                          onClick={() => handleFlexImport('last_month')}
+                          onClick={() => handleFlexImport()}
                           style={{
                             display: 'block',
                             width: '100%',
