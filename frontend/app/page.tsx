@@ -183,6 +183,11 @@ export default function Dashboard() {
   const [updatedTransactions, setUpdatedTransactions] = useState<UpdatedTransactionsResponse | null>(null);
   const [updatedTxPage, setUpdatedTxPage] = useState(1);
   const [updatedTxSymbolFilter, setUpdatedTxSymbolFilter] = useState<string>('');
+  const [updatedTxDateFrom, setUpdatedTxDateFrom] = useState<string>('');
+  const [updatedTxDateTo, setUpdatedTxDateTo] = useState<string>('');
+  const [updatedTxCaType, setUpdatedTxCaType] = useState<string>('');
+  const [caDateFrom, setCaDateFrom] = useState<string>('');
+  const [caDateTo, setCaDateTo] = useState<string>('');
   const [selectedUpdatedTx, setSelectedUpdatedTx] = useState<Set<number>>(new Set());
   const [positions, setPositions] = useState<PositionsResponse | null>(null);
   const [positionsLoading, setPositionsLoading] = useState(false);
@@ -241,11 +246,18 @@ export default function Dashboard() {
     }
   };
 
-  const fetchCorporateActions = async (typeFilter: string = caTypeFilter, symbolFilter: string = caSymbolFilter) => {
+  const fetchCorporateActions = async (
+    typeFilter: string = caTypeFilter,
+    symbolFilter: string = caSymbolFilter,
+    dateFrom: string = caDateFrom,
+    dateTo: string = caDateTo,
+  ) => {
     try {
       let url = '/api/proxy/api/corporate-actions?limit=500&sort_by=ex_date&sort_order=desc';
       if (typeFilter) url += `&ca_type=${typeFilter}`;
-      if (symbolFilter) url += `&symbol=${symbolFilter}`;
+      if (symbolFilter) url += `&symbol=${encodeURIComponent(symbolFilter)}`;
+      if (dateFrom) url += `&date_from=${dateFrom}`;
+      if (dateTo) url += `&date_to=${dateTo}`;
       
       const response = await fetch(url);
       if (response.ok) {
@@ -414,11 +426,20 @@ export default function Dashboard() {
     }
   };
 
-  const fetchUpdatedTransactions = async (page: number = 1, symbol: string = updatedTxSymbolFilter) => {
+  const fetchUpdatedTransactions = async (
+    page: number = 1,
+    symbol: string = updatedTxSymbolFilter,
+    dateFrom: string = updatedTxDateFrom,
+    dateTo: string = updatedTxDateTo,
+    caType: string = updatedTxCaType,
+  ) => {
     try {
       let url = `/api/proxy/api/updated-transactions?page=${page}&limit=${pageSize}&sort_by=trade_date&sort_order=desc`;
-      if (symbol) url += `&symbol=${symbol}`;
-      
+      if (symbol) url += `&symbol=${encodeURIComponent(symbol)}`;
+      if (dateFrom) url += `&date_from=${dateFrom}`;
+      if (dateTo) url += `&date_to=${dateTo}`;
+      if (caType) url += `&ca_type=${caType}`;
+
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -479,7 +500,34 @@ export default function Dashboard() {
   const handleUpdatedTxSymbolFilter = (symbol: string) => {
     setUpdatedTxSymbolFilter(symbol);
     setUpdatedTxPage(1);
-    fetchUpdatedTransactions(1, symbol);
+    fetchUpdatedTransactions(1, symbol, updatedTxDateFrom, updatedTxDateTo, updatedTxCaType);
+  };
+
+  const handleUpdatedTxDateFrom = (value: string) => {
+    setUpdatedTxDateFrom(value);
+    setUpdatedTxPage(1);
+    fetchUpdatedTransactions(1, updatedTxSymbolFilter, value, updatedTxDateTo, updatedTxCaType);
+  };
+
+  const handleUpdatedTxDateTo = (value: string) => {
+    setUpdatedTxDateTo(value);
+    setUpdatedTxPage(1);
+    fetchUpdatedTransactions(1, updatedTxSymbolFilter, updatedTxDateFrom, value, updatedTxCaType);
+  };
+
+  const handleUpdatedTxCaType = (value: string) => {
+    setUpdatedTxCaType(value);
+    setUpdatedTxPage(1);
+    fetchUpdatedTransactions(1, updatedTxSymbolFilter, updatedTxDateFrom, updatedTxDateTo, value);
+  };
+
+  const handleClearUpdatedTxFilters = () => {
+    setUpdatedTxSymbolFilter('');
+    setUpdatedTxDateFrom('');
+    setUpdatedTxDateTo('');
+    setUpdatedTxCaType('');
+    setUpdatedTxPage(1);
+    fetchUpdatedTransactions(1, '', '', '', '');
   };
 
   const handleToggleUpdatedTx = (id: number) => {
@@ -1583,25 +1631,14 @@ export default function Dashboard() {
             <div>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Updated Transactions</h2>
-                  {updatedTransactions && <span style={{ fontSize: '14px', color: '#6b7280' }}>{updatedTransactions.total} updated transactions</span>}
-                  {updatedTxSymbolFilter && (
+                  <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Split-Adjusted Transactions</h2>
+                  {updatedTransactions && <span style={{ fontSize: '14px', color: '#6b7280' }}>{updatedTransactions.total} rows</span>}
+                  {(updatedTxSymbolFilter || updatedTxDateFrom || updatedTxDateTo || updatedTxCaType) && (
                     <button
-                      onClick={() => handleUpdatedTxSymbolFilter('')}
-                      style={{
-                        padding: '4px 12px',
-                        backgroundColor: '#fef3c7',
-                        border: '1px solid #fcd34d',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        color: '#92400e',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      onClick={handleClearUpdatedTxFilters}
+                      style={{ padding: '4px 12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '4px', fontSize: '12px', color: '#92400e', cursor: 'pointer' }}
                     >
-                      Filter: {updatedTxSymbolFilter} ✕
+                      Clear filters ✕
                     </button>
                   )}
                   {selectedUpdatedTx.size > 0 && (
@@ -1663,6 +1700,50 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
+              {/* Filter toolbar — always visible */}
+              <div style={{ padding: '12px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Symbol</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. NVDA"
+                    value={updatedTxSymbolFilter}
+                    onChange={(e) => handleUpdatedTxSymbolFilter(e.target.value.toUpperCase())}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px', width: '140px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date from</label>
+                  <input
+                    type="date"
+                    value={updatedTxDateFrom}
+                    onChange={(e) => handleUpdatedTxDateFrom(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date to</label>
+                  <input
+                    type="date"
+                    value={updatedTxDateTo}
+                    onChange={(e) => handleUpdatedTxDateTo(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>CA Type</label>
+                  <select
+                    value={updatedTxCaType}
+                    onChange={(e) => handleUpdatedTxCaType(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white' }}
+                  >
+                    <option value="">All</option>
+                    <option value="split">Split</option>
+                    <option value="dividend">Dividend</option>
+                    <option value="capital_gain">Capital Gain</option>
+                  </select>
+                </div>
+              </div>
               {updatedTransactions && updatedTransactions.data.length > 0 ? (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1684,34 +1765,6 @@ export default function Dashboard() {
                         <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Updated Price</th>
                         <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Split Ratio</th>
                         <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>CA Type</th>
-                      </tr>
-                      <tr style={{ backgroundColor: '#f3f4f6' }}>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px', display: 'flex', gap: '4px' }}>
-                          <input 
-                            type="text" 
-                            placeholder="Filter..." 
-                            value={updatedTxSymbolFilter} 
-                            onChange={(e) => handleUpdatedTxSymbolFilter(e.target.value.toUpperCase())} 
-                            style={{ flex: 1, padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '12px' }} 
-                          />
-                          {updatedTxSymbolFilter && (
-                            <button 
-                              onClick={() => handleUpdatedTxSymbolFilter('')} 
-                              style={{ padding: '4px 8px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }} 
-                              title="Reset filter"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1957,43 +2010,76 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Filters */}
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                  <select
-                    value={caTypeFilter}
-                    onChange={(e) => {
-                      setCaTypeFilter(e.target.value);
-                      fetchCorporateActions(e.target.value, caSymbolFilter);
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      backgroundColor: 'white'
-                    }}
-                  >
-                    <option value="">Tous les types</option>
-                    <option value="dividend">Dividendes</option>
-                    <option value="split">Splits</option>
-                    <option value="capital_gain">Capital Gains</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Filtrer par symbol..."
-                    value={caSymbolFilter}
-                    onChange={(e) => {
-                      setCaSymbolFilter(e.target.value.toUpperCase());
-                      fetchCorporateActions(caTypeFilter, e.target.value.toUpperCase());
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      width: '150px'
-                    }}
-                  />
+                {/* Filter toolbar — always visible */}
+                <div style={{ padding: '12px 16px', marginBottom: '16px', borderRadius: '6px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Symbol</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. NVDA"
+                      value={caSymbolFilter}
+                      onChange={(e) => {
+                        const v = e.target.value.toUpperCase();
+                        setCaSymbolFilter(v);
+                        fetchCorporateActions(caTypeFilter, v, caDateFrom, caDateTo);
+                      }}
+                      style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px', width: '140px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date from</label>
+                    <input
+                      type="date"
+                      value={caDateFrom}
+                      onChange={(e) => {
+                        setCaDateFrom(e.target.value);
+                        fetchCorporateActions(caTypeFilter, caSymbolFilter, e.target.value, caDateTo);
+                      }}
+                      style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date to</label>
+                    <input
+                      type="date"
+                      value={caDateTo}
+                      onChange={(e) => {
+                        setCaDateTo(e.target.value);
+                        fetchCorporateActions(caTypeFilter, caSymbolFilter, caDateFrom, e.target.value);
+                      }}
+                      style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Type</label>
+                    <select
+                      value={caTypeFilter}
+                      onChange={(e) => {
+                        setCaTypeFilter(e.target.value);
+                        fetchCorporateActions(e.target.value, caSymbolFilter, caDateFrom, caDateTo);
+                      }}
+                      style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white' }}
+                    >
+                      <option value="">All</option>
+                      <option value="dividend">Dividend</option>
+                      <option value="split">Split</option>
+                      <option value="capital_gain">Capital Gain</option>
+                    </select>
+                  </div>
+                  {(caSymbolFilter || caTypeFilter || caDateFrom || caDateTo) && (
+                    <button
+                      onClick={() => {
+                        setCaSymbolFilter('');
+                        setCaTypeFilter('');
+                        setCaDateFrom('');
+                        setCaDateTo('');
+                        fetchCorporateActions('', '', '', '');
+                      }}
+                      style={{ padding: '6px 12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '4px', fontSize: '12px', color: '#92400e', cursor: 'pointer', alignSelf: 'flex-end' }}
+                    >
+                      Clear filters ✕
+                    </button>
+                  )}
                 </div>
 
                 {/* Corporate Actions Table */}

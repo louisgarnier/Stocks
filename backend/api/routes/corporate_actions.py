@@ -26,6 +26,8 @@ async def list_corporate_actions(
     limit: int = Query(50, ge=1, le=500),
     ca_type: Optional[str] = None,
     symbol: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     sort_by: str = Query("ex_date", regex="^(ex_date|sec_id|ca_type|amount)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$")
 ):
@@ -34,19 +36,23 @@ async def list_corporate_actions(
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Build WHERE clause
+
     where_clauses = []
     params = []
-    
+
     if ca_type:
         where_clauses.append("ca_type = ?")
         params.append(ca_type)
-    
     if symbol:
         where_clauses.append("sec_id LIKE ?")
         params.append(f"{symbol.upper()}%")
-    
+    if date_from:
+        where_clauses.append("ex_date >= ?")
+        params.append(date_from)
+    if date_to:
+        where_clauses.append("ex_date <= ?")
+        params.append(date_to)
+
     where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
     # Get total count

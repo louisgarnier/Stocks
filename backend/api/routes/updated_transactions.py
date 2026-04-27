@@ -32,6 +32,9 @@ async def get_updated_transactions(
     page: int = Query(1, ge=1),
     limit: int = Query(25, ge=1, le=100),
     symbol: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    ca_type: Optional[str] = None,
     sort_by: str = Query("trade_date", regex="^(trade_date|symbol|updated_quantity|split_ratio)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$")
 ):
@@ -56,13 +59,22 @@ async def get_updated_transactions(
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Build WHERE clause
-        where_clause = ""
+        where_clauses = []
         params = []
         if symbol:
-            where_clause = "WHERE symbol = ?"
-            params.append(symbol)
-        
+            where_clauses.append("symbol LIKE ?")
+            params.append(f"{symbol.upper()}%")
+        if date_from:
+            where_clauses.append("trade_date >= ?")
+            params.append(date_from)
+        if date_to:
+            where_clauses.append("trade_date <= ?")
+            params.append(date_to)
+        if ca_type:
+            where_clauses.append("ca_type = ?")
+            params.append(ca_type)
+        where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
         # Get total count
         count_query = f"SELECT COUNT(*) FROM updated_transactions {where_clause}"
         cursor.execute(count_query, params)
