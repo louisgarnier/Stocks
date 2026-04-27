@@ -7,6 +7,7 @@ Handles loading and listing transactions.
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from typing import Optional, List
 import sys
+from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -181,9 +182,9 @@ async def upload_transactions(file: UploadFile = File(...)):
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO import_logs (filename, parsed, inserted, skipped, errors, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (file.filename, 0, 0, 0, 0, "empty"))
+                INSERT INTO import_logs (filename, import_date, parsed, inserted, skipped, errors, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (file.filename, datetime.now().astimezone().isoformat(), 0, 0, 0, 0, "empty"))
             conn.commit()
             conn.close()
             
@@ -215,10 +216,11 @@ async def upload_transactions(file: UploadFile = File(...)):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO import_logs (filename, parsed, inserted, skipped, errors, status)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO import_logs (filename, import_date, parsed, inserted, skipped, errors, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             file.filename,
+            datetime.now().astimezone().isoformat(),
             len(trades),
             result["inserted"],
             result["skipped"],
@@ -250,9 +252,9 @@ async def upload_transactions(file: UploadFile = File(...)):
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO import_logs (filename, parsed, inserted, skipped, errors, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (file.filename, 0, 0, 0, 1, "error"))
+                INSERT INTO import_logs (filename, import_date, parsed, inserted, skipped, errors, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (file.filename, datetime.now().astimezone().isoformat(), 0, 0, 0, 1, "error"))
             conn.commit()
             conn.close()
         except Exception as log_error:

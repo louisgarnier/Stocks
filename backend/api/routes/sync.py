@@ -4,6 +4,7 @@ Each step is an independent endpoint. The /full orchestrator runs all four
 in sequence, sharing a single Flex Query response across the positions and
 transactions steps to avoid double-fetching.
 """
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from backend.api.utils.logger import logger
 from backend.database.connection import get_db_connection
@@ -174,10 +175,11 @@ def _log_import(source_file: str, result: dict) -> None:
     try:
         conn = get_db_connection()
         conn.execute(
-            "INSERT INTO import_logs (filename, parsed, inserted, skipped, errors, status) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO import_logs (filename, import_date, parsed, inserted, skipped, errors, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 source_file,
+                datetime.now().astimezone().isoformat(),
                 result.get("fetched", 0) or 0,
                 result.get("inserted", 0) or 0,
                 result.get("skipped", 0) or 0,
