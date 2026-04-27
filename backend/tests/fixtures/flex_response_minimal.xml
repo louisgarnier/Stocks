@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse queryName="test" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="TEST" fromDate="20260101" toDate="20260131">
+      <Trades>
+        <Trade transactionID="T0001" symbol="TEST" currency="USD" assetCategory="STK"
+               tradeDate="20260115" quantity="10" tradePrice="100.50"
+               proceeds="-1005.00" ibCommission="-1.00" costBasis="1006.00"
+               buySell="BUY"/>
+      </Trades>
+      <OpenPositions>
+        <OpenPosition symbol="TEST" position="10" costBasisMoney="1006.00"
+                      costBasisPrice="100.60" markPrice="105.00"
+                      positionValue="1050.00" fifoPnlUnrealized="44.00"
+                      currency="USD" assetCategory="STK"/>
+      </OpenPositions>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>
