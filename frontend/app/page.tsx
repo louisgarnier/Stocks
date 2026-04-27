@@ -170,6 +170,9 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState('trade_date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [symbolFilter, setSymbolFilter] = useState<string>('');
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
+  const [sideFilter, setSideFilter] = useState<'' | 'buy' | 'sell'>('');
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{success: boolean, message: string, parsed: number, inserted: number, skipped: number, errors: number, error_details?: string[]} | null>(null);
   const [importLogs, setImportLogs] = useState<ImportLogsResponse | null>(null);
@@ -363,10 +366,22 @@ export default function Dashboard() {
     }
   };
 
-  const fetchTransactions = async (page: number = 1, limit: number = pageSize, sort: string = sortBy, order: string = sortOrder, symbol: string = symbolFilter) => {
+  const fetchTransactions = async (
+    page: number = 1,
+    limit: number = pageSize,
+    sort: string = sortBy,
+    order: string = sortOrder,
+    symbol: string = symbolFilter,
+    dateFrom: string = dateFromFilter,
+    dateTo: string = dateToFilter,
+    side: '' | 'buy' | 'sell' = sideFilter,
+  ) => {
     try {
       let url = `/api/proxy/api/transactions?page=${page}&limit=${limit}&sort_by=${sort}&sort_order=${order}`;
-      if (symbol) url += `&symbol=${symbol}`;
+      if (symbol) url += `&symbol=${encodeURIComponent(symbol)}`;
+      if (dateFrom) url += `&date_from=${dateFrom}`;
+      if (dateTo) url += `&date_to=${dateTo}`;
+      if (side) url += `&side=${side}`;
       
       console.log('📡 Fetching transactions:', url);
       const response = await fetch(url);
@@ -576,7 +591,34 @@ export default function Dashboard() {
   const handleSymbolFilter = (symbol: string) => {
     setSymbolFilter(symbol);
     setCurrentPage(1);
-    fetchTransactions(1, pageSize, sortBy, sortOrder, symbol);
+    fetchTransactions(1, pageSize, sortBy, sortOrder, symbol, dateFromFilter, dateToFilter, sideFilter);
+  };
+
+  const handleDateFromFilter = (value: string) => {
+    setDateFromFilter(value);
+    setCurrentPage(1);
+    fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter, value, dateToFilter, sideFilter);
+  };
+
+  const handleDateToFilter = (value: string) => {
+    setDateToFilter(value);
+    setCurrentPage(1);
+    fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter, dateFromFilter, value, sideFilter);
+  };
+
+  const handleSideFilter = (value: '' | 'buy' | 'sell') => {
+    setSideFilter(value);
+    setCurrentPage(1);
+    fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter, dateFromFilter, dateToFilter, value);
+  };
+
+  const handleClearAllFilters = () => {
+    setSymbolFilter('');
+    setDateFromFilter('');
+    setDateToFilter('');
+    setSideFilter('');
+    setCurrentPage(1);
+    fetchTransactions(1, pageSize, sortBy, sortOrder, '', '', '', '');
   };
 
   const handleDeleteAllTransactions = async () => {
@@ -1360,23 +1402,12 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Transactions</h2>
                   {transactions && <span style={{ fontSize: '14px', color: '#6b7280' }}>{transactions.total} transactions</span>}
-                  {symbolFilter && (
+                  {(symbolFilter || dateFromFilter || dateToFilter || sideFilter) && (
                     <button
-                      onClick={() => handleSymbolFilter('')}
-                      style={{
-                        padding: '4px 12px',
-                        backgroundColor: '#fef3c7',
-                        border: '1px solid #fcd34d',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        color: '#92400e',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      onClick={handleClearAllFilters}
+                      style={{ padding: '4px 12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '4px', fontSize: '12px', color: '#92400e', cursor: 'pointer' }}
                     >
-                      Filter: {symbolFilter} ✕
+                      Clear filters ✕
                     </button>
                   )}
                   {selectedTransactions.size > 0 && (
@@ -1422,16 +1453,49 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
-              {(() => {
-                console.log('🔍 Render - transactions state:', {
-                  transactions: transactions,
-                  hasTransactions: !!transactions,
-                  hasData: !!transactions?.data,
-                  dataLength: transactions?.data?.length,
-                  total: transactions?.total
-                });
-                return null;
-              })()}
+              {/* Filter toolbar — always visible */}
+              <div style={{ padding: '12px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Symbol</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. NVDA"
+                    value={symbolFilter}
+                    onChange={(e) => handleSymbolFilter(e.target.value.toUpperCase())}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px', width: '140px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date from</label>
+                  <input
+                    type="date"
+                    value={dateFromFilter}
+                    onChange={(e) => handleDateFromFilter(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date to</label>
+                  <input
+                    type="date"
+                    value={dateToFilter}
+                    onChange={(e) => handleDateToFilter(e.target.value)}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Side</label>
+                  <select
+                    value={sideFilter}
+                    onChange={(e) => handleSideFilter(e.target.value as '' | 'buy' | 'sell')}
+                    style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white' }}
+                  >
+                    <option value="">All</option>
+                    <option value="buy">Buy</option>
+                    <option value="sell">Sell</option>
+                  </select>
+                </div>
+              </div>
               {!transactions?.data?.length ? (
                 <div style={{ padding: '48px 24px', textAlign: 'center' }}>
                   <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
@@ -1467,17 +1531,6 @@ export default function Dashboard() {
                         <th onClick={() => handleSort('t_price')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Prix {sortBy === 't_price' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Proceeds</th>
                         <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Frais</th>
-                      </tr>
-                      <tr style={{ backgroundColor: '#f3f4f6' }}>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px', display: 'flex', gap: '4px' }}><input type="text" placeholder="Filtrer..." value={symbolFilter} onChange={(e) => handleSymbolFilter(e.target.value.toUpperCase())} style={{ flex: 1, padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '12px' }} />{symbolFilter && <button onClick={() => handleSymbolFilter('')} style={{ padding: '4px 8px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }} title="Reset filter">✕</button>}</th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
-                        <th style={{ padding: '8px 16px' }}></th>
                       </tr>
                     </thead>
                     <tbody>

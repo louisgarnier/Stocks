@@ -27,22 +27,34 @@ async def list_transactions(
     limit: int = Query(25, ge=1, le=500),
     sort_by: str = Query("trade_date", regex="^(trade_date|symbol|quantity|t_price)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
-    symbol: Optional[str] = None
+    symbol: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    side: Optional[str] = Query(None, regex="^(buy|sell)$"),
 ):
     """
     List transactions with pagination and filtering.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Build WHERE clause
+
     where_clauses = []
     params = []
-    
+
     if symbol:
         where_clauses.append("symbol LIKE ?")
         params.append(f"{symbol.upper()}%")
-    
+    if date_from:
+        where_clauses.append("trade_date >= ?")
+        params.append(date_from)
+    if date_to:
+        where_clauses.append("trade_date <= ?")
+        params.append(date_to)
+    if side == "buy":
+        where_clauses.append("quantity > 0")
+    elif side == "sell":
+        where_clauses.append("quantity < 0")
+
     where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
     # Get total count
