@@ -784,9 +784,10 @@ export default function Dashboard() {
           fetchHealth(),
           fetchImportLogs(),
           fetchCAStatus(),
-          activeTab === 'transactions' ? fetchTransactions(1, pageSize) : Promise.resolve(),
+          fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter),
           fetch('/api/proxy/api/positions/refresh', { method: 'POST' })
         ]);
+        await fetchPositions();
         setTimeout(() => fetchHealth(), 500);
       } else {
         const error = await response.json().catch(() => ({ detail: 'Flex import failed' }));
@@ -930,10 +931,32 @@ export default function Dashboard() {
       <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px 20px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>IBKR Portfolio Tracker</h1>
-          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: '9999px', fontSize: '14px', fontWeight: '500', backgroundColor: isConnected ? '#dcfce7' : '#fef2f2', color: isConnected ? '#166534' : '#dc2626' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', marginRight: '8px', backgroundColor: isConnected ? '#22c55e' : '#ef4444' }} />
-            {isConnected ? 'Connecté' : 'Déconnecté'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => handleFlexImport('last_month')}
+              disabled={flexLoading}
+              title="Test API connection, fetch latest IBKR holdings and transactions"
+              style={{
+                padding: '8px 16px',
+                backgroundColor: flexLoading ? '#9ca3af' : '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: flexLoading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {flexLoading ? '⏳ Syncing…' : '🔄 Sync IBKR'}
+            </button>
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: '9999px', fontSize: '14px', fontWeight: '500', backgroundColor: isConnected ? '#dcfce7' : '#fef2f2', color: isConnected ? '#166534' : '#dc2626' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', marginRight: '8px', backgroundColor: isConnected ? '#22c55e' : '#ef4444' }} />
+              {isConnected ? 'Connecté' : 'Déconnecté'}
+            </span>
+          </div>
         </div>
       </header>
 
