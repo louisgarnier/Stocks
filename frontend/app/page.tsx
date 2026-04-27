@@ -136,11 +136,6 @@ interface Position {
   currency: string;
   asset_category: string;
   last_updated: string;
-  qty_calculated: number;
-  transaction_count: number;
-  qty_diff: number;
-  qty_diff_pct: number;
-  rec_status: 'match' | 'warning' | 'error';
 }
 
 interface PositionsResponse {
@@ -148,9 +143,6 @@ interface PositionsResponse {
   positions: Position[];
   summary: {
     total_positions: number;
-    matched: number;
-    warnings: number;
-    errors: number;
     last_updated: string | null;
   };
 }
@@ -189,7 +181,7 @@ export default function Dashboard() {
   const [selectedUpdatedTx, setSelectedUpdatedTx] = useState<Set<number>>(new Set());
   const [positions, setPositions] = useState<PositionsResponse | null>(null);
   const [positionsLoading, setPositionsLoading] = useState(false);
-  const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl' | 'rec_status'>('position_value');
+  const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl'>('position_value');
   const [positionsSortOrder, setPositionsSortOrder] = useState<'asc' | 'desc'>('desc');
   const [positionsSymbolFilter, setPositionsSymbolFilter] = useState<string>('');
 
@@ -423,21 +415,7 @@ export default function Dashboard() {
     }
   };
 
-  const refreshPositions = async () => {
-    setPositionsLoading(true);
-    try {
-      const response = await fetch('/api/proxy/api/positions/refresh', { method: 'POST' });
-      if (response.ok) {
-        await fetchPositions();
-      }
-    } catch (err) {
-      console.error('❌ Failed to refresh positions:', err);
-    } finally {
-      setPositionsLoading(false);
-    }
-  };
-
-  const handlePositionsSort = (column: 'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl' | 'rec_status') => {
+  const handlePositionsSort = (column: 'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl') => {
     const newOrder = positionsSortBy === column && positionsSortOrder === 'desc' ? 'asc' : 'desc';
     setPositionsSortBy(column);
     setPositionsSortOrder(newOrder);
@@ -564,8 +542,6 @@ export default function Dashboard() {
         const data = await response.json();
         alert(`✅ ${data.message}`);
         await fetchUpdatedTransactions(1, updatedTxSymbolFilter);
-        // Auto-refresh positions after applying splits
-        await fetch('/api/proxy/api/positions/refresh', { method: 'POST' });
       } else {
         const error = await response.json().catch(() => ({ detail: 'Apply splits failed' }));
         alert(`❌ Error: ${error.detail || 'Failed to apply splits'}`);
@@ -785,7 +761,6 @@ export default function Dashboard() {
           fetchImportLogs(),
           fetchCAStatus(),
           fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter),
-          fetch('/api/proxy/api/positions/refresh', { method: 'POST' })
         ]);
         await fetchPositions();
         setTimeout(() => fetchHealth(), 500);
@@ -842,7 +817,6 @@ export default function Dashboard() {
           fetchImportLogs(),
           fetchCAStatus(),
           activeTab === 'transactions' ? fetchTransactions(1, pageSize) : Promise.resolve(),
-          fetch('/api/proxy/api/positions/refresh', { method: 'POST' })
         ]);
         // Force a second refresh after a short delay to ensure data is synced
         setTimeout(() => {
@@ -1964,45 +1938,14 @@ export default function Dashboard() {
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={refreshPositions}
-                  disabled={positionsLoading}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: positionsLoading ? '#9ca3af' : '#10b981',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: positionsLoading ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {positionsLoading ? '⏳ Calcul...' : '🔄 Recalculate Rec'}
-                </button>
               </div>
 
               {/* Summary Cards */}
               {positions?.summary && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                  <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>Total Positions</p>
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px', minWidth: '180px' }}>
+                    <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>Open Positions</p>
                     <p style={{ fontSize: '24px', fontWeight: '600', color: '#1d4ed8' }}>{positions.summary.total_positions}</p>
-                  </div>
-                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500' }}>✅ Matched</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#15803d' }}>{positions.summary.matched}</p>
-                  </div>
-                  <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#d97706', fontWeight: '500' }}>⚠️ Warnings</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#b45309' }}>{positions.summary.warnings}</p>
-                  </div>
-                  <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: '500' }}>❌ Errors</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#b91c1c' }}>{positions.summary.errors}</p>
                   </div>
                 </div>
               )}
@@ -2036,7 +1979,6 @@ export default function Dashboard() {
                             { key: 'cost_basis_price' as const, label: 'Avg Cost', align: 'right' },
                             { key: 'position_value' as const, label: 'Market Value', align: 'right' },
                             { key: 'unrealized_pnl' as const, label: 'Unrealized P&L', align: 'right' },
-                            { key: 'rec_status' as const, label: 'Qty Rec', align: 'center' },
                           ].map((col) => (
                             <th
                               key={col.key}
@@ -2079,21 +2021,6 @@ export default function Dashboard() {
                             <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: pos.unrealized_pnl >= 0 ? '#16a34a' : '#dc2626' }}>
                               {pos.unrealized_pnl >= 0 ? '+' : ''}{currencySymbol}{(pos.unrealized_pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td style={{ padding: '12px', textAlign: 'center' }}>
-                              {pos.rec_status === 'match' ? (
-                                <span style={{ padding: '2px 8px', backgroundColor: '#f0fdf4', color: '#16a34a', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                  ✅
-                                </span>
-                              ) : pos.rec_status === 'warning' ? (
-                                <span title={`Diff: ${pos.qty_diff} (${pos.qty_diff_pct}%)`} style={{ padding: '2px 8px', backgroundColor: '#fffbeb', color: '#d97706', borderRadius: '4px', fontSize: '11px', fontWeight: '500', cursor: 'help' }}>
-                                  ⚠️ {pos.qty_diff > 0 ? '+' : ''}{pos.qty_diff.toFixed(0)}
-                                </span>
-                              ) : (
-                                <span title={`IBKR: ${pos.quantity}, Calc: ${pos.qty_calculated}, Diff: ${pos.qty_diff} (${pos.qty_diff_pct}%)`} style={{ padding: '2px 8px', backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: '4px', fontSize: '11px', fontWeight: '500', cursor: 'help' }}>
-                                  ❌ {pos.qty_diff > 0 ? '+' : ''}{pos.qty_diff.toFixed(0)}
-                                </span>
-                              )}
-                            </td>
                           </tr>
                           );
                         })}
@@ -2125,7 +2052,6 @@ export default function Dashboard() {
                                   <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: usdPnl >= 0 ? '#16a34a' : '#dc2626' }}>
                                     {usdPnl >= 0 ? '+' : ''}${usdPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
-                                  <td style={{ padding: '12px' }}></td>
                                 </tr>
                               )}
                               {eurPositions.length > 0 && (
@@ -2139,7 +2065,6 @@ export default function Dashboard() {
                                   <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: eurPnl >= 0 ? '#16a34a' : '#dc2626' }}>
                                     {eurPnl >= 0 ? '+' : ''}€{eurPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
-                                  <td style={{ padding: '12px' }}></td>
                                 </tr>
                               )}
                               {otherPositions.length > 0 && (
@@ -2153,7 +2078,6 @@ export default function Dashboard() {
                                   <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: otherPnl >= 0 ? '#16a34a' : '#dc2626' }}>
                                     {otherPnl >= 0 ? '+' : ''}${otherPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
-                                  <td style={{ padding: '12px' }}></td>
                                 </tr>
                               )}
                             </>
@@ -2173,8 +2097,7 @@ export default function Dashboard() {
               {/* Disclaimer */}
               <div style={{ padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                 <p style={{ fontSize: '11px', color: '#9ca3af' }}>
-                  ℹ️ Positions and cost basis are imported directly from IBKR (source of truth). Qty Rec compares IBKR quantity vs quantity calculated from imported transactions.
-                  ❌ = missing transactions.
+                  ℹ️ Positions and cost basis are imported directly from IBKR (source of truth).
                 </p>
               </div>
             </div>
