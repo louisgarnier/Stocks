@@ -7,10 +7,8 @@ Helper functions to manage the status (grey/green/orange) of corporate actions p
 import sqlite3
 from datetime import datetime
 from typing import List, Dict, Optional
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-DB_PATH = PROJECT_ROOT / "output" / "database" / "finance.db"
+from backend.database.connection import get_db_connection
 
 
 def set_ca_status(symbols: List[str], status: str, conn: Optional[sqlite3.Connection] = None) -> None:
@@ -30,7 +28,7 @@ def set_ca_status(symbols: List[str], status: str, conn: Optional[sqlite3.Connec
     
     close_conn = False
     if conn is None:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         close_conn = True
     
     try:
@@ -75,7 +73,7 @@ def get_ca_status(symbol: Optional[str] = None, conn: Optional[sqlite3.Connectio
     """
     close_conn = False
     if conn is None:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         conn.row_factory = sqlite3.Row
         close_conn = True
     
@@ -140,7 +138,7 @@ def delete_ca_status(symbols: List[str], conn: Optional[sqlite3.Connection] = No
     
     close_conn = False
     if conn is None:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         close_conn = True
     
     try:

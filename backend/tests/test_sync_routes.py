@@ -83,3 +83,109 @@ def test_fetch_flex_response_falls_back_to_unified_for_positions(monkeypatch, fl
 
     flex.fetch_flex_response("positions")
     assert used_query_id == ["9999"]
+
+
+def test_sync_positions_writes_only_positions_table(temp_db, stub_flex_http, monkeypatch):
+    """POST /api/sync/positions populates positions_ibkr and leaves transactions empty."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    resp = client.post("/api/sync/positions")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["positions_inserted"] == 1
+
+    conn = sqlite3.connect(str(temp_db))
+    pos_count = conn.execute("SELECT COUNT(*) FROM positions_ibkr").fetchone()[0]
+    tx_count = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+    conn.close()
+    assert pos_count == 1
+    assert tx_count == 0
+
+
+def test_sync_transactions_writes_only_transactions_table(temp_db, stub_flex_http, monkeypatch):
+    """POST /api/sync/transactions populates transactions and leaves positions_ibkr empty."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    resp = client.post("/api/sync/transactions")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["inserted"] >= 1
+
+    conn = sqlite3.connect(str(temp_db))
+    tx_count = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+    pos_count = conn.execute("SELECT COUNT(*) FROM positions_ibkr").fetchone()[0]
+    ca_status = conn.execute(
+        "SELECT status FROM corporate_actions_status WHERE sec_id='TEST'"
+    ).fetchone()
+    conn.close()
+    assert tx_count == 1
+    assert pos_count == 0
+    assert ca_status is not None and ca_status[0] == "orange"
+
+
+def test_sync_corporate_actions_returns_success(temp_db, monkeypatch):
+    """POST /api/sync/corporate-actions wraps the existing CA refresh logic."""
+    import backend.scripts.fetch_corporate_actions as ca
+    monkeypatch.setattr(
+        ca, "fetch_and_import_corporate_actions",
+        lambda incremental=True: {"parsed": 0, "inserted": 0, "skipped": 0, "errors": 0, "updated_transactions": 0},
+    )
+    resp = client.post("/api/sync/corporate-actions")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert "parsed" in body
+
+
+def test_sync_splits_returns_success(temp_db, monkeypatch):
+    """POST /api/sync/splits wraps the existing apply-splits logic."""
+    import backend.scripts.apply_splits as aps
+    monkeypatch.setattr(
+        aps, "apply_all_splits",
+        lambda: {"applied": 0, "skipped": 0, "errors": 0},
+    )
+    resp = client.post("/api/sync/splits")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+
+
+def test_sync_full_runs_all_four_steps(temp_db, stub_flex_http, monkeypatch):
+    """POST /api/sync/full runs positions, transactions, CAs, splits — in that order, with one Flex pull."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    import backend.scripts.fetch_corporate_actions as ca_mod
+    import backend.scripts.apply_splits as aps_mod
+    monkeypatch.setattr(
+        ca_mod, "fetch_and_import_corporate_actions",
+        lambda incremental=True: {"parsed": 0, "inserted": 0, "skipped": 0, "errors": 0, "updated_transactions": 0},
+    )
+    monkeypatch.setattr(
+        aps_mod, "apply_all_splits",
+        lambda: {"applied": 0, "skipped": 0, "errors": 0},
+    )
+
+    # Track Flex HTTP calls to confirm shared pull (one call, not two)
+    call_log = []
+    import backend.scripts.fetch_flex_trades as flex
+    monkeypatch.setattr(flex, "request_flex_query", lambda token, qid: call_log.append(qid) or "REF123")
+
+    resp = client.post("/api/sync/full")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits"]
+    for s in body["steps"]:
+        assert s["status"] == "ok", s
+
+    assert len(call_log) == 1  # single shared Flex call
+
+    conn = sqlite3.connect(str(temp_db))
+    assert conn.execute("SELECT COUNT(*) FROM positions_ibkr").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 1
+    conn.close()
