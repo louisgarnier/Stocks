@@ -137,6 +137,49 @@ def fetch_flex_results(token: str, reference_code: str, max_retries: int = 5) ->
     return None
 
 
+def fetch_flex_response(query_type: str) -> str:
+    """Pull a Flex Query response as XML.
+
+    Resolves env-var query IDs in this priority order:
+      1. dedicated:  IBKR_QUERY_ID_positions   /  IBKR_QUERY_ID_trades_<query_type>
+      2. unified:    IBKR_QUERY_ID_<query_type>
+
+    `query_type` is one of: "positions", "trades_last_year", "trades_last_month",
+    "last_year", "last_month". The "positions" / "trades_*" forms try the
+    dedicated env var first; "last_*" forms go straight to unified.
+
+    Raises RuntimeError on missing token or query ID.
+    """
+    token = os.getenv("IBKR_FLEX_TOKEN")
+    if not token:
+        raise RuntimeError("IBKR_FLEX_TOKEN not set")
+
+    candidates = [f"IBKR_QUERY_ID_{query_type}"]
+    if query_type == "positions":
+        candidates.append("IBKR_QUERY_ID_last_month")
+    elif query_type.startswith("trades_"):
+        candidates.append(f"IBKR_QUERY_ID_{query_type.removeprefix('trades_')}")
+
+    query_id = None
+    for var in candidates:
+        val = os.getenv(var)
+        if val:
+            query_id = val
+            break
+    if not query_id:
+        raise RuntimeError(f"No query ID found (tried: {candidates})")
+
+    ref = request_flex_query(token, query_id)
+    if not ref:
+        raise RuntimeError("Flex query reference request failed")
+
+    time.sleep(1)
+    xml = fetch_flex_results(token, ref)
+    if not xml:
+        raise RuntimeError("Flex query fetch failed")
+    return xml
+
+
 def parse_trades_from_xml(xml_content: str) -> list[dict]:
     """
     Parse trades from Flex Query XML response.
