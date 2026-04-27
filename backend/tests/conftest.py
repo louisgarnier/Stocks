@@ -1,4 +1,5 @@
 """Shared pytest fixtures for backend tests."""
+import shutil
 import tempfile
 from pathlib import Path
 import pytest
@@ -13,13 +14,12 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def temp_db():
     """Create an isolated temp SQLite DB for one test, fully initialized."""
     original_db = db_module.DB_FILE
-    temp_dir = tempfile.mkdtemp()
-    temp_db_path = Path(temp_dir) / "test.db"
+    temp_dir = Path(tempfile.mkdtemp())
+    temp_db_path = temp_dir / "test.db"
     db_module.DB_FILE = temp_db_path
     init_database()
     yield temp_db_path
-    if temp_db_path.exists():
-        temp_db_path.unlink()
+    shutil.rmtree(temp_dir, ignore_errors=True)
     db_module.DB_FILE = original_db
 
 
