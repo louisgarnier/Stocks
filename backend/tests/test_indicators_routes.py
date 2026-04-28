@@ -138,3 +138,39 @@ def test_compute_all_processes_enabled_symbols(temp_db):
 
     assert "ENABLED" in result["symbols_processed"]
     assert "DISABLED" not in result["symbols_processed"]
+
+
+from fastapi.testclient import TestClient
+from backend.api.main import app
+
+client = TestClient(app)
+
+
+def test_get_indicators_returns_latest(temp_db):
+    """GET /api/indicators/{symbol} returns rows newest-first with all 11 indicator cols."""
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO indicators "
+        "(symbol, time, ma_50, ma_100, ma_150, ma_200, "
+        " bb_upper_20, bb_lower_20, bb_width, rsi_14, mrsi, atr_14, volume_ma_20) "
+        "VALUES ('AAPL', '2026-04-27', 150, 145, 140, 135, "
+        " 155, 145, 0.067, 62, 5.2, 2.5, 1500000)"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client.get("/api/indicators/AAPL")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["symbol"] == "AAPL"
+    assert len(body["rows"]) == 1
+    r = body["rows"][0]
+    assert r["ma_50"] == 150
+    assert r["mrsi"] == 5.2
+    assert r["rsi_14"] == 62
+
+
+def test_get_indicators_404_when_no_rows(temp_db):
+    resp = client.get("/api/indicators/NOPE")
+    assert resp.status_code == 404

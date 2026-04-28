@@ -25,6 +25,7 @@ from backend.api.routes.positions import router as positions_router
 from backend.api.routes.sync import router as sync_router
 from backend.api.routes.universe import router as universe_router
 from backend.api.routes.market_data import router as market_data_router
+from backend.api.routes.indicators import router as indicators_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -53,6 +54,7 @@ app.include_router(positions_router)
 app.include_router(sync_router)
 app.include_router(universe_router)
 app.include_router(market_data_router)
+app.include_router(indicators_router)
 
 
 @app.on_event("startup")
