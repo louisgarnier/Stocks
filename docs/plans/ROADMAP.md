@@ -13,13 +13,12 @@ Single source of truth for what's done, in flight, and queued. Each story has it
 
 | # | Epic | Plan file | Status |
 |---|---|---|---|
-| 1 | **M — Migrate to Supabase** | `docs/plans/2026-04-28-story-m-supabase-migration.md` | 📋 plan ready |
-| 2 | **C — Foundation: Universe + Market Data + Design System** | `docs/plans/2026-04-28-story-c-foundation.md` | 📋 plan ready (built on Postgres post-M) |
-| 3 | **D — Indicators** | not yet planned | MA/BB/RSI/MRSI/ATR/Volume MA — once C ships |
-| 4 | **G — Sell signals on holdings** | not yet planned | Positions tab Signals column — depends on D |
-| 5 | **H — Security Detail View popup** | not yet planned | Click any symbol → modal w/ chart + transactions + sell sim + signal checklist |
-| 6 | **E — Tech Analysis tab v1** | not yet planned | Range/Trend Breakouts + Consolidation + technical S/R |
-| 7 | **F — Options S/R + polish** | not yet planned | yfinance options chain → max pain + call/put walls |
+| 1 | **C — Foundation: Universe + Market Data + Design System** | `docs/plans/2026-04-28-story-c-foundation.md` | 📋 plan ready |
+| 2 | **D — Indicators** | not yet planned | MA/BB/RSI/MRSI/ATR/Volume MA — once C ships |
+| 3 | **G — Sell signals on holdings** | not yet planned | Positions tab Signals column — depends on D |
+| 4 | **H — Security Detail View popup** | not yet planned | Click any symbol → modal w/ chart + transactions + sell sim + signal checklist |
+| 5 | **E — Tech Analysis tab v1** | not yet planned | Range/Trend Breakouts + Consolidation + technical S/R |
+| 6 | **F — Options S/R + polish** | not yet planned | yfinance options chain → max pain + call/put walls |
 
 ## Future (parked, no plan)
 
@@ -29,6 +28,7 @@ Single source of truth for what's done, in flight, and queued. Each story has it
 - **Auto-scheduling** — cron-style runs of `/api/sync/full` (originally Phase 5).
 - **Migrate existing tabs (Positions/Transactions) to shadcn/ui** — done as touched in later stories, no dedicated story.
 - **Historical positions snapshots** — `positions_ibkr_history` table for time-series of holdings (P&L over time chart).
+- **M — Migrate to Supabase** — plan written but parked due to cost/dependency concerns. See `docs/plans/2026-04-28-story-m-supabase-migration.md` if reconsidering.
 
 ## Decision log
 
@@ -38,4 +38,4 @@ Single source of truth for what's done, in flight, and queued. Each story has it
 - **2026-04-28** — MRSI = Mansfield Relative Strength (NOT regular RSI). Stock vs benchmark relative strength, normalized via 252-day MA.
 - **2026-04-28** — Two breakout signals (NOT one): Range Breakout (existing ZigZag-based) + Trend Breakout (price>MA150 + MA50↑ + price>MA50 + high vol).
 - **2026-04-28** — Build BOTH S/R methods: technical (swing/MA/round/volume profile) + options-based (max pain + call/put walls via yfinance).
-- **2026-04-28** — Migrate to Supabase BEFORE Story C. Smaller migration surface (7 tables vs 17+), establishes pattern early, all future stories build on the right foundation.
+- **2026-04-28** — Considered Supabase migration before Story C; **rejected** for cost/dependency concerns. Staying on local SQLite. Plan kept in `docs/plans/` if reconsidering later.
