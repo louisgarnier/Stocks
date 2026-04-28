@@ -1582,7 +1582,7 @@ export default function Dashboard() {
                                       : ''
                                   }`}
                                 >
-                                  {it.mrsi != null ? `${it.mrsi > 0 ? '+' : ''}${it.mrsi.toFixed(1)}` : '—'}
+                                  {it.mrsi != null ? `${it.mrsi > 0 ? '+' : ''}${it.mrsi.toFixed(3)}` : '—'}
                                 </TableCell>
                               </TableRow>
                             ));

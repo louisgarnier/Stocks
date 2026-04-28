@@ -74,10 +74,11 @@ def compute_mrsi(stock_df: pd.DataFrame, bench_df: pd.DataFrame) -> pd.Series:
     Formula:
         RS    = stock_close / bench_close
         RS_MA = MA(RS, 252)
-        MRSI  = ((RS / RS_MA) - 1) * 100
+        MRSI  = (RS / RS_MA) - 1
 
-    MRSI is positive when stock outperforms benchmark over 252 trading days,
-    negative when underperforming, ~0 when matching.
+    Centered at 0, natural ratio scale (positive ≈ outperforming, negative ≈
+    underperforming). Typical magnitudes ~0.3 for active stocks; not strictly
+    bounded but rarely exceeds ±0.5.
     """
     merged = stock_df[["time", "adj_close"]].merge(
         bench_df[["time", "adj_close"]],
@@ -86,7 +87,7 @@ def compute_mrsi(stock_df: pd.DataFrame, bench_df: pd.DataFrame) -> pd.Series:
 
     rs = merged["adj_close_stock"] / merged["adj_close_bench"].where(merged["adj_close_bench"] != 0)
     rs_ma = rs.rolling(252).mean()
-    mrsi = ((rs / rs_ma.where(rs_ma != 0)) - 1) * 100
+    mrsi = (rs / rs_ma.where(rs_ma != 0)) - 1
     return pd.Series(mrsi.values, index=merged["time"].values)
 
 
