@@ -184,3 +184,22 @@ CREATE TABLE IF NOT EXISTS market_data (
 );
 CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol);
 CREATE INDEX IF NOT EXISTS idx_market_data_time ON market_data(time);
+
+-- Technical indicators per (symbol, time) — pandas-computed from market_data
+CREATE TABLE IF NOT EXISTS indicators (
+    symbol TEXT NOT NULL,
+    time TEXT NOT NULL,
+    ma_50 REAL,
+    ma_100 REAL,
+    ma_150 REAL,
+    ma_200 REAL,
+    bb_upper_20 REAL,
+    bb_lower_20 REAL,
+    bb_width REAL,
+    rsi_14 REAL,
+    mrsi REAL,
+    atr_14 REAL,
+    volume_ma_20 REAL,
+    PRIMARY KEY (symbol, time)
+);
+CREATE INDEX IF NOT EXISTS idx_indicators_time ON indicators(time);
