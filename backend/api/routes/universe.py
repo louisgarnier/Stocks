@@ -176,6 +176,65 @@ async def toggle_index(name: str):
     return {"name": name, "enabled": bool(new_val)}
 
 
+@router.get("/coverage")
+async def get_universe_coverage():
+    """Return every enabled symbol with bar count + latest close + latest indicator preview.
+
+    Used by the Configuration tab Browse Universe table.
+    """
+    sql = """
+        WITH bar_counts AS (
+            SELECT symbol, COUNT(*) AS bars, MAX(time) AS latest_time
+            FROM market_data
+            GROUP BY symbol
+        ),
+        latest_close AS (
+            SELECT md.symbol, md.close AS latest_close
+            FROM market_data md
+            JOIN bar_counts bc ON bc.symbol = md.symbol AND bc.latest_time = md.time
+        ),
+        latest_ind AS (
+            SELECT i.symbol, i.ma_50, i.rsi_14, i.mrsi, i.bb_width
+            FROM indicators i
+            JOIN (
+                SELECT symbol, MAX(time) AS t FROM indicators GROUP BY symbol
+            ) m ON m.symbol = i.symbol AND m.t = i.time
+        )
+        SELECT tu.symbol, tu.name, tu.sources, tu.sector, tu.currency, tu.exchange,
+               COALESCE(bc.bars, 0) AS bars, bc.latest_time,
+               lc.latest_close,
+               li.ma_50, li.rsi_14, li.mrsi, li.bb_width
+        FROM tracked_universe tu
+        LEFT JOIN bar_counts bc ON bc.symbol = tu.symbol
+        LEFT JOIN latest_close lc ON lc.symbol = tu.symbol
+        LEFT JOIN latest_ind li ON li.symbol = tu.symbol
+        WHERE tu.enabled = 1
+        ORDER BY tu.symbol
+    """
+    conn = get_db_connection()
+    rows = conn.execute(sql).fetchall()
+    conn.close()
+    items = [
+        {
+            "symbol": r[0],
+            "name": r[1],
+            "sources": json.loads(r[2] or "[]"),
+            "sector": r[3],
+            "currency": r[4],
+            "exchange": r[5],
+            "bars": r[6],
+            "latest_time": r[7],
+            "latest_close": r[8],
+            "ma_50": r[9],
+            "rsi_14": r[10],
+            "mrsi": r[11],
+            "bb_width": r[12],
+        }
+        for r in rows
+    ]
+    return {"items": items, "count": len(items)}
+
+
 @router.post("/indices/{name}/refresh")
 async def refresh_index(name: str):
     """Re-fetch the index member list from its source and upsert into tracked_universe."""
