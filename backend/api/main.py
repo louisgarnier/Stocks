@@ -23,6 +23,7 @@ from backend.api.routes.corporate_actions import router as corporate_actions_rou
 from backend.api.routes.updated_transactions import router as updated_transactions_router
 from backend.api.routes.positions import router as positions_router
 from backend.api.routes.sync import router as sync_router
+from backend.api.routes.universe import router as universe_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -49,6 +50,7 @@ app.include_router(corporate_actions_router)
 app.include_router(updated_transactions_router, prefix="/api/updated-transactions", tags=["updated-transactions"])
 app.include_router(positions_router)
 app.include_router(sync_router)
+app.include_router(universe_router)
 
 
 @app.on_event("startup")
