@@ -12,18 +12,41 @@ router = APIRouter(prefix="/api/universe", tags=["universe"])
 
 KNOWN_INDICES = ["sp500", "cac40", "nasdaq100", "dow30", "dax40", "ftse100"]
 
+KNOWN_BENCHMARKS = [
+    {"symbol": "^GSPC", "name": "S&P 500", "currency": "USD", "exchange": "INDEX"},
+    {"symbol": "^FCHI", "name": "CAC 40", "currency": "EUR", "exchange": "INDEX"},
+    {"symbol": "^GDAXI", "name": "DAX", "currency": "EUR", "exchange": "INDEX"},
+    {"symbol": "^FTSE", "name": "FTSE 100", "currency": "GBP", "exchange": "INDEX"},
+]
+
 
 def _now_iso() -> str:
     return datetime.now().astimezone().isoformat()
 
 
+def _ensure_benchmarks_seeded(conn) -> None:
+    """Seed benchmark indices into tracked_universe so MRSI can use their market_data.
+
+    Idempotent: INSERT OR IGNORE on PK (symbol).
+    """
+    now = _now_iso()
+    for b in KNOWN_BENCHMARKS:
+        conn.execute(
+            "INSERT OR IGNORE INTO tracked_universe "
+            "(symbol, name, currency, exchange, sources, enabled, added_at) "
+            "VALUES (?, ?, ?, ?, ?, 1, ?)",
+            (b["symbol"], b["name"], b["currency"], b["exchange"], json.dumps(["benchmark"]), now),
+        )
+
+
 def _ensure_indices_seeded(conn) -> None:
-    """Populate tracked_indices with known names if missing (idempotent)."""
+    """Populate tracked_indices with known names if missing (idempotent). Also seeds benchmark symbols."""
     for name in KNOWN_INDICES:
         conn.execute(
             "INSERT OR IGNORE INTO tracked_indices (name, enabled) VALUES (?, 0)",
             (name,),
         )
+    _ensure_benchmarks_seeded(conn)
     conn.commit()
 
 

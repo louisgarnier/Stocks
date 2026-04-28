@@ -138,3 +138,21 @@ def test_toggle_index(temp_db):
     assert resp.json()["enabled"] is True
     resp = client.post("/api/universe/indices/sp500/toggle")
     assert resp.json()["enabled"] is False
+
+
+def test_benchmarks_auto_seeded(temp_db):
+    """The 4 benchmark symbols (^GSPC, ^FCHI, ^GDAXI, ^FTSE) get auto-seeded into tracked_universe."""
+    resp = client.get("/api/universe/indices")
+    assert resp.status_code == 200
+
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    rows = conn.execute(
+        "SELECT symbol, currency, sources FROM tracked_universe "
+        "WHERE symbol IN ('^GSPC', '^FCHI', '^GDAXI', '^FTSE') ORDER BY symbol"
+    ).fetchall()
+    conn.close()
+    syms = {r[0] for r in rows}
+    assert syms == {"^FCHI", "^FTSE", "^GDAXI", "^GSPC"}
+    for r in rows:
+        assert "benchmark" in r[2]
