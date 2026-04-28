@@ -1,12 +1,38 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { RefreshCcw, X, Plus, Database } from "lucide-react";
 
 interface HealthResponse {
   status: string;
   database: string;
   transactions: number;
   positions: number;
+}
+
+interface UniverseSymbol {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  currency: string | null;
+  exchange: string | null;
+  benchmark: string | null;
+  sources: string[];
+  enabled: boolean;
+  added_at: string;
+  last_synced_at: string | null;
+}
+
+interface IndexInfo {
+  name: string;
+  enabled: boolean;
+  last_refreshed_at: string | null;
+  symbol_count: number;
 }
 
 interface Transaction {
@@ -194,6 +220,11 @@ export default function Dashboard() {
   const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl'>('position_value');
   const [positionsSortOrder, setPositionsSortOrder] = useState<'asc' | 'desc'>('desc');
   const [positionsSymbolFilter, setPositionsSymbolFilter] = useState<string>('');
+  const [universe, setUniverse] = useState<UniverseSymbol[]>([]);
+  const [indices, setIndices] = useState<IndexInfo[]>([]);
+  const [universeLoading, setUniverseLoading] = useState(false);
+  const [manualSymbolInput, setManualSymbolInput] = useState<string>('');
+  const [marketDataSyncing, setMarketDataSyncing] = useState(false);
 
   type SyncStepStatus = 'pending' | 'ok' | 'error';
   type SyncStepName = 'positions' | 'transactions' | 'corporate_actions' | 'splits';
@@ -204,6 +235,65 @@ export default function Dashboard() {
     splits: '✂️ Splits',
   };
   const [syncSteps, setSyncSteps] = useState<{ name: SyncStepName; status: SyncStepStatus }[] | null>(null);
+
+  const fetchUniverse = async () => {
+    try {
+      const r = await fetch('/api/proxy/api/universe');
+      if (r.ok) setUniverse((await r.json()).symbols);
+    } catch (e) { console.error('fetchUniverse', e); }
+  };
+
+  const fetchIndices = async () => {
+    try {
+      const r = await fetch('/api/proxy/api/universe/indices');
+      if (r.ok) setIndices((await r.json()).indices);
+    } catch (e) { console.error('fetchIndices', e); }
+  };
+
+  const handleToggleIndex = async (name: string) => {
+    await fetch(`/api/proxy/api/universe/indices/${name}/toggle`, { method: 'POST' });
+    await fetchIndices();
+  };
+
+  const handleRefreshIndex = async (name: string) => {
+    setUniverseLoading(true);
+    try {
+      await fetch(`/api/proxy/api/universe/indices/${name}/refresh`, { method: 'POST' });
+      await fetchIndices();
+      await fetchUniverse();
+    } finally {
+      setUniverseLoading(false);
+    }
+  };
+
+  const handleAddManualSymbol = async () => {
+    const sym = manualSymbolInput.trim().toUpperCase();
+    if (!sym) return;
+    await fetch('/api/proxy/api/universe/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: sym }),
+    });
+    setManualSymbolInput('');
+    await fetchUniverse();
+  };
+
+  const handleRemoveManualSymbol = async (sym: string) => {
+    await fetch(`/api/proxy/api/universe/manual/${sym}`, { method: 'DELETE' });
+    await fetchUniverse();
+  };
+
+  const handleSyncMarketData = async () => {
+    setMarketDataSyncing(true);
+    try {
+      const r = await fetch('/api/proxy/api/sync/market-data', { method: 'POST' });
+      const body = await r.json();
+      console.log('market-data sync', body);
+      await fetchUniverse();
+    } finally {
+      setMarketDataSyncing(false);
+    }
+  };
 
   const fetchHealth = async () => {
     try {
@@ -985,6 +1075,8 @@ export default function Dashboard() {
     fetchImportLogs();
     fetchCAStatus();
     fetchPositions();
+    fetchUniverse();
+    fetchIndices();
     if (activeTab === 'transactions') {
       fetchTransactions();
     }
@@ -1162,7 +1254,115 @@ export default function Dashboard() {
           
           {/* Tab 1: Configuration (formerly Load Trades) */}
           {activeTab === 'configuration' && (
-            <div style={{ padding: '48px 24px' }}>
+            <div>
+              {/* Universe management — shadcn-styled */}
+              <div className="p-6 space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="w-5 h-5" />
+                      Tracked Universe
+                    </CardTitle>
+                    <Badge variant="secondary">{universe.length} symbols</Badge>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+
+                    {/* Index toggles */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 text-foreground">Index lists</h4>
+                      <div className="space-y-2">
+                        {indices.map((idx) => (
+                          <div key={idx.name} className="flex items-center justify-between p-3 rounded-md border bg-card">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                checked={idx.enabled}
+                                onCheckedChange={() => handleToggleIndex(idx.name)}
+                                id={`switch-${idx.name}`}
+                              />
+                              <label htmlFor={`switch-${idx.name}`} className="text-sm font-medium cursor-pointer">
+                                {idx.name.toUpperCase()}
+                              </label>
+                              <Badge variant="outline" className="text-xs">
+                                {idx.symbol_count} symbols
+                              </Badge>
+                              {idx.last_refreshed_at && (
+                                <span className="text-xs text-muted-foreground">
+                                  Refreshed {new Date(idx.last_refreshed_at).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRefreshIndex(idx.name)}
+                              disabled={universeLoading}
+                            >
+                              <RefreshCcw className="w-4 h-4 mr-1" />
+                              Refresh
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Manual tickers */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 text-foreground">Custom tickers</h4>
+                      <div className="flex gap-2 mb-3">
+                        <Input
+                          placeholder="Add ticker (e.g. NVDA)"
+                          value={manualSymbolInput}
+                          onChange={(e) => setManualSymbolInput(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleAddManualSymbol(); }}
+                          className="max-w-xs"
+                        />
+                        <Button onClick={handleAddManualSymbol} disabled={!manualSymbolInput.trim()}>
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {universe
+                          .filter((s) => s.sources.includes('manual'))
+                          .map((s) => (
+                            <Badge key={s.symbol} variant="secondary" className="gap-1">
+                              {s.symbol}
+                              <button
+                                onClick={() => handleRemoveManualSymbol(s.symbol)}
+                                className="ml-1 hover:text-destructive"
+                                title="Remove"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        {universe.filter((s) => s.sources.includes('manual')).length === 0 && (
+                          <span className="text-sm text-muted-foreground">No manual tickers yet.</span>
+                        )}
+                      </div>
+                    </div>
+
+                  </CardContent>
+                </Card>
+
+                {/* Market data sync */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Market Data</CardTitle>
+                    <Button onClick={handleSyncMarketData} disabled={marketDataSyncing}>
+                      <RefreshCcw className={`w-4 h-4 mr-2 ${marketDataSyncing ? 'animate-spin' : ''}`} />
+                      {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    Pulls daily OHLCV bars from yfinance for every enabled symbol in the universe.
+                    First-time syncs fetch the past year; subsequent runs only fetch new bars.
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Existing configuration content below */}
+              <div style={{ padding: '48px 24px' }}>
               {/* Database Stats Panel */}
               {health && (
                 <div style={{ maxWidth: '400px', margin: '0 auto 32px', padding: '16px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
@@ -1440,6 +1640,7 @@ export default function Dashboard() {
                 )}
               </div>
               )}
+              </div>
             </div>
           )}
 
