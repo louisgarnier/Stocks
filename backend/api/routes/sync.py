@@ -213,6 +213,19 @@ def _sync_positions_to_universe() -> None:
     conn.close()
 
 
+@router.post("/market-data")
+async def sync_market_data():
+    """Pull yfinance bars for all enabled symbols in tracked_universe → market_data."""
+    logger.info("📈 Sync step: market-data")
+    try:
+        from backend.scripts.market_data_ingestor import ingest_market_data
+        result = ingest_market_data()
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error(f"❌ sync_market_data failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _flag_orange(symbols: list) -> None:
     if not symbols:
         return
