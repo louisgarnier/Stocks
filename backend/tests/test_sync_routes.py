@@ -206,3 +206,49 @@ def test_sync_full_runs_all_four_steps(temp_db, stub_flex_http, monkeypatch):
     assert conn.execute("SELECT COUNT(*) FROM positions_ibkr").fetchone()[0] == 1
     assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 1
     conn.close()
+
+
+def test_sync_positions_adds_held_symbols_to_universe(temp_db, stub_flex_http, monkeypatch):
+    """After /api/sync/positions, every symbol in positions_ibkr is also in tracked_universe with source 'ibkr_position'."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    resp = client.post("/api/sync/positions")
+    assert resp.status_code == 200
+
+    import json as _json
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute(
+        "SELECT sources FROM tracked_universe WHERE symbol = 'TEST'"
+    ).fetchone()
+    conn.close()
+    assert row is not None, "TEST symbol should be auto-added to tracked_universe"
+    assert "ibkr_position" in _json.loads(row[0])
+
+
+def test_sold_position_removes_ibkr_source(temp_db):
+    """If a symbol previously had source 'ibkr_position' but is no longer in positions_ibkr, the source is removed."""
+    import json as _json
+    from backend.api.routes.sync import _sync_positions_to_universe
+
+    conn = sqlite3.connect(str(temp_db))
+    # Universe has FOO from a prior sync, but it's no longer in positions_ibkr
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('FOO', '[\"ibkr_position\"]', 1, datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('BAR', '[\"sp500\", \"ibkr_position\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    _sync_positions_to_universe()
+
+    conn = sqlite3.connect(str(temp_db))
+    foo = conn.execute("SELECT sources FROM tracked_universe WHERE symbol = 'FOO'").fetchone()
+    bar = conn.execute("SELECT sources FROM tracked_universe WHERE symbol = 'BAR'").fetchone()
+    conn.close()
+    assert foo is None, "FOO had only ibkr_position; should be deleted now that no longer held"
+    assert bar is not None and _json.loads(bar[0]) == ["sp500"], "BAR retains sp500 source"

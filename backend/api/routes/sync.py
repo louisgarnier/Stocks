@@ -27,6 +27,7 @@ async def sync_positions():
         xml = fetch_flex_response("positions")
         positions = parse_positions_from_xml(xml)
         result = save_positions_ibkr(positions)
+        _sync_positions_to_universe()
         return {
             "success": True,
             "positions_inserted": result["positions_inserted"],
@@ -138,7 +139,9 @@ def _wrap(steps: list) -> dict:
 
 
 def _step_positions(xml: str) -> dict:
-    return save_positions_ibkr(parse_positions_from_xml(xml))
+    result = save_positions_ibkr(parse_positions_from_xml(xml))
+    _sync_positions_to_universe()
+    return result
 
 
 def _step_transactions(xml: str) -> dict:
@@ -156,6 +159,58 @@ def _step_corporate_actions() -> dict:
 def _step_splits() -> dict:
     from backend.scripts.apply_splits import apply_all_splits
     return apply_all_splits()
+
+
+def _sync_positions_to_universe() -> None:
+    """Reconcile positions_ibkr with tracked_universe.
+
+    For every symbol currently in positions_ibkr: ensure 'ibkr_position' is in
+    its sources array (creating the row if missing).
+    For every symbol in tracked_universe with 'ibkr_position' but NOT in
+    positions_ibkr: remove 'ibkr_position' from sources, and delete the row
+    if that was its only source.
+    """
+    import json as _json
+    conn = get_db_connection()
+    held = {r[0] for r in conn.execute("SELECT symbol FROM positions_ibkr").fetchall()}
+
+    now = datetime.now().astimezone().isoformat()
+    for sym in held:
+        existing = conn.execute(
+            "SELECT sources FROM tracked_universe WHERE symbol = ?", (sym,)
+        ).fetchone()
+        if existing:
+            sources = _json.loads(existing[0] or "[]")
+            if "ibkr_position" not in sources:
+                sources.append("ibkr_position")
+                conn.execute(
+                    "UPDATE tracked_universe SET sources = ?, enabled = 1 WHERE symbol = ?",
+                    (_json.dumps(sources), sym),
+                )
+        else:
+            conn.execute(
+                "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+                "VALUES (?, ?, 1, ?)",
+                (sym, _json.dumps(["ibkr_position"]), now),
+            )
+
+    rows = conn.execute(
+        "SELECT symbol, sources FROM tracked_universe WHERE sources LIKE '%ibkr_position%'"
+    ).fetchall()
+    for sym, sources_json in rows:
+        if sym in held:
+            continue
+        sources = [s for s in _json.loads(sources_json or "[]") if s != "ibkr_position"]
+        if not sources:
+            conn.execute("DELETE FROM tracked_universe WHERE symbol = ?", (sym,))
+        else:
+            conn.execute(
+                "UPDATE tracked_universe SET sources = ? WHERE symbol = ?",
+                (_json.dumps(sources), sym),
+            )
+
+    conn.commit()
+    conn.close()
 
 
 def _flag_orange(symbols: list) -> None:
