@@ -13,6 +13,8 @@ Indicator definitions:
 - MRSI (Mansfield Relative Strength): ((stock_close / bench_close) /
   MA(stock/bench, 252) - 1) * 100; centered at 0
 """
+from typing import Optional
+
 import pandas as pd
 
 
@@ -86,3 +88,149 @@ def compute_mrsi(stock_df: pd.DataFrame, bench_df: pd.DataFrame) -> pd.Series:
     rs_ma = rs.rolling(252).mean()
     mrsi = ((rs / rs_ma.where(rs_ma != 0)) - 1) * 100
     return pd.Series(mrsi.values, index=merged["time"].values)
+
+
+# ---------------------------------------------------------------------------
+# DB-backed orchestrator (Story D-4)
+# ---------------------------------------------------------------------------
+
+from backend.api.utils.logger import logger  # noqa: E402 — after pure functions
+
+_BENCHMARK_BY_CURRENCY = {
+    "USD": "^GSPC",
+    "EUR": "^FCHI",
+    "GBP": "^FTSE",
+}
+
+
+def _resolve_benchmark(currency: Optional[str], stored_benchmark: Optional[str]) -> Optional[str]:
+    """Pick the benchmark symbol for a given symbol's currency.
+
+    Priority: stored_benchmark column (set at seed time) → currency mapping → fallback ^GSPC.
+    """
+    if stored_benchmark:
+        return stored_benchmark
+    return _BENCHMARK_BY_CURRENCY.get(currency or "USD", "^GSPC")
+
+
+def _read_market_data(conn, symbol: str) -> pd.DataFrame:
+    """Pull market_data rows for a symbol as a DataFrame."""
+    df = pd.read_sql_query(
+        "SELECT time, open, high, low, close, adj_close, volume FROM market_data "
+        "WHERE symbol = ? ORDER BY time ASC",
+        conn,
+        params=[symbol],
+    )
+    return df
+
+
+def _none_if_nan(v):
+    """Coerce NaN / None / non-floats to None for SQLite parameter binding."""
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def compute_for_symbol(conn, symbol: str) -> int:
+    """Compute indicators for one symbol. Returns rows written.
+
+    Reads market_data for `symbol`, resolves its benchmark, computes all
+    indicators (including MRSI vs benchmark when available), and UPSERTs
+    into the indicators table. Idempotent via ON CONFLICT (symbol, time)
+    DO UPDATE SET (every indicator column gets refreshed).
+    """
+    cur = conn.cursor()
+    row = cur.execute(
+        "SELECT currency, benchmark FROM tracked_universe WHERE symbol = ?", (symbol,)
+    ).fetchone()
+    if not row:
+        return 0
+    benchmark = _resolve_benchmark(row[0], row[1])
+
+    df = _read_market_data(conn, symbol)
+    if df.empty:
+        return 0
+
+    out = compute_basic_indicators(df)
+
+    # MRSI: needs the benchmark's market_data with overlapping dates
+    bench_df = (
+        _read_market_data(conn, benchmark)
+        if benchmark and benchmark != symbol
+        else pd.DataFrame()
+    )
+    if not bench_df.empty:
+        mrsi_series = compute_mrsi(df, bench_df)
+        out = out.assign(mrsi=out["time"].map(lambda t: mrsi_series.get(t)))
+    else:
+        out = out.assign(mrsi=None)
+
+    written = 0
+    for _, r in out.iterrows():
+        cur.execute(
+            "INSERT INTO indicators "
+            "(symbol, time, ma_50, ma_100, ma_150, ma_200, "
+            " bb_upper_20, bb_lower_20, bb_width, rsi_14, mrsi, atr_14, volume_ma_20) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (symbol, time) DO UPDATE SET "
+            " ma_50 = excluded.ma_50, "
+            " ma_100 = excluded.ma_100, "
+            " ma_150 = excluded.ma_150, "
+            " ma_200 = excluded.ma_200, "
+            " bb_upper_20 = excluded.bb_upper_20, "
+            " bb_lower_20 = excluded.bb_lower_20, "
+            " bb_width = excluded.bb_width, "
+            " rsi_14 = excluded.rsi_14, "
+            " mrsi = excluded.mrsi, "
+            " atr_14 = excluded.atr_14, "
+            " volume_ma_20 = excluded.volume_ma_20",
+            (
+                symbol, r["time"],
+                _none_if_nan(r.get("ma_50")), _none_if_nan(r.get("ma_100")),
+                _none_if_nan(r.get("ma_150")), _none_if_nan(r.get("ma_200")),
+                _none_if_nan(r.get("bb_upper_20")), _none_if_nan(r.get("bb_lower_20")),
+                _none_if_nan(r.get("bb_width")),
+                _none_if_nan(r.get("rsi_14")),
+                _none_if_nan(r.get("mrsi")),
+                _none_if_nan(r.get("atr_14")),
+                _none_if_nan(r.get("volume_ma_20")),
+            ),
+        )
+        written += 1
+    conn.commit()
+    return written
+
+
+def compute_all(conn) -> dict:
+    """Compute indicators for every enabled symbol in tracked_universe.
+
+    Returns: {"symbols_processed": list[str], "rows_written": int, "errors": int}
+    """
+    rows = conn.execute(
+        "SELECT symbol FROM tracked_universe WHERE enabled = 1 ORDER BY symbol"
+    ).fetchall()
+    symbols_processed = []
+    rows_written = 0
+    errors = 0
+    for (sym,) in rows:
+        try:
+            n = compute_for_symbol(conn, sym)
+            if n > 0:
+                symbols_processed.append(sym)
+                rows_written += n
+        except Exception as e:
+            logger.error(f"❌ indicators compute failed for {sym}: {e}")
+            errors += 1
+    logger.info(
+        f"✅ Indicators: {len(symbols_processed)} symbols processed, "
+        f"{rows_written} rows written, {errors} errors"
+    )
+    return {"symbols_processed": symbols_processed, "rows_written": rows_written, "errors": errors}
