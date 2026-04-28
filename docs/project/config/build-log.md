@@ -1,5 +1,30 @@
 # Build Log
 
+## 2026-04-28 — Epic D complete: indicators
+
+7 stories shipped, end-to-end smoke test passed for indicators (CA step regression noted below).
+
+**Subsystems delivered:**
+- `indicators` table (composite PK on `(symbol, time)`, 11 indicator columns)
+- Auto-seed of 4 benchmark symbols (`^GSPC`, `^FCHI`, `^GDAXI`, `^FTSE`) into `tracked_universe` with source `benchmark`
+- Pure pandas indicator math: MA 50/100/150/200, BB(20, 2), RSI(14) Wilder, ATR(14), Volume MA(20), MRSI (Mansfield Relative Strength)
+- Per-symbol orchestrator with benchmark resolution (USD→^GSPC, EUR→^FCHI, GBP→^FTSE)
+- `POST /api/sync/indicators` endpoint, wired into `/api/sync/full` as the 5th step
+- `GET /api/indicators/{symbol}` read endpoint
+
+**Tests:** 16 new tests across 2 files (`test_indicators_compute.py` + `test_indicators_routes.py`). All passing.
+
+**Live smoke test:**
+- 18 symbols (14 IBKR positions + 4 benchmarks) fed market_data
+- `compute_all` wrote 4,292 indicator rows for 17 symbols (one had insufficient history)
+- Spot check NVDA: MA50=186.2, MA200=183.3 (uptrend), RSI(14)=69.9, **MRSI=+12.7** (NVDA outperforming S&P 500), BB width=0.27, ATR=5.93
+
+**Known issue surfaced during smoke (NOT Epic D regression):** the `corporate_actions` step in `/api/sync/full` fails with "can't subtract offset-naive and offset-aware datetimes" — a side-effect of the SYNC-13 timezone work where `set_ca_status` stores tz-aware ISO timestamps but the CA fetcher's incremental logic compares against tz-naive `datetime.now()`. Indicators step does not run when CA fails because the chain stops. Fix tracked separately. Indicators sync works fine when called directly via `POST /api/sync/indicators`.
+
+**Commits:** STORY-D-1 through STORY-D-6 on branch `newstart`.
+
+---
+
 ## 2026-04-28 — Epic C complete: foundation (universe + market_data + design system)
 
 9 stories shipped, end-to-end smoke test passed against real Wikipedia + yfinance + IBKR Flex.

@@ -8,7 +8,7 @@
 | **A** | [Sync Pipeline Restructure](epic-A-sync-pipeline/spec.md) | [x] Done | 14 | `/api/sync/*` decoupled steps + orchestrator, drop reconciliation |
 | **B** | [UX Polish](epic-B-ux-polish/spec.md) | [x] Done | 3 | Tab restructure, staleness badge, sync progress strip, filter toolbars |
 | **C** | [Foundation: Universe + Market Data + Design System](epic-C-foundation/spec.md) | [x] Done | 9 | Tailwind+shadcn, `tracked_universe`, `market_data` ingestion |
-| **D** | [Indicators](epic-D-indicators/spec.md) | [ ] Pending | TBD | MA / BB / RSI / **MRSI (Mansfield)** / ATR / Volume MA |
+| **D** | [Indicators](epic-D-indicators/spec.md) | [x] Done | 7 | MA / BB / RSI / **MRSI (Mansfield)** / ATR / Volume MA |
 | **G** | [Sell Signals on Holdings](epic-G-sell-signals/spec.md) | [ ] Pending | TBD | Positions tab Signals column with traffic light + 11 signal types |
 | **H** | [Security Detail View](epic-H-security-detail/spec.md) | [ ] Pending | TBD | Universal modal — Mode A (held: chart + tx + sell sim + signals) / Mode B (not held: chart + buy signals + stats) |
 | **E** | [Tech Analysis Tab v1](epic-E-tech-analysis/spec.md) | [ ] Pending | TBD | Range + Trend Breakouts, ZigZag + BB Squeeze consolidation, technical S/R |
