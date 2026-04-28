@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCcw, X, Plus, Database } from "lucide-react";
+import { toast } from "sonner";
 
 interface HealthResponse {
   status: string;
@@ -225,6 +226,13 @@ export default function Dashboard() {
   const [universeLoading, setUniverseLoading] = useState(false);
   const [manualSymbolInput, setManualSymbolInput] = useState<string>('');
   const [marketDataSyncing, setMarketDataSyncing] = useState(false);
+  const [marketDataStatus, setMarketDataStatus] = useState<{
+    symbols_total: number;
+    symbols_with_data: number;
+    total_bars: number;
+    latest_bar_date: string | null;
+    last_sync_at: string | null;
+  } | null>(null);
 
   type SyncStepStatus = 'pending' | 'ok' | 'error';
   type SyncStepName = 'positions' | 'transactions' | 'corporate_actions' | 'splits';
@@ -283,13 +291,30 @@ export default function Dashboard() {
     await fetchUniverse();
   };
 
+  const fetchMarketDataStatus = async () => {
+    try {
+      const r = await fetch('/api/proxy/api/market-data/status');
+      if (r.ok) setMarketDataStatus(await r.json());
+    } catch (e) { console.error('fetchMarketDataStatus', e); }
+  };
+
   const handleSyncMarketData = async () => {
     setMarketDataSyncing(true);
     try {
       const r = await fetch('/api/proxy/api/sync/market-data', { method: 'POST' });
       const body = await r.json();
-      console.log('market-data sync', body);
+      if (body.success) {
+        toast.success(
+          `${body.symbols_processed} symbols processed · ${body.rows_inserted.toLocaleString()} new bars · ${body.errors} errors`,
+          { description: 'Market data sync complete' }
+        );
+      } else {
+        toast.error('Market data sync failed', { description: JSON.stringify(body) });
+      }
       await fetchUniverse();
+      await fetchMarketDataStatus();
+    } catch (e) {
+      toast.error('Market data sync failed', { description: e instanceof Error ? e.message : String(e) });
     } finally {
       setMarketDataSyncing(false);
     }
@@ -1077,6 +1102,7 @@ export default function Dashboard() {
     fetchPositions();
     fetchUniverse();
     fetchIndices();
+    fetchMarketDataStatus();
     if (activeTab === 'transactions') {
       fetchTransactions();
     }
@@ -1354,9 +1380,39 @@ export default function Dashboard() {
                       {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
                     </Button>
                   </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
-                    Pulls daily OHLCV bars from yfinance for every enabled symbol in the universe.
-                    First-time syncs fetch the past year; subsequent runs only fetch new bars.
+                  <CardContent className="space-y-4">
+                    {marketDataStatus && (
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="p-3 rounded-md bg-secondary/40">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Coverage</p>
+                          <p className="font-mono font-semibold text-foreground tabular-nums">
+                            {marketDataStatus.symbols_with_data} / {marketDataStatus.symbols_total}
+                          </p>
+                          <p className="text-xs text-muted-foreground">symbols with data</p>
+                        </div>
+                        <div className="p-3 rounded-md bg-secondary/40">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total bars</p>
+                          <p className="font-mono font-semibold text-foreground tabular-nums">
+                            {marketDataStatus.total_bars.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            latest: {marketDataStatus.latest_bar_date ?? '—'}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-md bg-secondary/40">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Last sync</p>
+                          <p className="font-mono font-semibold text-foreground tabular-nums">
+                            {marketDataStatus.last_sync_at
+                              ? new Date(marketDataStatus.last_sync_at).toLocaleString()
+                              : 'Never'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Pulls daily OHLCV bars from yfinance for every enabled symbol in the universe.
+                      First-time syncs fetch the past year; subsequent runs only fetch new bars.
+                    </p>
                   </CardContent>
                 </Card>
               </div>

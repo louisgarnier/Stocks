@@ -8,6 +8,32 @@ from backend.database.connection import get_db_connection
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
 
 
+@router.get("/status")
+async def get_market_data_status():
+    """Return summary stats about market_data coverage across the enabled universe."""
+    conn = get_db_connection()
+    total_symbols = conn.execute(
+        "SELECT COUNT(*) FROM tracked_universe WHERE enabled = 1"
+    ).fetchone()[0]
+    with_data = conn.execute(
+        "SELECT COUNT(DISTINCT md.symbol) FROM market_data md "
+        "JOIN tracked_universe tu ON tu.symbol = md.symbol WHERE tu.enabled = 1"
+    ).fetchone()[0]
+    total_bars = conn.execute("SELECT COUNT(*) FROM market_data").fetchone()[0]
+    latest_bar = conn.execute("SELECT MAX(time) FROM market_data").fetchone()[0]
+    last_sync = conn.execute(
+        "SELECT MAX(last_synced_at) FROM tracked_universe WHERE last_synced_at IS NOT NULL"
+    ).fetchone()[0]
+    conn.close()
+    return {
+        "symbols_total": total_symbols,
+        "symbols_with_data": with_data,
+        "total_bars": total_bars,
+        "latest_bar_date": latest_bar,
+        "last_sync_at": last_sync,
+    }
+
+
 @router.get("/{symbol}")
 async def get_market_data(
     symbol: str,
