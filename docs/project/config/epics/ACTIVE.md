@@ -4,29 +4,26 @@
 
 ## Currently active
 
-**Epic C — Foundation (Universe + Market Data + Design System)**
+**Epic D — Indicators**
 
-- **Status:** Plan ready, not started
-- **Spec:** [epic-C-foundation/spec.md](epic-C-foundation/spec.md)
-- **Plan:** [docs/plans/2026-04-28-story-c-foundation.md](../../../plans/2026-04-28-story-c-foundation.md)
-- **Why now:** Foundational. Stories D / G / H / E / F all depend on `tracked_universe` + `market_data` + the design system.
+- **Status:** [ ] Pending — plan not yet written
+- **Spec:** [epic-D-indicators/spec.md](epic-D-indicators/spec.md)
+- **Why now:** Epic C just shipped the foundation (`tracked_universe` + `market_data`). Indicators are the next layer everything else depends on (Stories G, H, E all read from the indicators table).
 
-### Next 3 stories
+### What's needed before kicking off
 
-1. **C-1** — Install Tailwind v4 + shadcn/ui design system
-2. **C-2** — Add `tracked_universe`, `tracked_indices`, `market_data` tables
-3. **C-3** — Universe CRUD endpoints (`GET /api/universe`, `POST/DELETE /api/universe/manual/{symbol}`, `GET /api/universe/indices`, `POST /api/universe/indices/{name}/toggle`)
+- Write the implementation plan in `docs/plans/2026-04-28-story-d-indicators.md` per the spec
+- Decide story breakdown (~7 stories per spec: schema, benchmark auto-seed, MA/BB/RSI/ATR/Volume MA compute, MRSI compute, sync endpoint wiring, read endpoint, smoke test)
 
-(Full 9-task list in plan.)
+## Up next (after Epic D ships)
 
-## Up next (after Epic C ships)
-
-**Epic D — Indicators** — MA 50/100/150/200, BB(20,2), RSI(14), **MRSI (Mansfield)**, ATR(14), Volume MA(20). Builds on Story C's `market_data`.
+**Epic G — Sell Signals on Holdings** — 11 signal types (FR-G1..FR-G11) with traffic-light Signals column on Positions tab.
 
 ## Recently shipped
 
-- **Epic B — UX Polish** — `[STORY-B-1..3]` committed as `212f1c6`, `09605e4`, `9fa1d56`
-- **Epic A — Sync Pipeline Restructure** — `[SYNC-1..14]` (historical prefix; same epic)
+- **Epic C — Foundation** — `[STORY-C-1..8]` + bug fix. Tailwind+shadcn, tracked_universe, market_data ingestion, S&P 500 + CAC 40 seeders. Live smoke: 552 universe symbols, 3276 OHLCV rows for 14 IBKR positions.
+- **Epic B — UX Polish** — `[STORY-B-1..3]` — tab restructure, staleness badge, sync progress strip, filter toolbars
+- **Epic A — Sync Pipeline Restructure** — `[SYNC-1..14]` — `/api/sync/*` 4-step pipeline + orchestrator
 
 ## Blockers
 
@@ -34,4 +31,4 @@ None.
 
 ## Decisions awaiting user
 
-None — all design decisions logged in `docs/plans/ROADMAP.md` Decision Log.
+None — all design decisions logged in `docs/plans/ROADMAP.md` Decision Log + epic specs.

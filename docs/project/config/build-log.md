@@ -1,5 +1,39 @@
 # Build Log
 
+## 2026-04-28 — Epic C complete: foundation (universe + market_data + design system)
+
+9 stories shipped, end-to-end smoke test passed against real Wikipedia + yfinance + IBKR Flex.
+
+**Subsystems delivered:**
+- **Design system**: Tailwind v4 + shadcn/ui installed; first shadcn-styled UI section landed in Configuration tab. `frontend/components/ui/*` populated with button, card, input, label, badge, table, dialog, tabs, select, switch, sonner. `globals.css` migrated to v4 syntax with `@theme inline` design tokens.
+- **Universe management**: `tracked_universe` (JSON `sources` column), `tracked_indices` tables. CRUD endpoints. S&P 500 + CAC 40 Wikipedia seeders (with User-Agent header to bypass 403). IBKR positions auto-tag into universe with source `ibkr_position`; sold positions un-tag and row deletes if no other source.
+- **Market data ingestion**: `market_data` table (composite PK `(symbol, time)`). yfinance batched ingestor (50-symbol batches, threads, idempotent). `_yf_download` indirected for hermetic tests.
+
+**Endpoints added:**
+- `GET    /api/universe`                    list enabled tracked symbols
+- `POST   /api/universe/manual`             add manual ticker (uppercases, idempotent)
+- `DELETE /api/universe/manual/{symbol}`    remove manual tag
+- `GET    /api/universe/indices`            list indices with status + count
+- `POST   /api/universe/indices/{name}/toggle`
+- `POST   /api/universe/indices/{name}/refresh`  re-scrape Wikipedia
+- `POST   /api/sync/market-data`            yfinance ingest for enabled symbols
+- `GET    /api/market-data/{symbol}`        OHLCV bars, optional date range
+
+**Tests:** 19 new tests across 4 files (`test_universe_routes.py`, `test_universe_seeders.py`, `test_market_data_ingestor.py`, `test_market_data_routes.py`). All passing. SQLite via `temp_db` fixture; HTTP stubbed via `monkeypatch`.
+
+**Live smoke test results:**
+- S&P 500 refresh: 503 symbols inserted from Wikipedia
+- CAC 40 refresh: 40 symbols inserted
+- IBKR positions sync: 14 positions auto-tagged into universe (5 multi-source with sp500)
+- Market data sync (capped to held positions): 14 symbols processed, **3276 OHLCV rows** inserted (~252 trading days each), 0 errors
+- Total enabled universe after smoke: 552 symbols
+
+**Bug fix bundled:** Wikipedia returns 403 to pandas' default User-Agent. Fix: fetch HTML via `requests` with a real UA, then `pd.read_html(StringIO(...))`.
+
+**Commits:** STORY-C-1 through STORY-C-8 + bug fix on branch `newstart`.
+
+---
+
 ## 2026-04-27 — Story A complete: sync pipeline restructured
 
 Refactored the monolithic `/api/transactions/flex-import` endpoint into a 4-step decoupled sync pipeline at `/api/sync/*` plus a `/api/sync/full` orchestrator. Reconciliation feature dropped (`positions_calculated` table + recalc script + recon UI removed).

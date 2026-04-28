@@ -1,18 +1,28 @@
 """Wikipedia-based index list seeders for tracked_universe."""
 import json
 from datetime import datetime
+from io import StringIO
 
 import pandas as pd
+import requests
 
 from backend.database.connection import get_db_connection
 
 _SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 _CAC40_URL = "https://en.wikipedia.org/wiki/CAC_40"
+_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0) AppleWebKit/537.36 (KHTML, like Gecko) Stocks/1.0"
+
+
+def _read_html_with_ua(url: str) -> list[pd.DataFrame]:
+    """Fetch HTML with a real User-Agent (Wikipedia rejects pandas' default UA), parse tables."""
+    resp = requests.get(url, headers={"User-Agent": _UA}, timeout=30)
+    resp.raise_for_status()
+    return pd.read_html(StringIO(resp.text))
 
 
 def _fetch_sp500_dataframe() -> pd.DataFrame:
     """Pull the S&P 500 constituents table from Wikipedia."""
-    tables = pd.read_html(_SP500_URL)
+    tables = _read_html_with_ua(_SP500_URL)
     df = tables[0]
     col = "Symbol" if "Symbol" in df.columns else df.columns[0]
     df = df.rename(columns={col: "Symbol"})
@@ -23,7 +33,7 @@ def _fetch_sp500_dataframe() -> pd.DataFrame:
 
 def _fetch_cac40_dataframe() -> pd.DataFrame:
     """Pull the CAC 40 constituents table from Wikipedia."""
-    tables = pd.read_html(_CAC40_URL)
+    tables = _read_html_with_ua(_CAC40_URL)
     for t in tables:
         if "Ticker" in t.columns:
             return t
