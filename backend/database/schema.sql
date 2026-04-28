@@ -146,3 +146,41 @@ CREATE TABLE IF NOT EXISTS positions_ibkr (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_positions_ibkr_symbol ON positions_ibkr(symbol);
+
+-- Tracked universe — symbols we ingest market data for
+CREATE TABLE IF NOT EXISTS tracked_universe (
+    symbol TEXT PRIMARY KEY,
+    name TEXT,
+    sector TEXT,
+    currency TEXT,
+    exchange TEXT,
+    benchmark TEXT,
+    sources TEXT NOT NULL DEFAULT '[]',  -- JSON array, e.g. ["sp500", "ibkr_position"]
+    enabled INTEGER NOT NULL DEFAULT 1,
+    added_at TIMESTAMP NOT NULL,
+    last_synced_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tracked_universe_enabled ON tracked_universe(enabled);
+
+-- Index list metadata — e.g., S&P 500 enable/disable + last refresh
+CREATE TABLE IF NOT EXISTS tracked_indices (
+    name TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    last_refreshed_at TIMESTAMP,
+    symbol_count INTEGER DEFAULT 0
+);
+
+-- Market OHLCV data — one row per symbol per day
+CREATE TABLE IF NOT EXISTS market_data (
+    symbol TEXT NOT NULL,
+    time TEXT NOT NULL,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    adj_close REAL,
+    volume INTEGER,
+    PRIMARY KEY (symbol, time)
+);
+CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol);
+CREATE INDEX IF NOT EXISTS idx_market_data_time ON market_data(time);
