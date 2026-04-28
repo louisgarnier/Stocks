@@ -151,3 +151,18 @@ async def toggle_index(name: str):
     conn.close()
     logger.info(f"⚙️ Toggled index {name}: enabled={bool(new_val)}")
     return {"name": name, "enabled": bool(new_val)}
+
+
+@router.post("/indices/{name}/refresh")
+async def refresh_index(name: str):
+    """Re-fetch the index member list from its source and upsert into tracked_universe."""
+    from backend.scripts.universe_seeders import seed_index, _INDEX_CONFIG
+    if name not in _INDEX_CONFIG:
+        raise HTTPException(status_code=404, detail=f"unknown index: {name}")
+    try:
+        result = seed_index(name)
+        logger.info(f"📥 Refreshed index {name}: inserted={result['inserted']}, updated={result['updated']}, count={result['count']}")
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error(f"❌ refresh_index({name}) failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
