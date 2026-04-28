@@ -1,104 +1,173 @@
-# Requirements Analysis Workflow
+# Project Development Workflow
 
-This guide explains how to go from raw requirements to implemented functionalities.
+This is the **master checklist** for developing a new project from scratch. Follow each numbered file in sequence, checking off steps as you complete them.
 
 ## Workflow Overview
 
 ```
-Raw Requirements → Analysis → Functionalities → Implementation Steps → Code
+PLAN IT:  1-BRAINSTORM → 2-PRD → 3-ARCHITECTURE → 4-LOGGING
+BUILD IT: 5-EPICS → 6-BUILD → 7-CODEBASE
 ```
 
-## Step-by-Step Process
+**Continuous Workflow Tools** (updated throughout development):
+- `../../../workflow/ADR.md` - Architecture Decision Records
+- `../../../workflow/ERRORS.md` - Known Errors Registry
 
-### Step 1: Capture Raw Requirements
+---
 
-**File**: `RAW_REQUIREMENTS.md`
+## Agent Skills — Use These at Each Stage
 
-- Add requirements in any format
-- Don't worry about structure or clarity
-- Include context, constraints, and priorities
-- Can be updated iteratively
+This workflow is designed to be executed with **Superpowers skills**. Each stage maps to a skill. The agent must invoke the skill before starting the stage — not after.
 
-**Example**:
-```markdown
-- Users should be able to login
-- Need to store user data somewhere
-- Should be secure
+| Stage | Skill to invoke | Purpose |
+|---|---|---|
+| Stage 1 — Brainstorm | `superpowers:brainstorming` | Structured idea validation before any spec is written |
+| Stage 3 — Architecture | `superpowers:writing-plans` | Generates the implementation plan from the locked architecture |
+| Stage 5 — Epics execution | `superpowers:subagent-driven-development` | Executes plan one task at a time with spec + quality review per task |
+| Branch setup | `superpowers:using-git-worktrees` | Isolated workspace per feature — required before any code is written |
+| Branch completion | `superpowers:finishing-a-development-branch` | Structured merge/PR/discard decision after all tasks pass |
+
+**Rule:** Skills and this workflow run in parallel — the workflow defines WHAT to do, skills define HOW to execute it. Neither replaces the other.
+
+---
+
+## Check-In Cadence — Required
+
+```
+One task → stop → report to user → wait for approval → next task
 ```
 
-### Step 2: Analyze & Rephrase Requirements
+- The agent completes **one task**, then stops and reports
+- User reviews and says "go" or "next" before the agent continues
+- The agent never chains multiple tasks without a check-in
+- This applies even when using subagent-driven-development — the orchestrating agent checks in with the user between tasks, not just between epics
 
-**File**: `ANALYZED_REQUIREMENTS.md`
+---
 
-**With AI assistance**, we will:
-1. **Clarify** - Remove ambiguity, add specifics
-   - ❌ "Users should be able to login"
-   - ✅ "Users must authenticate using email/password. System must validate credentials against database and return JWT token."
+## Master Checklist
 
-2. **Categorize** - Group related requirements
-   - Authentication requirements
-   - Data storage requirements
-   - Security requirements
+### 🎯 PLANNING PHASE
 
-3. **Prioritize** - Identify must-haves vs. nice-to-haves
-   - Priority 1: Core authentication
-   - Priority 2: Password reset
-   - Priority 3: Social login
+#### [ ] Stage 1: Brainstorm & Idea Validation
+**File**: `1-BRAINSTORM.md`
+**Trigger**: *"Let's start the brainstorm for [project name]"* — or run `python scripts/brainstorm.py`
+- [ ] §0: Freeform input (raw thoughts, any format)
+- [ ] §1: Define the one-liner (no conjunctions)
+- [ ] §2: Identify the problem (who / current solution / why inadequate)
+- [ ] §3: Describe the solution (user's journey, high-level only)
+- [ ] §4: List assumptions & risks
+- [ ] §5: Complete feasibility check
+- [ ] §6: Go/No-Go decision (includes success criteria)
+- [ ] **Output**: `docs/project/config/brainstorm.md` with GO decision
+- [ ] **Status**: `Draft` → `Validated` → `GO — proceed to PRD`
 
-4. **Identify Functionalities** - Break into logical features
-   - User Authentication
-   - User Management
-   - Security & Authorization
+#### [ ] Stage 2: Product Requirements Document
+**File**: `2-PRD.md`
+- [ ] Complete project summary table
+- [ ] Define goals & non-goals (AI guardrails)
+- [ ] Write user stories with acceptance criteria
+- [ ] List functional requirements (testable statements)
+- [ ] Define non-functional requirements (performance, security)
+- [ ] Document data requirements (if applicable)
+- [ ] Map interfaces & integrations
+- [ ] Set error handling policy
+- [ ] List constraints
+- [ ] Answer all open questions
+- [ ] **Status**: `Draft` → `Reviewed` → `Locked`
 
-### Step 3: Create Functionality Files
+#### [ ] Stage 3: Architecture & Technical Design
+**File**: `3-ARCHITECTURE.md`
+- [ ] Define complete tech stack with versions
+- [ ] List all approved external packages
+- [ ] Create system overview diagram
+- [ ] Break down components (responsibility, input, output)
+- [ ] Design data model (if applicable)
+- [ ] Define folder structure
+- [ ] List environment variables
+- [ ] Design API (if applicable)
+- [ ] Record key technical decisions
+- [ ] Document known limitations
+- [ ] Set performance assumptions
+- [ ] **Status**: `Draft` → `Reviewed` → `Locked`
 
-**Directory**: `../features/`
+#### [ ] Stage 4: Logging Setup & Architecture
+**File**: `4-LOGGING.md`
+- [ ] Configure backend logging (timestamps, emojis, levels)
+- [ ] Implement HTTP request logging middleware
+- [ ] Set up frontend terminal logging (API proxy)
+- [ ] Create browser console logger utility
+- [ ] Configure database operation logging
+- [ ] Set up log file structure (/logs directory)
+- [ ] Define logging conventions (emojis, prefixes, levels)
+- [ ] Configure environment variables (LOG_LEVEL)
+- [ ] Test end-to-end logging flow
+- [ ] **Status**: `Draft` → `Configured` → `Tested` → `Locked`
 
-For each identified functionality:
-1. Create a new file: `[FUNCTIONALITY_NAME].md`
-2. Use the template from `TEMPLATE.md` as a starting point
-3. Link back to analyzed requirements
+### 🔨 BUILDING PHASE
 
-**Example**: `features/USER_AUTHENTICATION.md`
+#### [ ] Stage 5: Epics & Stories
+**File**: `5-EPICS.md`
+- [ ] Break all work into Epics
+- [ ] Create stories for each epic (1 session completable)
+- [ ] Define tasks for each story
+- [ ] Set dependencies between stories
+- [ ] Write acceptance criteria for each story
+- [ ] Estimate time for each story
+- [ ] Plan dev tests for each story
+- [ ] Update epic overview table
+- [ ] Set current status section
+- [ ] **Status**: Stories defined and prioritized
 
-### Step 4: Break Down into Steps
+#### [ ] Stage 6: Build Log & Session Journal
+**File**: `6-BUILD.md`
+- [ ] Update current session info before each session
+- [ ] Maintain project health dashboard
+- [ ] Track active blockers
+- [ ] Log each session (build → test → evidence → sign-off)
+- [ ] Record cumulative test status
+- [ ] Log key decisions made during build
+- [ ] Track dependencies added
+- [ ] Complete Definition of Done checklist before scenarios
+- [ ] **Status**: Updated after every session
 
-Within each functionality file, create an **Implementation Plan** section with:
+#### [ ] Stage 7: Codebase Documentation
+**File**: `7-CODEBASE.md`
+- [ ] Update codebase map after each story
+- [ ] Document each module (purpose, exports, usage, design)
+- [ ] Maintain data flow diagrams
+- [ ] Update dependency map
+- [ ] Record technical debt
+- [ ] Follow naming conventions
+- [ ] **Status**: Always current with codebase
 
-1. **High-level steps** - Major phases
-2. **Detailed tasks** - Specific actions
-3. **Dependencies** - What needs to be done first
-4. **Acceptance criteria** - How to verify completion
+### 🔧 CONTINUOUS WORKFLOW (Throughout Development)
 
-**Example Structure**:
-```markdown
-## Implementation Plan
+These files are updated **continuously** during development, not at the end:
 
-### Step 1: Database Schema
-- Tasks:
-  - [ ] Create users table
-  - [ ] Add email, password_hash columns
-  - [ ] Create migration script
-- Dependencies: None
-- Acceptance: Users table exists with correct schema
+#### Architecture Decision Records
+**File**: `../../../workflow/ADR.md`
+- Record decisions **as you make them** during any stage
+- Document context, alternatives, consequences
+- Reference from BUILD sessions when making technical choices
+- **Status**: Living document, append-only
 
-### Step 2: Authentication API
-- Tasks:
-  - [ ] Create POST /api/auth/login endpoint
-  - [ ] Implement password verification
-  - [ ] Generate JWT tokens
-- Dependencies: Step 1
-- Acceptance: Can authenticate and receive token
-```
+#### Known Errors Registry
+**File**: `../../../workflow/ERRORS.md`
+- Log bugs **as you encounter them** during BUILD
+- Document root cause and fix immediately
+- Create prevention rules for future development
+- **Status**: Living document, searchable registry
 
-### Step 5: Implementation
+### 🧪 TESTING PHASE
 
-Once steps are defined:
-1. Review with user
-2. Get approval per `BEST_PRACTICES.md`
-3. Implement code
-4. Create tests
-5. Verify against acceptance criteria
+#### [ ] Blind Test Scenarios
+**File**: `../testing/BLIND_SCENARIOS.md`
+- [ ] Complete Definition of Done checklist first
+- [ ] Run scenarios cold (no pre-testing)
+- [ ] Record results for each scenario
+- [ ] Fix any failures and re-run all scenarios
+- [ ] Complete blind test sign-off
+- [ ] **Status**: Only run after development complete
 
 ## Best Practices
 
@@ -122,39 +191,4 @@ Once steps are defined:
 - ✅ Include testing in steps
 - ✅ Document dependencies
 - ❌ Don't create vague or too-large steps
-
-## Quick Reference
-
-| Stage | File/Directory | Purpose |
-|-------|---------------|---------|
-| Input | `RAW_REQUIREMENTS.md` | Initial requirements capture |
-| Analysis | `ANALYZED_REQUIREMENTS.md` | Rephrased, structured requirements |
-| Breakdown | `../features/[NAME].md` | Individual functionality with steps |
-| Implementation | Code files | Actual code implementation |
-
-## Example Workflow
-
-1. **User adds to RAW_REQUIREMENTS.md**:
-   ```
-   - Need user login
-   - Store passwords securely
-   ```
-
-2. **AI analyzes and creates ANALYZED_REQUIREMENTS.md**:
-   - Identifies "User Authentication" functionality
-   - Breaks into: login, registration, password security
-
-3. **AI creates features/USER_AUTHENTICATION.md**:
-   - Defines steps: database schema → API endpoints → frontend → tests
-
-4. **User reviews and approves**
-
-5. **Implementation begins following steps**
-
----
-
-**Related Documents**:
-- [Best Practices](../../workflow/BEST_PRACTICES.md)
-- [Feature Template](./TEMPLATE.md)
-- [Features Directory](../features/README.md)
 

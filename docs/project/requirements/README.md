@@ -1,49 +1,72 @@
-# Requirements Documentation
+# Project Requirements — Instructions (Read-Only Templates)
 
-This directory contains the requirements analysis workflow from initial input to implementation-ready functionalities.
+These files tell you **WHAT to build** and in what order. Follow them sequentially.
+Project-specific output goes to `docs/project/config/` — never overwrite these templates.
 
 ## Quick Start
+1. **Start here** → `REQUIREMENTS_WORKFLOW.md` (master checklist)
+2. **Follow sequence** → `1` → `2` → `3` → `4` → `5` → `6` → `7`
+3. **Write output** → each file generates content in `../config/`
 
-1. **Add your requirements** → `RAW_REQUIREMENTS.md`
-2. **Analyze together** → `ANALYZED_REQUIREMENTS.md` (with AI assistance)
-3. **Create functionalities** → `../features/[NAME].md` (one file per functionality)
-4. **Break into steps** → Each functionality file contains detailed implementation steps
-5. **Implement** → Follow the steps in each functionality file
+## Numbered Workflow Files
 
-## Files Overview
+| # | File | Purpose | Phase |
+|---|------|---------|-------|
+| 1 | `1-BRAINSTORM.md` | Validate idea before building | 🎯 **PLAN** |
+| 2 | `2-PRD.md` | Requirements source of truth | 🎯 **PLAN** |
+| 3 | `3-ARCHITECTURE.md` | All technical decisions | 🎯 **PLAN** |
+| 4 | `4-LOGGING.md` | Logging setup template | 🎯 **PLAN** |
+| 5 | `5-EPICS.md` | Work breakdown (Epics → Stories) | 🔨 **BUILD** |
+| 6 | `6-BUILD.md` | Session-by-session build log | 🔨 **BUILD** |
+| 7 | `7-CODEBASE.md` | Living codebase documentation | 🔨 **BUILD** |
 
-| File | Purpose | When to Use |
-|------|---------|-------------|
-| `RAW_REQUIREMENTS.md` | Initial requirements capture | Start here - add requirements in any format |
-| `ANALYZED_REQUIREMENTS.md` | Rephrased, structured requirements | After raw requirements are added - analyze together |
-| `TEMPLATE.md` | Feature/functionality template | When creating new functionality files |
-| `REQUIREMENTS_WORKFLOW.md` | Complete workflow guide | Reference for the entire process |
+## Output Mapping
 
-## Workflow
+| Instruction | Generates → | Location |
+|-------------|-------------|----------|
+| `1-BRAINSTORM.md` | brainstorm.md | `../config/` |
+| `2-PRD.md` | prd.md | `../config/` |
+| `3-ARCHITECTURE.md` | architecture.md | `../config/` |
+| `4-LOGGING.md` | logging.md | `../config/` |
+| `5-EPICS.md` | epics/ folder | `../config/epics/` |
+| `6-BUILD.md` | build-log.md | `../config/` |
+| `7-CODEBASE.md` | codebase.md | `../config/` |
+
+## Supporting Files
+
+| File | Purpose |
+|------|---------|
+| `README.md` | This overview (entry point) |
+| `REQUIREMENTS_WORKFLOW.md` | **Master checklist** - start here |
+
+## Project Development Flow
 
 ```
-┌─────────────────────────┐
-│ RAW_REQUIREMENTS.md     │ ← You add requirements here
-│ (Initial input)         │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│ ANALYZED_REQUIREMENTS.md │ ← We analyze & rephrase together
-│ (Structured & clarified) │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│ ../features/[NAME].md   │ ← One file per functionality
-│ (With implementation     │
-│  steps broken down)      │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│ Code Implementation      │ ← Follow the steps
-└─────────────────────────┘
+🎯 PLANNING PHASE
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  1-BRAINSTORM   │ →  │     2-PRD       │ →  │ 3-ARCHITECTURE  │ →  │   4-LOGGING     │
+│ Validate idea   │    │ Requirements    │    │ Tech decisions  │    │ Setup template  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+
+🔨 BUILDING PHASE
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│    5-EPICS      │ →  │    6-BUILD      │ ↔  │   7-CODEBASE    │
+│ Break into      │    │ Session logs    │    │ Living docs     │
+│ stories         │    │ & evidence      │    │ of modules      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              ↓ ↓ ↓
+                    ┌─────────────────────────┐
+                    │  CONTINUOUS WORKFLOW    │
+                    │  ../../../workflow/     │
+                    │  • ADR.md (decisions)   │
+                    │  • ERRORS.md (bugs)     │
+                    └─────────────────────────┘
+
+🧪 TESTING PHASE
+┌─────────────────┐
+│ ../testing/     │
+│ BLIND_SCENARIOS │
+└─────────────────┘
 ```
 
 ## Detailed Workflow
@@ -52,38 +75,22 @@ See [REQUIREMENTS_WORKFLOW.md](./REQUIREMENTS_WORKFLOW.md) for the complete step
 
 ## Key Principles
 
-1. **Start Simple** - Add requirements in any format to `RAW_REQUIREMENTS.md`
-2. **Analyze Together** - We'll clarify, rephrase, and structure requirements
-3. **Break Down** - Each functionality gets its own file with clear steps
-4. **Make Actionable** - Steps should be completable in 1-2 days
-5. **Track Progress** - Use checkboxes in functionality files
+1. **Follow the Sequence** - Each numbered file builds on the previous one
+2. **Validate Early** - Don't skip the brainstorm and PRD stages
+3. **Lock Decisions** - Architecture and logging must be locked before building
+4. **Document Everything** - Keep codebase docs current, log all decisions and errors
+5. **Test Thoroughly** - Run blind scenarios only after development is complete
 
-## Example
+## Why This Structure Works
 
-**Raw Requirement**:
-```
-- Users should be able to login
-```
-
-**After Analysis**:
-```
-Priority 1: User Authentication
-- Users must authenticate using email/password
-- System validates credentials and returns JWT token
-- Passwords must be hashed using bcrypt
-```
-
-**Functionality File** (`../features/USER_AUTHENTICATION.md`):
-- Step 1: Database Schema (users table)
-- Step 2: Authentication API (login endpoint)
-- Step 3: Frontend Login Form
-- Step 4: Testing
+- **Guardrails** - Each file prevents common development pitfalls
+- **Traceability** - Clear path from idea to implementation
+- **Maintainability** - Decisions and errors are documented for future reference
+- **Scalability** - Process works for small scripts to large applications
 
 ---
 
-**Related Documents**:
-- [Requirements Workflow](./REQUIREMENTS_WORKFLOW.md) - Detailed workflow guide
-- [Feature Template](./TEMPLATE.md) - Template for functionality files
-- [Features Directory](../features/README.md) - Where functionality files live
-- [Best Practices](../../workflow/BEST_PRACTICES.md) - Before implementing
-
+**## Related Documents**:
+- [Master Workflow](./REQUIREMENTS_WORKFLOW.md) - Complete checklist
+- [Config Output](../config/) - Project-specific generated content
+- [Workflow Rules](../../../workflow/) - How the AI behaves (always active)
