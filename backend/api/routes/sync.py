@@ -118,7 +118,9 @@ async def sync_full():
         return _wrap(steps)
     if not _run(steps, "corporate_actions", _step_corporate_actions):
         return _wrap(steps)
-    _run(steps, "splits", _step_splits)
+    if not _run(steps, "splits", _step_splits):
+        return _wrap(steps)
+    _run(steps, "indicators", _step_indicators)
     return _wrap(steps)
 
 
@@ -224,6 +226,32 @@ async def sync_market_data():
     except Exception as e:
         logger.error(f"❌ sync_market_data failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/indicators")
+async def sync_indicators():
+    """Compute MA / BB / RSI / MRSI / ATR / Volume MA for every enabled symbol in the universe."""
+    logger.info("📐 Sync step: indicators")
+    try:
+        from backend.scripts.indicators_compute import compute_all
+        conn = get_db_connection()
+        try:
+            result = compute_all(conn)
+        finally:
+            conn.close()
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error(f"❌ sync_indicators failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _step_indicators() -> dict:
+    from backend.scripts.indicators_compute import compute_all
+    conn = get_db_connection()
+    try:
+        return compute_all(conn)
+    finally:
+        conn.close()
 
 
 def _flag_orange(symbols: list) -> None:

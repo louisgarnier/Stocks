@@ -171,13 +171,14 @@ def test_sync_splits_returns_success(temp_db, monkeypatch):
     assert body["success"] is True
 
 
-def test_sync_full_runs_all_four_steps(temp_db, stub_flex_http, monkeypatch):
-    """POST /api/sync/full runs positions, transactions, CAs, splits — in that order, with one Flex pull."""
+def test_sync_full_runs_all_five_steps(temp_db, stub_flex_http, monkeypatch):
+    """POST /api/sync/full runs positions, transactions, CAs, splits, indicators — in that order, with one Flex pull."""
     monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
     monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
 
     import backend.scripts.fetch_corporate_actions as ca_mod
     import backend.scripts.apply_splits as aps_mod
+    import backend.scripts.indicators_compute as ind_mod
     monkeypatch.setattr(
         ca_mod, "fetch_and_import_corporate_actions",
         lambda incremental=True: {"parsed": 0, "inserted": 0, "skipped": 0, "errors": 0, "updated_transactions": 0},
@@ -185,6 +186,10 @@ def test_sync_full_runs_all_four_steps(temp_db, stub_flex_http, monkeypatch):
     monkeypatch.setattr(
         aps_mod, "apply_all_splits",
         lambda: {"applied": 0, "skipped": 0, "errors": 0},
+    )
+    monkeypatch.setattr(
+        ind_mod, "compute_all",
+        lambda conn: {"symbols_processed": [], "rows_written": 0, "errors": 0},
     )
 
     # Track Flex HTTP calls to confirm shared pull (one call, not two)
@@ -196,7 +201,7 @@ def test_sync_full_runs_all_four_steps(temp_db, stub_flex_http, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits"]
+    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits", "indicators"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
@@ -252,3 +257,48 @@ def test_sold_position_removes_ibkr_source(temp_db):
     conn.close()
     assert foo is None, "FOO had only ibkr_position; should be deleted now that no longer held"
     assert bar is not None and _json.loads(bar[0]) == ["sp500"], "BAR retains sp500 source"
+
+
+def test_sync_indicators_endpoint(temp_db, monkeypatch):
+    """POST /api/sync/indicators wraps compute_all()."""
+    import backend.scripts.indicators_compute as ind
+    monkeypatch.setattr(
+        ind, "compute_all",
+        lambda conn: {"symbols_processed": ["AAPL"], "rows_written": 60, "errors": 0},
+    )
+    resp = client.post("/api/sync/indicators")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["rows_written"] == 60
+    assert "AAPL" in body["symbols_processed"]
+
+
+def test_sync_full_includes_indicators_step(temp_db, stub_flex_http, monkeypatch):
+    """/api/sync/full now runs an indicators step after splits."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    import backend.scripts.fetch_corporate_actions as ca_mod
+    import backend.scripts.apply_splits as aps_mod
+    import backend.scripts.indicators_compute as ind_mod
+    monkeypatch.setattr(
+        ca_mod, "fetch_and_import_corporate_actions",
+        lambda incremental=True: {"parsed": 0, "inserted": 0, "skipped": 0, "errors": 0, "updated_transactions": 0},
+    )
+    monkeypatch.setattr(
+        aps_mod, "apply_all_splits",
+        lambda: {"applied": 0, "skipped": 0, "errors": 0},
+    )
+    monkeypatch.setattr(
+        ind_mod, "compute_all",
+        lambda conn: {"symbols_processed": ["TEST"], "rows_written": 1, "errors": 0},
+    )
+
+    resp = client.post("/api/sync/full")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    step_names = [s["name"] for s in body["steps"]]
+    assert step_names == ["positions", "transactions", "corporate_actions", "splits", "indicators"]
+    for s in body["steps"]:
+        assert s["status"] == "ok", s
