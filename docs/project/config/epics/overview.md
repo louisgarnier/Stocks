@@ -10,7 +10,7 @@
 | **C** | [Foundation: Universe + Market Data + Design System](epic-C-foundation/spec.md) | [x] Done | 9 | Tailwind+shadcn, `tracked_universe`, `market_data` ingestion |
 | **D** | [Indicators](epic-D-indicators/spec.md) | [x] Done | 7 | MA / BB / RSI / **MRSI (Mansfield)** / ATR / Volume MA |
 | **G** | [Sell Signals on Holdings](epic-G-sell-signals/spec.md) | [ ] Pending | TBD | Positions tab Signals column with traffic light + 11 signal types |
-| **H** | [Security Detail View](epic-H-security-detail/spec.md) | [ ] Pending | TBD | Universal modal — Mode A (held: chart + tx + sell sim + signals) / Mode B (not held: chart + buy signals + stats) |
+| **H** | [Security Detail View](epic-H-security-detail/spec.md) | [x] Done v1 | 8 | Universal modal — Sheet with About / Position / Transactions / Indicators / Recent bars. Chart + sell simulator + signal checklist deferred. |
 | **E** | [Tech Analysis Tab v1](epic-E-tech-analysis/spec.md) | [ ] Pending | TBD | Range + Trend Breakouts, ZigZag + BB Squeeze consolidation, technical S/R |
 | **F** | [Options S/R + Polish](epic-F-options-sr/spec.md) | [ ] Pending | TBD | yfinance options chain → max pain + call/put walls, chart polish |
 

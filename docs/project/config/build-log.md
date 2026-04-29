@@ -1,5 +1,32 @@
 # Build Log
 
+## 2026-04-29 — Epic H v1 complete: Security Detail Sheet
+
+8 stories shipped. Click any symbol on Browse Universe (Configuration tab) or Positions tab → slide-in shadcn Sheet panel showing position info (held mode), latest indicators (all 11 values), transactions filtered by symbol, last 30 OHLCV bars.
+
+**Endpoints added:**
+- `GET /api/security/{symbol}/detail` — combined per-symbol response (universe + position + transactions + indicators + bars)
+
+**Frontend additions:**
+- shadcn `Sheet` component
+- `frontend/components/security-detail/SecurityDetailSheet.tsx` — Sheet + Mode A/B branching + 4 cards (About, Position, Indicators, Transactions, Recent bars)
+- Click handlers on Browse Universe rows (`hover:bg-secondary/40 cursor-pointer`)
+- Click handlers on Positions tab rows (inline-styled to match existing tab)
+- ESC / click-outside closes via Sheet's controlled `open` state
+
+**Live smoke test:**
+- `GET /api/security/NVDA/detail` → held=True, 26 transactions, MRSI +0.127, 30 bars
+- `GET /api/security/AAPL/detail` → held=False, MRSI +0.028, 30 bars
+- `GET /api/security/^GSPC/detail` → benchmark, sources=['benchmark']
+
+**Out of scope (Epic H follow-up or merged into G/E/F as they ship):** mini price chart with MA overlays (Recharts), sell simulator (avg-cost realized P&L), buy/sell signal checklist (depends on Epic G), "Open in Tech Analysis" link (depends on Epic E), "Add to manual universe" CTA, yfinance Ticker.info stats card.
+
+**Tests:** 4 new integration tests in `test_security_routes.py`. All passing.
+
+**Commits:** STORY-H-1 through STORY-H-8 on branch `newstart`.
+
+---
+
 ## 2026-04-28 — Epic D complete: indicators
 
 7 stories shipped, end-to-end smoke test passed for indicators (CA step regression noted below).
