@@ -209,7 +209,52 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
         </Card>
       )}
 
-      {/* Indicator + bars cards land in Tasks 5 and 6 */}
+      {data.indicators && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Indicators (as of {data.indicators.time})</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-3 text-sm">
+            <Stat label="MA 50" value={fmt(data.indicators.ma_50)} />
+            <Stat label="MA 100" value={fmt(data.indicators.ma_100)} />
+            <Stat label="MA 150" value={fmt(data.indicators.ma_150)} />
+            <Stat label="MA 200" value={fmt(data.indicators.ma_200)} />
+            <Stat label="BB upper" value={fmt(data.indicators.bb_upper_20)} />
+            <Stat label="BB lower" value={fmt(data.indicators.bb_lower_20)} />
+            <Stat label="BB width" value={data.indicators.bb_width != null ? data.indicators.bb_width.toFixed(3) : "—"} />
+            <Stat label="RSI(14)" value={data.indicators.rsi_14 != null ? data.indicators.rsi_14.toFixed(1) : "—"} />
+            <Stat
+              label="MRSI"
+              value={
+                data.indicators.mrsi != null
+                  ? `${data.indicators.mrsi > 0 ? "+" : ""}${data.indicators.mrsi.toFixed(3)}`
+                  : "—"
+              }
+              colorClass={
+                data.indicators.mrsi != null
+                  ? data.indicators.mrsi > 0
+                    ? "text-green-600"
+                    : data.indicators.mrsi < 0
+                      ? "text-red-600"
+                      : undefined
+                  : undefined
+              }
+            />
+            <Stat label="ATR(14)" value={data.indicators.atr_14 != null ? data.indicators.atr_14.toFixed(2) : "—"} />
+            <Stat label="Vol MA(20)" value={fmt(data.indicators.volume_ma_20)} />
+          </CardContent>
+        </Card>
+      )}
+      {!data.indicators && (
+        <Card>
+          <CardContent className="text-sm text-muted-foreground py-4">
+            No indicators yet for {data.symbol}. Run &quot;Sync indicators&quot; from the
+            Sync IBKR pipeline.
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent OHLCV table lands in Task 6 */}
     </div>
   );
 }
