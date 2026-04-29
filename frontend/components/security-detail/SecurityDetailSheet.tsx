@@ -254,7 +254,49 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
         </Card>
       )}
 
-      {/* Recent OHLCV table lands in Task 6 */}
+      {data.bars.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Recent bars ({data.bars.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border max-h-72 overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-right text-xs">Open</TableHead>
+                    <TableHead className="text-right text-xs">High</TableHead>
+                    <TableHead className="text-right text-xs">Low</TableHead>
+                    <TableHead className="text-right text-xs">Close</TableHead>
+                    <TableHead className="text-right text-xs">Volume</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.bars.map((b) => (
+                    <TableRow key={b.time}>
+                      <TableCell className="text-xs font-mono">{b.time}</TableCell>
+                      <TableCell className="text-right text-xs font-mono tabular-nums">{b.open != null ? b.open.toFixed(2) : "—"}</TableCell>
+                      <TableCell className="text-right text-xs font-mono tabular-nums">{b.high != null ? b.high.toFixed(2) : "—"}</TableCell>
+                      <TableCell className="text-right text-xs font-mono tabular-nums">{b.low != null ? b.low.toFixed(2) : "—"}</TableCell>
+                      <TableCell className="text-right text-xs font-mono tabular-nums font-semibold">{b.close != null ? b.close.toFixed(2) : "—"}</TableCell>
+                      <TableCell className="text-right text-xs font-mono tabular-nums">{b.volume != null ? b.volume.toLocaleString("en-US") : "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {data.bars.length === 0 && (
+        <Card>
+          <CardContent className="text-sm text-muted-foreground py-4">
+            No market data yet for {data.symbol}. Run &quot;Sync market data&quot; from
+            the Configuration tab.
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
