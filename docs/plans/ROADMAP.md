@@ -17,12 +17,14 @@ Single source of truth for what's done, in flight, and queued. Each story has it
 
 | # | Epic | Plan file | Spec |
 |---|---|---|---|
-| 1 | **C — Foundation: Universe + Market Data + Design System** | `2026-04-28-story-c-foundation.md` | [§ Story C](#story-c--foundation) |
-| 2 | **D — Indicators** | not yet | [§ Story D](#story-d--indicators) |
-| 3 | **G — Sell signals on holdings** | not yet | [§ Story G](#story-g--sell-signals-on-holdings) |
-| 4 | **H — Security Detail View popup** | not yet | [§ Story H](#story-h--security-detail-view) |
-| 5 | **E — Tech Analysis tab v1** | not yet | [§ Story E](#story-e--tech-analysis-tab-v1) |
-| 6 | **F — Options S/R + polish** | not yet | [§ Story F](#story-f--options-based-sr--polish) |
+| ✅ | **C — Foundation: Universe + Market Data + Design System** | `2026-04-28-story-c-foundation.md` | [§ Story C](#story-c--foundation) |
+| ✅ | **D — Indicators** | `2026-04-28-story-d-indicators.md` | [§ Story D](#story-d--indicators) |
+| 1 | **H — Security Detail View popup** | not yet | [§ Story H](#story-h--security-detail-view) |
+| 2 | **G — Sell signals on holdings** | not yet | [§ Story G](#story-g--sell-signals-on-holdings) |
+| 3 | **E — Tech Analysis tab v1** | not yet | [§ Story E](#story-e--tech-analysis-tab-v1) |
+| 4 | **F — Options S/R + polish** | not yet | [§ Story F](#story-f--options-based-sr--polish) |
+
+> **Reordering note (2026-04-29):** H moved ahead of G. Building more detection layers without an inspector to verify them is flying blind. Epic H gives every symbol a click-to-inspect view that validates D's indicators (and every future epic's data) per-symbol.
 
 ---
 
