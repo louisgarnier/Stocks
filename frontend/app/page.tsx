@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RefreshCcw, X, Plus, Database, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
+import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetailSheet";
 
 interface HealthResponse {
   status: string;
@@ -254,6 +255,7 @@ export default function Dashboard() {
   const [coverageSearch, setCoverageSearch] = useState<string>('');
   const [coverageSourceFilter, setCoverageSourceFilter] = useState<string>('');
   const [coverageSortKey, setCoverageSortKey] = useState<keyof UniverseCoverageItem>('symbol');
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [coverageSortDir, setCoverageSortDir] = useState<'asc' | 'desc'>('asc');
 
   type SyncStepStatus = 'pending' | 'ok' | 'error';
@@ -1198,6 +1200,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <SecurityDetailSheet symbol={selectedSymbol} onClose={() => setSelectedSymbol(null)} />
       <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px 20px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>IBKR Portfolio Tracker</h1>
@@ -1546,7 +1549,11 @@ export default function Dashboard() {
                               return coverageSortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
                             });
                             return rows.map((it) => (
-                              <TableRow key={it.symbol}>
+                              <TableRow
+                                key={it.symbol}
+                                className="cursor-pointer hover:bg-secondary/40"
+                                onClick={() => setSelectedSymbol(it.symbol)}
+                              >
                                 <TableCell className="font-mono font-semibold">{it.symbol}</TableCell>
                                 <TableCell className="text-sm text-muted-foreground max-w-[280px] truncate" title={it.name ?? ''}>
                                   {it.name ?? '—'}
@@ -2676,7 +2683,11 @@ export default function Dashboard() {
                         {getSortedAndFilteredPositions().map((pos: Position) => {
                           const currencySymbol = pos.currency === 'EUR' ? '€' : pos.currency === 'GBP' ? '£' : '$';
                           return (
-                          <tr key={pos.symbol} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                          <tr
+                            key={pos.symbol}
+                            style={{ borderBottom: '1px solid #e5e7eb', cursor: 'pointer' }}
+                            onClick={() => setSelectedSymbol(pos.symbol)}
+                          >
                             <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
                               {pos.symbol}
                               <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '400', marginLeft: '6px' }}>{pos.currency}</span>
