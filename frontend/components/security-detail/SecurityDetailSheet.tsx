@@ -29,6 +29,7 @@ export interface SecurityDetail {
     position_value: number | null;
     unrealized_pnl: number | null;
     currency: string | null;
+    last_updated: string | null;
   } | null;
   transactions: Array<{
     transaction_id: string;
@@ -121,6 +122,7 @@ export function SecurityDetailSheet({ symbol, onClose }: Props) {
           {data?.universe?.name && (
             <p className="text-sm text-muted-foreground">{data.universe.name}</p>
           )}
+          {data && data.bars.length > 0 && <LastCloseHeader data={data} />}
         </SheetHeader>
 
         <div className="p-4 space-y-4">
@@ -159,6 +161,9 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Position</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              as of {fmtDate(data.position.last_updated)} · IBKR Flex (T-1, end-of-day)
+            </p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 text-sm">
             <Stat label="Quantity" value={fmt(data.position.quantity)} />
@@ -301,6 +306,29 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
   );
 }
 
+function LastCloseHeader({ data }: { data: SecurityDetail }) {
+  const latest = data.bars[0];
+  if (!latest || latest.close == null) return null;
+  const prev = data.bars[1];
+  const change = prev?.close != null ? latest.close - prev.close : null;
+  const pct = change != null && prev?.close ? (change / prev.close) * 100 : null;
+  const currency = data.universe?.currency ?? data.position?.currency ?? null;
+  const color = change == null ? "" : change >= 0 ? "text-green-600" : "text-red-600";
+  return (
+    <div className="flex items-baseline gap-3 pt-1">
+      <span className="text-2xl font-mono font-semibold tabular-nums">
+        {fmtCur(latest.close, currency)}
+      </span>
+      {change != null && pct != null && (
+        <span className={`text-sm font-mono tabular-nums ${color}`}>
+          {change >= 0 ? "+" : ""}{change.toFixed(2)} ({pct >= 0 ? "+" : ""}{pct.toFixed(2)}%)
+        </span>
+      )}
+      <span className="text-xs text-muted-foreground">EOD close · {latest.time}</span>
+    </div>
+  );
+}
+
 function Stat({ label, value, colorClass }: { label: string; value: string; colorClass?: string }) {
   return (
     <div>
@@ -318,4 +346,9 @@ function fmt(n: number | null | undefined): string {
 function fmtCur(n: number, currency: string | null | undefined): string {
   const sym = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
   return `${sym}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtDate(ts: string | null | undefined): string {
+  if (!ts) return "—";
+  return ts.length >= 10 ? ts.slice(0, 10) : ts;
 }
