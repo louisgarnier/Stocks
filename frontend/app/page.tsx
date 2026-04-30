@@ -176,8 +176,17 @@ interface PositionsResponse {
   };
 }
 
-type TabType = 'positions' | 'transactions' | 'configuration';
+type TabType = 'positions' | 'transactions' | 'browse-universe' | 'configuration';
 type TransactionsSubTab = 'original' | 'split-adjusted' | 'corporate-actions';
+
+function previousBusinessDay(d: Date): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() - 1);
+  while (r.getDay() === 0 || r.getDay() === 6) {
+    r.setDate(r.getDate() - 1);
+  }
+  return r;
+}
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('positions');
@@ -1278,6 +1287,12 @@ export default function Dashboard() {
             📋 Transactions
           </button>
           <button
+            onClick={() => { setActiveTab('browse-universe'); fetchUniverseCoverage(); }}
+            style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'browse-universe' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'browse-universe' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+          >
+            🌐 Browse Universe
+          </button>
+          <button
             onClick={() => setActiveTab('configuration')}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'configuration' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'configuration' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
@@ -1312,6 +1327,164 @@ export default function Dashboard() {
         {/* Tab Content */}
         <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           
+          {/* Tab: Browse Universe — searchable table of every tracked symbol */}
+          {activeTab === 'browse-universe' && (
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    Browse Universe
+                    <Badge variant="secondary" className="ml-auto">
+                      {(() => {
+                        const filtered = universeCoverage.filter((it) => {
+                          const q = coverageSearch.trim().toUpperCase();
+                          const matchSearch = !q || it.symbol.includes(q) || (it.name ?? '').toUpperCase().includes(q);
+                          const matchSrc = !coverageSourceFilter || it.sources.includes(coverageSourceFilter);
+                          return matchSearch && matchSrc;
+                        });
+                        return `${filtered.length} of ${universeCoverage.length}`;
+                      })()}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2 mb-3 items-center">
+                    <Input
+                      placeholder="Search symbol or name…"
+                      value={coverageSearch}
+                      onChange={(e) => setCoverageSearch(e.target.value)}
+                      className="max-w-sm"
+                    />
+                    <select
+                      value={coverageSourceFilter}
+                      onChange={(e) => setCoverageSourceFilter(e.target.value)}
+                      className="text-sm border rounded-md px-3 py-2 bg-card"
+                    >
+                      <option value="">All sources</option>
+                      <option value="ibkr_position">Held</option>
+                      <option value="manual">Manual</option>
+                      <option value="benchmark">Benchmark</option>
+                      <option value="sp500">S&P 500</option>
+                      <option value="cac40">CAC 40</option>
+                    </select>
+                  </div>
+                  <div className="rounded-md border max-h-[600px] overflow-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-card">
+                        <TableRow>
+                          {([
+                            { key: 'symbol' as const, label: 'Symbol', align: 'text-left' },
+                            { key: 'name' as const, label: 'Name', align: 'text-left' },
+                            { key: 'sources' as const, label: 'Sources', align: 'text-left' },
+                            { key: 'currency' as const, label: 'Cur', align: 'text-left' },
+                            { key: 'bars' as const, label: 'Bars', align: 'text-right' },
+                            { key: 'latest_close' as const, label: 'Last close', align: 'text-right' },
+                            { key: 'latest_time' as const, label: 'As of', align: 'text-left' },
+                            { key: 'ma_50' as const, label: 'MA50', align: 'text-right' },
+                            { key: 'rsi_14' as const, label: 'RSI', align: 'text-right' },
+                            { key: 'mrsi' as const, label: 'MRSI', align: 'text-right' },
+                          ] as const).map((col) => (
+                            <TableHead
+                              key={col.key}
+                              className={`${col.align} cursor-pointer select-none`}
+                              onClick={() => {
+                                if (coverageSortKey === col.key) {
+                                  setCoverageSortDir(coverageSortDir === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                  setCoverageSortKey(col.key as keyof UniverseCoverageItem);
+                                  setCoverageSortDir('asc');
+                                }
+                              }}
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                {col.label}
+                                {coverageSortKey === col.key && (
+                                  <ArrowUpDown className="w-3 h-3 opacity-60" />
+                                )}
+                              </span>
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          const q = coverageSearch.trim().toUpperCase();
+                          let rows = universeCoverage.filter((it) => {
+                            const matchSearch = !q || it.symbol.includes(q) || (it.name ?? '').toUpperCase().includes(q);
+                            const matchSrc = !coverageSourceFilter || it.sources.includes(coverageSourceFilter);
+                            return matchSearch && matchSrc;
+                          });
+                          const k = coverageSortKey;
+                          rows = [...rows].sort((a, b) => {
+                            const av = a[k];
+                            const bv = b[k];
+                            if (av === null || av === undefined) return 1;
+                            if (bv === null || bv === undefined) return -1;
+                            if (typeof av === 'number' && typeof bv === 'number') {
+                              return coverageSortDir === 'asc' ? av - bv : bv - av;
+                            }
+                            const as = String(av);
+                            const bs = String(bv);
+                            return coverageSortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
+                          });
+                          return rows.map((it) => (
+                            <TableRow
+                              key={it.symbol}
+                              className="cursor-pointer hover:bg-secondary/40"
+                              onClick={() => setSelectedSymbol(it.symbol)}
+                            >
+                              <TableCell className="font-mono font-semibold">{it.symbol}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground max-w-[280px] truncate" title={it.name ?? ''}>
+                                {it.name ?? '—'}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {it.sources.map((s) => (
+                                    <Badge key={s} variant="outline" className="text-xs">
+                                      {s}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{it.currency ?? '—'}</TableCell>
+                              <TableCell className="text-right font-mono tabular-nums">{it.bars}</TableCell>
+                              <TableCell className="text-right font-mono tabular-nums">
+                                {it.latest_close != null ? it.latest_close.toFixed(2) : '—'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground font-mono tabular-nums">
+                                {it.latest_time ? it.latest_time.slice(0, 10) : '—'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono tabular-nums">
+                                {it.ma_50 != null ? it.ma_50.toFixed(2) : '—'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono tabular-nums">
+                                {it.rsi_14 != null ? it.rsi_14.toFixed(1) : '—'}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-mono tabular-nums ${
+                                  it.mrsi != null
+                                    ? it.mrsi > 0
+                                      ? 'text-green-600'
+                                      : it.mrsi < 0
+                                      ? 'text-red-600'
+                                      : ''
+                                    : ''
+                                }`}
+                              >
+                                {it.mrsi != null ? `${it.mrsi > 0 ? '+' : ''}${it.mrsi.toFixed(3)}` : '—'}
+                              </TableCell>
+                            </TableRow>
+                          ));
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Tab 1: Configuration (formerly Load Trades) */}
           {activeTab === 'configuration' && (
             <div>
@@ -1450,155 +1623,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Browse Universe — searchable table of every tracked symbol */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Database className="w-5 h-5" />
-                      Browse Universe
-                      <Badge variant="secondary" className="ml-auto">
-                        {(() => {
-                          const filtered = universeCoverage.filter((it) => {
-                            const q = coverageSearch.trim().toUpperCase();
-                            const matchSearch = !q || it.symbol.includes(q) || (it.name ?? '').toUpperCase().includes(q);
-                            const matchSrc = !coverageSourceFilter || it.sources.includes(coverageSourceFilter);
-                            return matchSearch && matchSrc;
-                          });
-                          return `${filtered.length} of ${universeCoverage.length}`;
-                        })()}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2 mb-3 items-center">
-                      <Input
-                        placeholder="Search symbol or name…"
-                        value={coverageSearch}
-                        onChange={(e) => setCoverageSearch(e.target.value)}
-                        className="max-w-sm"
-                      />
-                      <select
-                        value={coverageSourceFilter}
-                        onChange={(e) => setCoverageSourceFilter(e.target.value)}
-                        className="text-sm border rounded-md px-3 py-2 bg-card"
-                      >
-                        <option value="">All sources</option>
-                        <option value="ibkr_position">Held</option>
-                        <option value="manual">Manual</option>
-                        <option value="benchmark">Benchmark</option>
-                        <option value="sp500">S&P 500</option>
-                        <option value="cac40">CAC 40</option>
-                      </select>
-                    </div>
-                    <div className="rounded-md border max-h-[600px] overflow-auto">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-card">
-                          <TableRow>
-                            {([
-                              { key: 'symbol' as const, label: 'Symbol', align: 'text-left' },
-                              { key: 'name' as const, label: 'Name', align: 'text-left' },
-                              { key: 'sources' as const, label: 'Sources', align: 'text-left' },
-                              { key: 'currency' as const, label: 'Cur', align: 'text-left' },
-                              { key: 'bars' as const, label: 'Bars', align: 'text-right' },
-                              { key: 'latest_close' as const, label: 'Last close', align: 'text-right' },
-                              { key: 'ma_50' as const, label: 'MA50', align: 'text-right' },
-                              { key: 'rsi_14' as const, label: 'RSI', align: 'text-right' },
-                              { key: 'mrsi' as const, label: 'MRSI', align: 'text-right' },
-                            ] as const).map((col) => (
-                              <TableHead
-                                key={col.key}
-                                className={`${col.align} cursor-pointer select-none`}
-                                onClick={() => {
-                                  if (coverageSortKey === col.key) {
-                                    setCoverageSortDir(coverageSortDir === 'asc' ? 'desc' : 'asc');
-                                  } else {
-                                    setCoverageSortKey(col.key as keyof UniverseCoverageItem);
-                                    setCoverageSortDir('asc');
-                                  }
-                                }}
-                              >
-                                <span className="inline-flex items-center gap-1">
-                                  {col.label}
-                                  {coverageSortKey === col.key && (
-                                    <ArrowUpDown className="w-3 h-3 opacity-60" />
-                                  )}
-                                </span>
-                              </TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(() => {
-                            const q = coverageSearch.trim().toUpperCase();
-                            let rows = universeCoverage.filter((it) => {
-                              const matchSearch = !q || it.symbol.includes(q) || (it.name ?? '').toUpperCase().includes(q);
-                              const matchSrc = !coverageSourceFilter || it.sources.includes(coverageSourceFilter);
-                              return matchSearch && matchSrc;
-                            });
-                            const k = coverageSortKey;
-                            rows = [...rows].sort((a, b) => {
-                              const av = a[k];
-                              const bv = b[k];
-                              if (av === null || av === undefined) return 1;
-                              if (bv === null || bv === undefined) return -1;
-                              if (typeof av === 'number' && typeof bv === 'number') {
-                                return coverageSortDir === 'asc' ? av - bv : bv - av;
-                              }
-                              const as = String(av);
-                              const bs = String(bv);
-                              return coverageSortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
-                            });
-                            return rows.map((it) => (
-                              <TableRow
-                                key={it.symbol}
-                                className="cursor-pointer hover:bg-secondary/40"
-                                onClick={() => setSelectedSymbol(it.symbol)}
-                              >
-                                <TableCell className="font-mono font-semibold">{it.symbol}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground max-w-[280px] truncate" title={it.name ?? ''}>
-                                  {it.name ?? '—'}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-wrap gap-1">
-                                    {it.sources.map((s) => (
-                                      <Badge key={s} variant="outline" className="text-xs">
-                                        {s}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{it.currency ?? '—'}</TableCell>
-                                <TableCell className="text-right font-mono tabular-nums">{it.bars}</TableCell>
-                                <TableCell className="text-right font-mono tabular-nums">
-                                  {it.latest_close != null ? it.latest_close.toFixed(2) : '—'}
-                                </TableCell>
-                                <TableCell className="text-right font-mono tabular-nums">
-                                  {it.ma_50 != null ? it.ma_50.toFixed(2) : '—'}
-                                </TableCell>
-                                <TableCell className="text-right font-mono tabular-nums">
-                                  {it.rsi_14 != null ? it.rsi_14.toFixed(1) : '—'}
-                                </TableCell>
-                                <TableCell
-                                  className={`text-right font-mono tabular-nums ${
-                                    it.mrsi != null
-                                      ? it.mrsi > 0
-                                        ? 'text-green-600'
-                                        : it.mrsi < 0
-                                        ? 'text-red-600'
-                                        : ''
-                                      : ''
-                                  }`}
-                                >
-                                  {it.mrsi != null ? `${it.mrsi > 0 ? '+' : ''}${it.mrsi.toFixed(3)}` : '—'}
-                                </TableCell>
-                              </TableRow>
-                            ));
-                          })()}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
               {/* Existing configuration content below */}
@@ -2612,9 +2636,15 @@ export default function Dashboard() {
                 <div>
                   <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>📊 Portfolio Positions (IBKR)</h3>
                   {positions?.summary?.last_updated && (
-                    <p style={{ fontSize: '12px', color: '#9ca3af' }}>
-                      Last sync: {new Date(positions.summary.last_updated).toLocaleString()}
-                    </p>
+                    <>
+                      <p style={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                        Data as of: {previousBusinessDay(new Date(positions.summary.last_updated)).toISOString().slice(0, 10)} close
+                        <span style={{ color: '#9ca3af', fontWeight: 400 }}> · IBKR Flex (T-1, end-of-day)</span>
+                      </p>
+                      <p style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        Last sync: {new Date(positions.summary.last_updated).toLocaleString()}
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
