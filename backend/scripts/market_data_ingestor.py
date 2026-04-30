@@ -98,11 +98,16 @@ def _insert_bars(conn, symbol: str, df: pd.DataFrame) -> int:
     return inserted
 
 
-def ingest_market_data(default_lookback_days: int = 365) -> dict:
+def ingest_market_data(default_lookback_days: int = 730) -> dict:
     """Pull market data from yfinance for all enabled symbols in tracked_universe.
 
     For each symbol: start = max(stored bar) + 1 day, or today - default_lookback_days
     if no bars stored yet.
+
+    Default is 730 calendar days (~504 trading days) so the 252-day rolling MRSI
+    window has at least 252 valid output points on a fresh sync. A 365-day
+    lookback yields ~252 trading days, which only produces an MRSI value on the
+    very last bar.
 
     Returns: {"symbols_processed": int, "rows_inserted": int, "errors": int}
     """
