@@ -88,7 +88,7 @@ npm run dev
 lsof -ti:3000
 
 # Check for any Next.js processes
-ps aux | grep "next dev"
+lsof -ti:3000 | xargs kill -9
 ```
 
 **Kill running processes:**
@@ -117,6 +117,8 @@ rm -rf .next
 lsof -ti:3000,3001 | xargs kill -9
 npm run dev
 ```
+
+
 
 ### Backend Won't Start
 

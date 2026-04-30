@@ -4,7 +4,7 @@
 
 **BEFORE making ANY changes to code or creating files, you MUST:**
 
-1. **Read `docs/workflow/BEST_PRACTICES.md`** - This is MANDATORY
+1. **always read `docs/workflow/BEST_PRACTICES.md`** before doing anything. check if there are guidelines to follow for any of you actions - This is MANDATORY
 2. **Check with the user** before:
    - Writing or modifying code
    - Creating new files (except documentation in `docs/`)
