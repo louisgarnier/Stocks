@@ -565,29 +565,33 @@ def fetch_and_import_corporate_actions(incremental: bool = False) -> dict:
         conn.close()
         
         filtered_securities = []
-        now = datetime.now()
-        
+        now = datetime.now().astimezone()
+
+        def _parse_aware(ts: str) -> datetime:
+            dt = datetime.fromisoformat(ts)
+            return dt if dt.tzinfo else dt.astimezone()
+
         for sec in securities:
             symbol = sec['symbol']
             status_info = status_map.get(symbol, {})
             status = status_info.get('status')
             last_fetched = status_info.get('last_fetched')
-            
+
             # Always fetch if orange (new transactions)
             if status == 'orange':
                 filtered_securities.append(sec)
                 continue
-            
+
             # Fetch if green and >24h
             if status == 'green' and last_fetched:
-                last_fetch_dt = datetime.fromisoformat(last_fetched)
+                last_fetch_dt = _parse_aware(last_fetched)
                 if (now - last_fetch_dt) > timedelta(hours=24):
                     filtered_securities.append(sec)
                     continue
-            
+
             # Fetch if grey and >7 days
             if status == 'grey' and last_fetched:
-                last_fetch_dt = datetime.fromisoformat(last_fetched)
+                last_fetch_dt = _parse_aware(last_fetched)
                 if (now - last_fetch_dt) > timedelta(days=7):
                     filtered_securities.append(sec)
                     continue
