@@ -15,9 +15,9 @@
 - ✅ **G-1** schema: `holding_signals` + `signal_settings` tables, defaults seeded
 - ✅ **G-2** 11 sell-signal evaluators + `compute_all_signals` orchestrator
 - ✅ **G-3** API routes (sync + reads + settings GET/POST) and wired into `/api/sync/full`. (G-4 read endpoint absorbed into G-3.)
-- ⏳ **G-5** Positions tab Signals column + click-to-expand panel (shadcn Collapsible)
+- ✅ **G-5** Positions tab Signals column + inline expand panel. Implementation complete (type-check + 23 jest tests green; backend smoke 143 signals across 14 holdings). Visual UI confirmation pending user.
 - ⏳ **G-6** Configuration: signals settings sub-section (toggle + thresholds)
-- ⏳ **G-7** End-to-end smoke test
+- ⏳ **G-7** End-to-end smoke test (will fold into G-6 ship)
 - ⏳ Bonus: signals card inside the Security Detail Sheet for held symbols
 
 ## Up next (after Epic G ships)
