@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { RefreshCcw, X, Plus, Database, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetailSheet";
+import { SignalPill } from '@/components/positions/SignalPill';
+import { SignalsExpandPanel } from '@/components/positions/SignalsExpandPanel';
+import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/holding-signals';
 
 interface HealthResponse {
   status: string;
@@ -232,6 +235,9 @@ export default function Dashboard() {
   const [positionsSortBy, setPositionsSortBy] = useState<'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl'>('position_value');
   const [positionsSortOrder, setPositionsSortOrder] = useState<'asc' | 'desc'>('desc');
   const [positionsSymbolFilter, setPositionsSymbolFilter] = useState<string>('');
+  const [signalsBySymbol, setSignalsBySymbol] = useState<SignalsBySymbol>({});
+  const [expandedSignalSymbols, setExpandedSignalSymbols] = useState<Set<string>>(new Set());
+  const [onlySignalsFired, setOnlySignalsFired] = useState(false);
   const [universe, setUniverse] = useState<UniverseSymbol[]>([]);
   const [indices, setIndices] = useState<IndexInfo[]>([]);
   const [universeLoading, setUniverseLoading] = useState(false);
@@ -617,12 +623,28 @@ export default function Dashboard() {
     } catch (err) {
       console.error('❌ Failed to fetch positions:', err);
     }
+    try {
+      const map = await fetchHoldingSignals();
+      setSignalsBySymbol(map);
+    } catch (err) {
+      console.warn('⚠️ holding-signals fetch failed:', err);
+      setSignalsBySymbol({});
+    }
   };
 
   const handlePositionsSort = (column: 'symbol' | 'quantity' | 'cost_basis_price' | 'position_value' | 'unrealized_pnl') => {
     const newOrder = positionsSortBy === column && positionsSortOrder === 'desc' ? 'asc' : 'desc';
     setPositionsSortBy(column);
     setPositionsSortOrder(newOrder);
+  };
+
+  const toggleSignalExpand = (symbol: string) => {
+    setExpandedSignalSymbols((prev) => {
+      const next = new Set(prev);
+      if (next.has(symbol)) next.delete(symbol);
+      else next.add(symbol);
+      return next;
+    });
   };
 
   const getSortedAndFilteredPositions = (): Position[] => {
@@ -632,11 +654,15 @@ export default function Dashboard() {
     
     // Apply symbol filter
     if (positionsSymbolFilter) {
-      filtered = filtered.filter((pos: Position) => 
+      filtered = filtered.filter((pos: Position) =>
         pos.symbol.toLowerCase().includes(positionsSymbolFilter.toLowerCase())
       );
     }
-    
+
+    if (onlySignalsFired) {
+      filtered = filtered.filter((pos: Position) => countFired(signalsBySymbol[pos.symbol] ?? []) > 0);
+    }
+
     // Apply sorting
     return [...filtered].sort((a: Position, b: Position) => {
       let aVal: number | string = a[positionsSortBy];
@@ -2656,6 +2682,19 @@ export default function Dashboard() {
                     <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>Open Positions</p>
                     <p style={{ fontSize: '24px', fontWeight: '600', color: '#1d4ed8' }}>{positions.summary.total_positions}</p>
                   </div>
+                  {(() => {
+                    const heldSyms = positions?.positions?.map((p) => p.symbol) ?? [];
+                    const flagged = heldSyms.filter((s) => countFired(signalsBySymbol[s] ?? []) > 0).length;
+                    if (flagged === 0) return null;
+                    return (
+                      <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px', minWidth: '180px' }}>
+                        <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: '500', margin: 0 }}>⚠️ Holdings with sell signals</p>
+                        <p style={{ fontSize: '24px', fontWeight: '600', color: '#b91c1c', margin: 0 }}>
+                          {flagged}<span style={{ fontSize: '14px', fontWeight: 500, color: '#9ca3af', marginLeft: '6px' }}>of {heldSyms.length}</span>
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -2663,19 +2702,30 @@ export default function Dashboard() {
               <div style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>IBKR Open Positions</h4>
-                  <input
-                    type="text"
-                    placeholder="Filter by symbol..."
-                    value={positionsSymbolFilter}
-                    onChange={(e) => setPositionsSymbolFilter(e.target.value.toUpperCase())}
-                    style={{
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      width: '180px'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#6b7280', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={onlySignalsFired}
+                        onChange={(e) => setOnlySignalsFired(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      Only with signals fired
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Filter by symbol..."
+                      value={positionsSymbolFilter}
+                      onChange={(e) => setPositionsSymbolFilter(e.target.value.toUpperCase())}
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        width: '180px'
+                      }}
+                    />
+                  </div>
                 </div>
                 {positions?.positions && positions.positions.length > 0 ? (
                   <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
@@ -2707,34 +2757,48 @@ export default function Dashboard() {
                               {col.label} {positionsSortBy === col.key && (positionsSortOrder === 'asc' ? '▲' : '▼')}
                             </th>
                           ))}
+                          <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#6b7280', borderBottom: '1px solid #e5e7eb', width: '120px' }}>
+                            Signals
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {getSortedAndFilteredPositions().map((pos: Position) => {
                           const currencySymbol = pos.currency === 'EUR' ? '€' : pos.currency === 'GBP' ? '£' : '$';
+                          const signals = signalsBySymbol[pos.symbol] ?? [];
+                          const hasData = signals.length > 0;
+                          const fired = countFired(signals);
+                          const expanded = expandedSignalSymbols.has(pos.symbol);
                           return (
-                          <tr
-                            key={pos.symbol}
-                            style={{ borderBottom: '1px solid #e5e7eb', cursor: 'pointer' }}
-                            onClick={() => setSelectedSymbol(pos.symbol)}
-                          >
-                            <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                              {pos.symbol}
-                              <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '400', marginLeft: '6px' }}>{pos.currency}</span>
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
-                              {pos.quantity.toFixed(0)}
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
-                              {currencySymbol}{pos.cost_basis_price.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
-                              {currencySymbol}{(pos.position_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: pos.unrealized_pnl >= 0 ? '#16a34a' : '#dc2626' }}>
-                              {pos.unrealized_pnl >= 0 ? '+' : ''}{currencySymbol}{(pos.unrealized_pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                          </tr>
+                            <Fragment key={pos.symbol}>
+                              <tr
+                                style={{ borderBottom: '1px solid #e5e7eb', cursor: 'pointer', background: fired > 0 && expanded ? '#fff7f7' : undefined }}
+                                onClick={() => setSelectedSymbol(pos.symbol)}
+                              >
+                                <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                  {pos.symbol}
+                                  <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '400', marginLeft: '6px' }}>{pos.currency}</span>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
+                                  {pos.quantity.toFixed(0)}
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', color: '#1f2937' }}>
+                                  {currencySymbol}{pos.cost_basis_price.toFixed(2)}
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                                  {currencySymbol}{(pos.position_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '500', color: pos.unrealized_pnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                                  {pos.unrealized_pnl >= 0 ? '+' : ''}{currencySymbol}{(pos.unrealized_pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                  <SignalPill firedCount={fired} hasData={hasData} expanded={expanded} onToggle={() => toggleSignalExpand(pos.symbol)} />
+                                </td>
+                              </tr>
+                              {expanded && hasData && fired > 0 && (
+                                <SignalsExpandPanel signals={signals} currency={pos.currency} colSpan={6} />
+                              )}
+                            </Fragment>
                           );
                         })}
                       </tbody>
@@ -2765,6 +2829,7 @@ export default function Dashboard() {
                                   <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: usdPnl >= 0 ? '#16a34a' : '#dc2626' }}>
                                     {usdPnl >= 0 ? '+' : ''}${usdPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
+                                  <td style={{ padding: '12px' }} />
                                 </tr>
                               )}
                               {eurPositions.length > 0 && (
@@ -2778,6 +2843,7 @@ export default function Dashboard() {
                                   <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: eurPnl >= 0 ? '#16a34a' : '#dc2626' }}>
                                     {eurPnl >= 0 ? '+' : ''}€{eurPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
+                                  <td style={{ padding: '12px' }} />
                                 </tr>
                               )}
                               {otherPositions.length > 0 && (
@@ -2791,6 +2857,7 @@ export default function Dashboard() {
                                   <td style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: '700', color: otherPnl >= 0 ? '#16a34a' : '#dc2626' }}>
                                     {otherPnl >= 0 ? '+' : ''}${otherPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
+                                  <td style={{ padding: '12px' }} />
                                 </tr>
                               )}
                             </>
