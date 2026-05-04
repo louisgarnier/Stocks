@@ -121,3 +121,44 @@ def test_ingest_only_fetches_since_last_bar(temp_db, monkeypatch):
 
     ingest_market_data()
     assert captured["start"] >= "2026-04-21"
+
+
+def test_ingest_skips_today_intraday_bar(temp_db, monkeypatch):
+    """yfinance returns an intraday snapshot dated today when called mid-session.
+
+    The ingestor must drop that row so we never write partial-day data into
+    market_data (signals + indicators would otherwise fire against incomplete
+    closes). Bars dated yesterday and earlier go in normally.
+    """
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('TSLA', '[\"manual\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    two_days_ago = today - timedelta(days=2)
+    df = pd.DataFrame({
+        "Open":      [380.0, 385.0, 390.0],
+        "High":      [382.0, 388.0, 394.0],
+        "Low":       [378.0, 384.0, 385.0],
+        "Close":     [381.0, 387.0, 386.99],   # today's close = intraday snapshot — must be dropped
+        "Adj Close": [381.0, 387.0, 386.99],
+        "Volume":    [10_000_000, 12_000_000, 23_686_053],
+    }, index=pd.to_datetime([two_days_ago, yesterday, today]))
+
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: {"TSLA": df})
+
+    result = ingest_market_data()
+    assert result["rows_inserted"] == 2  # not 3
+
+    conn = sqlite3.connect(str(temp_db))
+    rows = conn.execute(
+        "SELECT time FROM market_data WHERE symbol='TSLA' ORDER BY time"
+    ).fetchall()
+    conn.close()
+    assert [r[0] for r in rows] == [two_days_ago.isoformat(), yesterday.isoformat()]

@@ -3,7 +3,7 @@
 Reads enabled symbols from tracked_universe, asks yfinance for bars since
 each symbol's latest stored bar, writes rows idempotently to market_data.
 """
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import pandas as pd
@@ -70,15 +70,23 @@ def _safe_int(v) -> Optional[int]:
         return None
 
 
-def _insert_bars(conn, symbol: str, df: pd.DataFrame) -> int:
-    """Insert OHLCV bars idempotently. Returns number of rows actually inserted."""
+def _insert_bars(conn, symbol: str, df: pd.DataFrame, today: date) -> int:
+    """Insert OHLCV bars idempotently. Returns number of rows actually inserted.
+
+    Skips any bar dated `today` or later: yfinance returns an intraday snapshot
+    under today's date when called during the trading session, which we don't
+    want to treat as an EOD close. Real EOD bars only land tomorrow.
+    """
     if df is None or df.empty:
         return 0
+    today_str = today.isoformat()
     inserted = 0
     for ts, row in df.iterrows():
         if pd.isna(row.get("Close")):
             continue
         date_str = ts.strftime("%Y-%m-%d")
+        if date_str >= today_str:
+            continue
         cur = conn.execute(
             "INSERT OR IGNORE INTO market_data "
             "(symbol, time, open, high, low, close, adj_close, volume) "
@@ -145,7 +153,7 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
             per_symbol = _normalize_response(resp, batch)
             for sym in batch:
                 df = per_symbol.get(sym)
-                inserted_n = _insert_bars(conn, sym, df)
+                inserted_n = _insert_bars(conn, sym, df, today)
                 rows_inserted += inserted_n
                 conn.execute(
                     "UPDATE tracked_universe SET last_synced_at = ? WHERE symbol = ?",
