@@ -203,3 +203,38 @@ CREATE TABLE IF NOT EXISTS indicators (
     PRIMARY KEY (symbol, time)
 );
 CREATE INDEX IF NOT EXISTS idx_indicators_time ON indicators(time);
+
+-- Sell signals computed per held symbol per signal_type.
+-- One row per (symbol, signal_type); UPSERT on each evaluation.
+-- Sold-out symbols are deleted on next sync.
+CREATE TABLE IF NOT EXISTS holding_signals (
+    symbol TEXT NOT NULL,
+    signal_type TEXT NOT NULL,
+    fired INTEGER NOT NULL,
+    value REAL,
+    threshold REAL,
+    last_evaluated_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (symbol, signal_type)
+);
+CREATE INDEX IF NOT EXISTS idx_holding_signals_symbol ON holding_signals(symbol);
+
+-- Global on/off + threshold config per signal_type.
+CREATE TABLE IF NOT EXISTS signal_settings (
+    signal_type TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    threshold REAL
+);
+
+-- Seed defaults; INSERT OR IGNORE keeps it idempotent across boots.
+INSERT OR IGNORE INTO signal_settings (signal_type, enabled, threshold) VALUES
+    ('ma50_break',        1, NULL),
+    ('ma100_break',       1, NULL),
+    ('ma150_break',       1, NULL),
+    ('ma200_break',       1, NULL),
+    ('death_cross',       1, NULL),
+    ('volume_dryup',      1, NULL),
+    ('distribution_day',  1, NULL),
+    ('rsi_weakness',      1, NULL),
+    ('mrsi_flip',         1, NULL),
+    ('trailing_drawdown', 1, 0.10),
+    ('stop_loss',         1, 0.08);
