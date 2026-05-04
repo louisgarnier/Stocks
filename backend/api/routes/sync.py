@@ -121,6 +121,7 @@ async def sync_full():
     if not _run(steps, "splits", _step_splits):
         return _wrap(steps)
     _run(steps, "indicators", _step_indicators)
+    _run(steps, "holding_signals", _step_holding_signals)
     return _wrap(steps)
 
 
@@ -250,6 +251,15 @@ def _step_indicators() -> dict:
     conn = get_db_connection()
     try:
         return compute_all(conn)
+    finally:
+        conn.close()
+
+
+def _step_holding_signals() -> dict:
+    from backend.scripts.holding_signals_compute import compute_all_signals
+    conn = get_db_connection()
+    try:
+        return compute_all_signals(conn)
     finally:
         conn.close()
 
