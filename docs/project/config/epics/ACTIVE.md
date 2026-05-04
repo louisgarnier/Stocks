@@ -6,18 +6,19 @@
 
 **Epic G — Sell Signals on Holdings**
 
-- **Status:** [ ] Pending — plan not yet written
+- **Status:** [~] Backend complete (G-1, G-2, G-3+G-4 merged); frontend pending
 - **Spec:** [epic-G-sell-signals/spec.md](epic-G-sell-signals/spec.md)
 - **Why now:** Epic H v1 just shipped. Click-to-inspect works for any symbol. Now we surface signals on the Positions tab Signals column AND inside the Security Detail Sheet (a new "Signals" card alongside Position / Indicators / Transactions / Bars).
 
-### Plan strategy
+### Progress
 
-- 11 signal types per spec, each toggleable
-- Per-symbol signal evaluation reads latest `indicators` + `positions_ibkr.cost_basis_price`
-- Stored in `holding_signals` table keyed by `(symbol, signal_type)`
-- Wired into `/api/sync/full` after the indicators step
-- UI: traffic-light column on Positions tab (🟢/🟡/🔴) + click-to-expand listing fired signals
-- Bonus: signals card inside the Security Detail Sheet for held symbols
+- ✅ **G-1** schema: `holding_signals` + `signal_settings` tables, defaults seeded
+- ✅ **G-2** 11 sell-signal evaluators + `compute_all_signals` orchestrator
+- ✅ **G-3** API routes (sync + reads + settings GET/POST) and wired into `/api/sync/full`. (G-4 read endpoint absorbed into G-3.)
+- ⏳ **G-5** Positions tab Signals column + click-to-expand panel (shadcn Collapsible)
+- ⏳ **G-6** Configuration: signals settings sub-section (toggle + thresholds)
+- ⏳ **G-7** End-to-end smoke test
+- ⏳ Bonus: signals card inside the Security Detail Sheet for held symbols
 
 ## Up next (after Epic G ships)
 
