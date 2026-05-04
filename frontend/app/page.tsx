@@ -1313,7 +1313,7 @@ export default function Dashboard() {
             📋 Transactions
           </button>
           <button
-            onClick={() => { setActiveTab('browse-universe'); fetchUniverseCoverage(); }}
+            onClick={() => { setActiveTab('browse-universe'); fetchUniverseCoverage(); fetchMarketDataStatus(); }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'browse-universe' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'browse-universe' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
             🌐 Browse Universe
@@ -1355,7 +1355,52 @@ export default function Dashboard() {
           
           {/* Tab: Browse Universe — searchable table of every tracked symbol */}
           {activeTab === 'browse-universe' && (
-            <div className="p-6">
+            <div className="p-6 space-y-4">
+              {/* Market data sync — operates on enabled symbols in the universe shown below */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Market Data</CardTitle>
+                  <Button onClick={handleSyncMarketData} disabled={marketDataSyncing}>
+                    <RefreshCcw className={`w-4 h-4 mr-2 ${marketDataSyncing ? 'animate-spin' : ''}`} />
+                    {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {marketDataStatus && (
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div className="p-3 rounded-md bg-secondary/40">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Coverage</p>
+                        <p className="font-mono font-semibold text-foreground tabular-nums">
+                          {marketDataStatus.symbols_with_data} / {marketDataStatus.symbols_total}
+                        </p>
+                        <p className="text-xs text-muted-foreground">symbols with data</p>
+                      </div>
+                      <div className="p-3 rounded-md bg-secondary/40">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Total bars</p>
+                        <p className="font-mono font-semibold text-foreground tabular-nums">
+                          {marketDataStatus.total_bars.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          latest: {marketDataStatus.latest_bar_date ?? '—'}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-md bg-secondary/40">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Last sync</p>
+                        <p className="font-mono font-semibold text-foreground tabular-nums">
+                          {marketDataStatus.last_sync_at
+                            ? new Date(marketDataStatus.last_sync_at).toLocaleString()
+                            : 'Never'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Pulls daily OHLCV bars from yfinance for every enabled symbol in the universe below.
+                    First-time syncs fetch the past two years; subsequent runs only fetch new bars.
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1601,51 +1646,6 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                  </CardContent>
-                </Card>
-
-                {/* Market data sync */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Market Data</CardTitle>
-                    <Button onClick={handleSyncMarketData} disabled={marketDataSyncing}>
-                      <RefreshCcw className={`w-4 h-4 mr-2 ${marketDataSyncing ? 'animate-spin' : ''}`} />
-                      {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {marketDataStatus && (
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div className="p-3 rounded-md bg-secondary/40">
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Coverage</p>
-                          <p className="font-mono font-semibold text-foreground tabular-nums">
-                            {marketDataStatus.symbols_with_data} / {marketDataStatus.symbols_total}
-                          </p>
-                          <p className="text-xs text-muted-foreground">symbols with data</p>
-                        </div>
-                        <div className="p-3 rounded-md bg-secondary/40">
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total bars</p>
-                          <p className="font-mono font-semibold text-foreground tabular-nums">
-                            {marketDataStatus.total_bars.toLocaleString()}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            latest: {marketDataStatus.latest_bar_date ?? '—'}
-                          </p>
-                        </div>
-                        <div className="p-3 rounded-md bg-secondary/40">
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Last sync</p>
-                          <p className="font-mono font-semibold text-foreground tabular-nums">
-                            {marketDataStatus.last_sync_at
-                              ? new Date(marketDataStatus.last_sync_at).toLocaleString()
-                              : 'Never'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      Pulls daily OHLCV bars from yfinance for every enabled symbol in the universe.
-                      First-time syncs fetch the past year; subsequent runs only fetch new bars.
-                    </p>
                   </CardContent>
                 </Card>
 
