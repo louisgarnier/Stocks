@@ -70,6 +70,9 @@ backups/
 *.pyo
 *.pyd
 
+# Superpowers brainstorm/UI-mockup runtime cache
+.superpowers/
+
 
 
 
