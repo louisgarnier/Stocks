@@ -171,10 +171,15 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
                     (now_iso, sym),
                 )
                 processed += 1
-                # If yfinance returned nothing for this symbol AND we have no
-                # prior bars for it, treat as a failure to surface bad tickers.
-                if (df is None or df.empty) and _latest_bar_date(conn, sym) is None:
-                    failures.append({"symbol": sym, "reason": "yfinance returned no data (invalid ticker?)"})
+                # If we wrote zero bars AND the symbol has no prior bars, the
+                # symbol is effectively dead from the user's POV — surface it.
+                # This catches: df=None (yfinance dropped from response),
+                # df.empty (returned but empty), AND the trickier case where
+                # df has 500 rows of all-NaN Close (e.g. HEIA: yfinance returns
+                # the shape but logs "possibly delisted; no timezone found",
+                # which silently filters out in _insert_bars' NaN check).
+                if inserted_n == 0 and _latest_bar_date(conn, sym) is None:
+                    failures.append({"symbol": sym, "reason": "yfinance returned no usable bars (invalid ticker or delisted?)"})
         except Exception as e:
             logger.error(f"❌ yf.download failed for batch {batch[0]}..{batch[-1]}: {e}")
             errors += len(batch)

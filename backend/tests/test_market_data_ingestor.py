@@ -189,9 +189,39 @@ def test_ingest_records_failure_for_invalid_ticker(temp_db, monkeypatch):
 
     result = ingest_market_data()
     assert {f["symbol"] for f in result["failures"]} == {"TSMC"}
-    assert "yfinance returned no data" in result["failures"][0]["reason"]
+    assert "no usable bars" in result["failures"][0]["reason"]
     assert result["symbols_processed"] == 2
     assert result["rows_inserted"] == 3  # AAPL still landed
+
+
+def test_ingest_records_failure_for_all_nan_close(temp_db, monkeypatch):
+    """yfinance can return a df-shaped response with all-NaN Close
+    (HEIA case: 'possibly delisted; no timezone found'). The previous shape-
+    based check missed this because df was neither None nor empty. Detection
+    must rely on actually-inserted row count.
+    """
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('HEIA', '[\"manual\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    today = datetime.now().date()
+    dates = pd.date_range(today - timedelta(days=4), today - timedelta(days=1), freq="D")
+    nan_df = pd.DataFrame({
+        "Open": [None] * 4, "High": [None] * 4, "Low": [None] * 4,
+        "Close": [None] * 4, "Adj Close": [None] * 4, "Volume": [None] * 4,
+    }, index=dates)
+
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: {"HEIA": nan_df})
+
+    result = ingest_market_data()
+    assert result["rows_inserted"] == 0
+    assert {f["symbol"] for f in result["failures"]} == {"HEIA"}
+    assert "delisted" in result["failures"][0]["reason"].lower() or "invalid" in result["failures"][0]["reason"].lower()
 
 
 def test_ingest_does_not_flag_failure_for_already_synced_symbol(temp_db, monkeypatch):
