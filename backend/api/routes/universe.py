@@ -86,36 +86,42 @@ async def list_universe():
 @router.post("/manual")
 async def add_manual_symbol(req: ManualSymbolRequest):
     """Add a symbol with source='manual'. Merges if symbol already exists from another source."""
+    from backend.utils.sync_recorder import record_run
+
     sym = req.symbol.strip().upper()
     if not sym:
         raise HTTPException(status_code=400, detail="symbol required")
 
-    conn = get_db_connection()
-    row = conn.execute(
-        "SELECT sources FROM tracked_universe WHERE symbol = ?", (sym,)
-    ).fetchone()
-    if row:
-        sources = json.loads(row[0] or "[]")
-        if "manual" not in sources:
-            sources.append("manual")
+    with record_run("manual_add") as run:
+        conn = get_db_connection()
+        row = conn.execute(
+            "SELECT sources FROM tracked_universe WHERE symbol = ?", (sym,)
+        ).fetchone()
+        existed = row is not None
+        if row:
+            sources = json.loads(row[0] or "[]")
+            if "manual" not in sources:
+                sources.append("manual")
+                conn.execute(
+                    "UPDATE tracked_universe SET sources = ?, enabled = 1 WHERE symbol = ?",
+                    (json.dumps(sources), sym),
+                )
+        else:
             conn.execute(
-                "UPDATE tracked_universe SET sources = ?, enabled = 1 WHERE symbol = ?",
-                (json.dumps(sources), sym),
+                "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) VALUES (?, ?, 1, ?)",
+                (sym, json.dumps(["manual"]), _now_iso()),
             )
-    else:
-        conn.execute(
-            "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) VALUES (?, ?, 1, ?)",
-            (sym, json.dumps(["manual"]), _now_iso()),
-        )
-    conn.commit()
-    full = conn.execute(
-        "SELECT symbol, name, sector, currency, exchange, benchmark, sources, "
-        "enabled, added_at, last_synced_at FROM tracked_universe WHERE symbol = ?",
-        (sym,),
-    ).fetchone()
-    conn.close()
-    logger.info(f"📥 Added manual symbol: {sym}")
-    return {"success": True, "symbol": _row_to_dict(full)}
+        conn.commit()
+        full = conn.execute(
+            "SELECT symbol, name, sector, currency, exchange, benchmark, sources, "
+            "enabled, added_at, last_synced_at FROM tracked_universe WHERE symbol = ?",
+            (sym,),
+        ).fetchone()
+        conn.close()
+        logger.info(f"📥 Added manual symbol: {sym}")
+        run.summary(f"{sym} {'merged (manual tag)' if existed else 'added'}")
+        run.details({"symbol": sym, "existed": existed})
+        return {"success": True, "symbol": _row_to_dict(full)}
 
 
 @router.delete("/manual/{symbol}")

@@ -15,6 +15,7 @@ from backend.scripts.fetch_flex_trades import (
     save_positions_ibkr,
     insert_flex_trades,
 )
+from backend.utils.sync_recorder import record_run
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -134,24 +135,26 @@ async def sync_ibkr():
     dedicated endpoints.
     """
     logger.info("🚀 Sync step: IBKR pipeline")
-    steps: list = []
+    with record_run("ibkr") as run:
+        steps: list = []
 
-    try:
-        xml = fetch_flex_response("last_month")
-    except Exception as e:
-        return {
-            "success": False,
-            "steps": [{"name": "positions", "status": "error", "error": str(e)}],
-        }
+        try:
+            xml = fetch_flex_response("last_month")
+        except Exception as e:
+            steps.append({"name": "positions", "status": "error", "error": str(e)})
+            run.summary(f"Flex pull failed: {e}")
+            run.details({"steps": steps})
+            run.status("error")
+            return {"success": False, "steps": steps}
 
-    if not _run(steps, "positions", lambda: _step_positions(xml)):
-        return _wrap(steps)
-    if not _run(steps, "transactions", lambda: _step_transactions(xml)):
-        return _wrap(steps)
-    if not _run(steps, "corporate_actions", _step_corporate_actions):
-        return _wrap(steps)
-    _run(steps, "splits", _step_splits)
-    return _wrap(steps)
+        if not _run(steps, "positions", lambda: _step_positions(xml)):
+            return _finalize_run(run, steps)
+        if not _run(steps, "transactions", lambda: _step_transactions(xml)):
+            return _finalize_run(run, steps)
+        if not _run(steps, "corporate_actions", _step_corporate_actions):
+            return _finalize_run(run, steps)
+        _run(steps, "splits", _step_splits)
+        return _finalize_run(run, steps)
 
 
 @router.post("/analytics")
@@ -163,10 +166,22 @@ async def sync_analytics():
     or yfinance availability.
     """
     logger.info("📐 Sync step: analytics (indicators + holding_signals)")
-    steps: list = []
-    _run(steps, "indicators", _step_indicators)
-    _run(steps, "holding_signals", _step_holding_signals)
-    return _wrap(steps)
+    with record_run("analytics") as run:
+        steps: list = []
+        _run(steps, "indicators", _step_indicators)
+        _run(steps, "holding_signals", _step_holding_signals)
+        return _finalize_run(run, steps)
+
+
+def _finalize_run(run, steps: list) -> dict:
+    """Wrap the steps list into a response and update the recorder builder."""
+    success = all(s["status"] == "ok" for s in steps)
+    n_ok = sum(1 for s in steps if s["status"] == "ok")
+    n_err = len(steps) - n_ok
+    run.summary(f"{n_ok} ok · {n_err} error" + (f" · failed at: {[s['name'] for s in steps if s['status']=='error'][0]}" if n_err else ""))
+    run.details({"steps": steps})
+    run.status("success" if success else ("partial" if n_ok > 0 else "error"))
+    return {"success": success, "steps": steps}
 
 
 def _run(steps: list, name: str, fn) -> bool:
@@ -264,13 +279,29 @@ def _sync_positions_to_universe() -> None:
 async def sync_market_data():
     """Pull yfinance bars for all enabled symbols in tracked_universe → market_data."""
     logger.info("📈 Sync step: market-data")
-    try:
-        from backend.scripts.market_data_ingestor import ingest_market_data
-        result = ingest_market_data()
+    with record_run("market_data") as run:
+        try:
+            from backend.scripts.market_data_ingestor import ingest_market_data
+            result = ingest_market_data()
+        except Exception as e:
+            logger.error(f"❌ sync_market_data failed: {e}")
+            run.summary(f"Ingest crashed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        n_failures = len(result.get("failures", []))
+        failure_syms = [f["symbol"] for f in result.get("failures", [])][:5]
+        summary_bits = [
+            f"{result['symbols_processed']} symbols",
+            f"{result['rows_inserted']:,} new bars",
+        ]
+        if n_failures:
+            sample = ", ".join(failure_syms) + ("…" if n_failures > 5 else "")
+            summary_bits.append(f"{n_failures} dropped ({sample})")
+        run.summary(" · ".join(summary_bits))
+        run.details(result)
+        if n_failures > 0 or result.get("errors", 0) > 0:
+            run.status("partial")
         return {"success": True, **result}
-    except Exception as e:
-        logger.error(f"❌ sync_market_data failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/indicators")
