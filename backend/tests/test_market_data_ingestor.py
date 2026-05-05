@@ -162,3 +162,59 @@ def test_ingest_skips_today_intraday_bar(temp_db, monkeypatch):
     ).fetchall()
     conn.close()
     assert [r[0] for r in rows] == [two_days_ago.isoformat(), yesterday.isoformat()]
+
+
+def test_ingest_records_failure_for_invalid_ticker(temp_db, monkeypatch):
+    """When yfinance returns nothing for a brand-new symbol, ingest must record a failure.
+
+    This is the TSMC class of bug — typo / non-yfinance symbol silently dropping
+    out of the batch response with no signal to the user.
+    """
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('TSMC', '[\"manual\"]', 1, datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('AAPL', '[\"manual\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    # yfinance returns AAPL but drops TSMC from the response (typical 404 silent-drop)
+    fake = _fake_ohlcv_df("AAPL", days=3)
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: {"AAPL": fake})
+
+    result = ingest_market_data()
+    assert {f["symbol"] for f in result["failures"]} == {"TSMC"}
+    assert "yfinance returned no data" in result["failures"][0]["reason"]
+    assert result["symbols_processed"] == 2
+    assert result["rows_inserted"] == 3  # AAPL still landed
+
+
+def test_ingest_does_not_flag_failure_for_already_synced_symbol(temp_db, monkeypatch):
+    """If a symbol has prior bars and yfinance returns nothing this time
+    (because batch_start >= batch_end after the today-skip), it's not a failure."""
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('AAPL', '[\"manual\"]', 1, datetime('now'))"
+    )
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    conn.execute(
+        "INSERT INTO market_data (symbol, time, open, high, low, close, adj_close, volume) "
+        "VALUES ('AAPL', ?, 100, 102, 99, 101, 101, 1000000)",
+        (yesterday.isoformat(),),
+    )
+    conn.commit()
+    conn.close()
+
+    # yfinance returns nothing — already up-to-date through yesterday
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: {})
+
+    result = ingest_market_data()
+    assert result["failures"] == []  # not a failure — symbol already had data

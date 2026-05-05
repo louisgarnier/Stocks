@@ -117,18 +117,28 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
     lookback yields ~252 trading days, which only produces an MRSI value on the
     very last bar.
 
-    Returns: {"symbols_processed": int, "rows_inserted": int, "errors": int}
+    Returns: {
+        "symbols_processed": int,
+        "rows_inserted": int,
+        "errors": int,
+        "failures": list[{"symbol": str, "reason": str}],
+    }
+
+    "failures" lists symbols where yfinance returned no usable data (the most
+    common cause of "I added a ticker and nothing happened" — typically a
+    typo'd or non-yfinance symbol like "TSMC" instead of "TSM").
     """
     conn = get_db_connection()
     symbols = _enabled_symbols(conn)
     if not symbols:
         conn.close()
-        return {"symbols_processed": 0, "rows_inserted": 0, "errors": 0}
+        return {"symbols_processed": 0, "rows_inserted": 0, "errors": 0, "failures": []}
 
     today = datetime.now().date()
     rows_inserted = 0
     errors = 0
     processed = 0
+    failures: list[dict] = []
     now_iso = datetime.now().astimezone().isoformat()
 
     for i in range(0, len(symbols), BATCH_SIZE):
@@ -145,6 +155,7 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
         batch_end = (today + timedelta(days=1)).isoformat()
 
         if batch_start >= batch_end:
+            # Symbols already up to date — count them as processed, no failure.
             processed += len(batch)
             continue
 
@@ -160,15 +171,27 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
                     (now_iso, sym),
                 )
                 processed += 1
+                # If yfinance returned nothing for this symbol AND we have no
+                # prior bars for it, treat as a failure to surface bad tickers.
+                if (df is None or df.empty) and _latest_bar_date(conn, sym) is None:
+                    failures.append({"symbol": sym, "reason": "yfinance returned no data (invalid ticker?)"})
         except Exception as e:
             logger.error(f"❌ yf.download failed for batch {batch[0]}..{batch[-1]}: {e}")
             errors += len(batch)
+            for sym in batch:
+                failures.append({"symbol": sym, "reason": f"batch fetch error: {type(e).__name__}: {e}"})
             continue
 
         conn.commit()
 
     conn.close()
     logger.info(
-        f"✅ Market data ingest: {processed} symbols, {rows_inserted} new rows, {errors} errors"
+        f"✅ Market data ingest: {processed} symbols, {rows_inserted} new rows, "
+        f"{errors} errors, {len(failures)} per-symbol failures"
     )
-    return {"symbols_processed": processed, "rows_inserted": rows_inserted, "errors": errors}
+    return {
+        "symbols_processed": processed,
+        "rows_inserted": rows_inserted,
+        "errors": errors,
+        "failures": failures,
+    }
