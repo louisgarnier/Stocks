@@ -13,6 +13,8 @@ import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetail
 import { SignalPill } from '@/components/positions/SignalPill';
 import { SignalsExpandPanel } from '@/components/positions/SignalsExpandPanel';
 import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/holding-signals';
+import { SyncRunsPanel } from '@/components/sync-runs/SyncRunsPanel';
+import { fetchSyncRuns, type SyncRun } from '@/lib/sync-runs';
 
 interface HealthResponse {
   status: string;
@@ -244,6 +246,20 @@ export default function Dashboard() {
   const [manualSymbolInput, setManualSymbolInput] = useState<string>('');
   const [marketDataSyncing, setMarketDataSyncing] = useState(false);
   const [analyticsSyncing, setAnalyticsSyncing] = useState(false);
+  const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
+  const [syncRunsLoading, setSyncRunsLoading] = useState(false);
+
+  const refreshSyncRuns = async () => {
+    setSyncRunsLoading(true);
+    try {
+      const r = await fetchSyncRuns(50);
+      setSyncRuns(r.items);
+    } catch (e) {
+      console.warn('fetchSyncRuns failed', e);
+    } finally {
+      setSyncRunsLoading(false);
+    }
+  };
   const [marketDataStatus, setMarketDataStatus] = useState<{
     symbols_total: number;
     symbols_with_data: number;
@@ -324,6 +340,7 @@ export default function Dashboard() {
     });
     setManualSymbolInput('');
     await fetchUniverse();
+    await refreshSyncRuns();
   };
 
   const handleRemoveManualSymbol = async (sym: string) => {
@@ -361,6 +378,7 @@ export default function Dashboard() {
       await fetchUniverse();
       await fetchMarketDataStatus();
       await fetchUniverseCoverage();
+      await refreshSyncRuns();
     } catch (e) {
       toast.error('Market data sync failed', { description: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -386,6 +404,7 @@ export default function Dashboard() {
         const map = await fetchHoldingSignals();
         setSignalsBySymbol(map);
       } catch (e) { /* signals refresh is best-effort */ }
+      await refreshSyncRuns();
     } catch (e) {
       toast.error('Analytics recompute failed', { description: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -989,30 +1008,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteImportLogs = async () => {
-    if (!confirm('⚠️ Are you sure you want to delete ALL import history? This action cannot be undone.')) {
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/proxy/api/transactions/import-logs', {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        alert(`✅ ${result.message}`);
-        await fetchImportLogs();
-          } else {
-        const error = await response.json().catch(() => ({detail: 'Delete failed'}));
-        alert(`❌ Error: ${error.detail || 'Failed to delete import logs'}`);
-      }
-    } catch (err) {
-      console.error('Delete error:', err);
-      alert('❌ Failed to delete import logs');
-    }
-  };
-
   const handleExportCSV = async () => {
     setExporting(true);
     try {
@@ -1083,6 +1078,7 @@ export default function Dashboard() {
           fetchTransactions(1, pageSize, sortBy, sortOrder, symbolFilter),
         ]);
         await fetchPositions();
+        await refreshSyncRuns();
         setTimeout(() => fetchHealth(), 500);
       } else {
         const error = await response.json().catch(() => ({ detail: 'Sync failed' }));
@@ -1345,7 +1341,7 @@ export default function Dashboard() {
             🌐 Browse Universe
           </button>
           <button
-            onClick={() => setActiveTab('configuration')}
+            onClick={() => { setActiveTab('configuration'); refreshSyncRuns(); }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'configuration' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'configuration' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
             ⚙️ Configuration
@@ -1831,83 +1827,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Import History */}
-              <div style={{ marginTop: '32px', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>Import History</h3>
-                  {importLogs && importLogs.logs && importLogs.logs.length > 0 && (
-                  <button 
-                      onClick={handleDeleteImportLogs}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#dc2626',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      🗑️ Clear Import History
-                  </button>
-                  )}
-                </div>
-                {!importLogs || !importLogs.logs || importLogs.logs.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ fontSize: '14px', color: '#6b7280' }}>No import history yet.</p>
-              </div>
-                ) : (
-                  <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f9fafb' }}>
-                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Date/Time</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Filename</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Parsed</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Inserted</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Skipped</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Errors</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importLogs.logs.map((log) => (
-                          <tr key={log.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                            <td style={{ padding: '10px 12px', color: '#1f2937' }}>
-                              {new Date(log.import_date).toLocaleString('fr-FR', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                              })}
-                            </td>
-                            <td style={{ padding: '10px 12px', color: '#1f2937', fontWeight: '500' }}>{log.filename}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#1f2937' }}>{log.parsed}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#16a34a', fontWeight: '600' }}>{log.inserted}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#f59e0b' }}>{log.skipped}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center', color: log.errors > 0 ? '#dc2626' : '#16a34a', fontWeight: log.errors > 0 ? '600' : '400' }}>{log.errors}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                              <span style={{ 
-                                padding: '4px 8px', 
-                                borderRadius: '4px', 
-                                fontSize: '11px', 
-                                fontWeight: '600',
-                                backgroundColor: log.status === 'success' ? '#dcfce7' : log.status === 'error' ? '#fef2f2' : '#fef3c7',
-                                color: log.status === 'success' ? '#166534' : log.status === 'error' ? '#dc2626' : '#92400e'
-                              }}>
-                                {log.status === 'success' ? '✅ Success' : log.status === 'error' ? '❌ Error' : '⚠️ Partial'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              {/* Sync Runs — every sync action across IBKR, market data, analytics, manual ticker adds */}
+              <SyncRunsPanel runs={syncRuns} onRefresh={refreshSyncRuns} loading={syncRunsLoading} />
 
               {/* Upload Results */}
               {uploadResult && (
