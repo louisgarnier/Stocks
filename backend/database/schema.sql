@@ -238,3 +238,19 @@ INSERT OR IGNORE INTO signal_settings (signal_type, enabled, threshold) VALUES
     ('mrsi_flip',         1, NULL),
     ('trailing_drawdown', 1, 0.10),
     ('stop_loss',         1, 0.08);
+
+-- One row per sync action attempt. Captures every POST to /api/sync/* plus
+-- manual ticker adds. Replaces import_logs as the "what's working / what's
+-- bugging" view; import_logs is left in place as legacy IBKR-only history.
+CREATE TABLE IF NOT EXISTS sync_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    duration_ms INTEGER,
+    action TEXT NOT NULL,
+    status TEXT NOT NULL,
+    summary TEXT,
+    details_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sync_runs_started ON sync_runs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sync_runs_action ON sync_runs(action);
