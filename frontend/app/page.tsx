@@ -243,6 +243,7 @@ export default function Dashboard() {
   const [universeLoading, setUniverseLoading] = useState(false);
   const [manualSymbolInput, setManualSymbolInput] = useState<string>('');
   const [marketDataSyncing, setMarketDataSyncing] = useState(false);
+  const [analyticsSyncing, setAnalyticsSyncing] = useState(false);
   const [marketDataStatus, setMarketDataStatus] = useState<{
     symbols_total: number;
     symbols_with_data: number;
@@ -364,6 +365,31 @@ export default function Dashboard() {
       toast.error('Market data sync failed', { description: e instanceof Error ? e.message : String(e) });
     } finally {
       setMarketDataSyncing(false);
+    }
+  };
+
+  const handleSyncAnalytics = async () => {
+    setAnalyticsSyncing(true);
+    try {
+      const r = await fetch('/api/proxy/api/sync/analytics', { method: 'POST' });
+      const body = await r.json();
+      const stepSummary = (body.steps || [])
+        .map((s: { name: string; status: string }) => `${s.status === 'ok' ? '✅' : '❌'} ${s.name}`)
+        .join(' · ');
+      if (body.success) {
+        toast.success(stepSummary || 'Analytics recomputed', { description: 'Indicators + signals up to date' });
+      } else {
+        toast.error('Analytics recompute failed', { description: stepSummary || JSON.stringify(body) });
+      }
+      await fetchUniverseCoverage();
+      try {
+        const map = await fetchHoldingSignals();
+        setSignalsBySymbol(map);
+      } catch (e) { /* signals refresh is best-effort */ }
+    } catch (e) {
+      toast.error('Analytics recompute failed', { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setAnalyticsSyncing(false);
     }
   };
 
@@ -1030,7 +1056,7 @@ export default function Dashboard() {
     ]);
 
     try {
-      const response = await fetch('/api/proxy/api/sync/full', { method: 'POST' });
+      const response = await fetch('/api/proxy/api/sync/ibkr', { method: 'POST' });
 
       if (response.ok) {
         const result = await response.json();
@@ -1360,10 +1386,16 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Market Data</CardTitle>
-                  <Button onClick={handleSyncMarketData} disabled={marketDataSyncing}>
-                    <RefreshCcw className={`w-4 h-4 mr-2 ${marketDataSyncing ? 'animate-spin' : ''}`} />
-                    {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={handleSyncMarketData} disabled={marketDataSyncing || analyticsSyncing}>
+                      <RefreshCcw className={`w-4 h-4 mr-2 ${marketDataSyncing ? 'animate-spin' : ''}`} />
+                      {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
+                    </Button>
+                    <Button onClick={handleSyncAnalytics} disabled={analyticsSyncing || marketDataSyncing} variant="outline">
+                      <RefreshCcw className={`w-4 h-4 mr-2 ${analyticsSyncing ? 'animate-spin' : ''}`} />
+                      {analyticsSyncing ? 'Computing…' : 'Recompute analytics'}
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {marketDataStatus && (

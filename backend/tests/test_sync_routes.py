@@ -302,3 +302,69 @@ def test_sync_full_includes_indicators_step(temp_db, stub_flex_http, monkeypatch
     assert step_names == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
+
+
+def test_sync_ibkr_runs_only_ibkr_steps(temp_db, stub_flex_http, monkeypatch):
+    """/api/sync/ibkr runs the four IBKR-side steps and stops — no analytics."""
+    monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
+    monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
+
+    import backend.scripts.fetch_corporate_actions as ca_mod
+    import backend.scripts.apply_splits as aps_mod
+    monkeypatch.setattr(
+        ca_mod, "fetch_and_import_corporate_actions",
+        lambda incremental=True: {"parsed": 0, "inserted": 0, "skipped": 0, "errors": 0, "updated_transactions": 0},
+    )
+    monkeypatch.setattr(
+        aps_mod, "apply_all_splits",
+        lambda: {"applied": 0, "skipped": 0, "errors": 0},
+    )
+
+    resp = client.post("/api/sync/ibkr")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    step_names = [s["name"] for s in body["steps"]]
+    assert step_names == ["positions", "transactions", "corporate_actions", "splits"]
+    for s in body["steps"]:
+        assert s["status"] == "ok", s
+
+
+def test_sync_analytics_runs_only_compute_steps(temp_db, monkeypatch):
+    """/api/sync/analytics runs indicators + holding_signals; no IBKR or yfinance."""
+    import backend.scripts.indicators_compute as ind_mod
+    import backend.scripts.holding_signals_compute as sig_mod
+    monkeypatch.setattr(
+        ind_mod, "compute_all",
+        lambda conn: {"symbols_processed": ["TEST"], "rows_written": 1, "errors": 0},
+    )
+    monkeypatch.setattr(
+        sig_mod, "compute_all_signals",
+        lambda conn: {"symbols_processed": 0, "signals_evaluated": 0},
+    )
+
+    resp = client.post("/api/sync/analytics")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert [s["name"] for s in body["steps"]] == ["indicators", "holding_signals"]
+
+
+def test_sync_analytics_does_not_call_flex(temp_db, monkeypatch):
+    """Analytics endpoint is independent of IBKR — even with no Flex token, it succeeds."""
+    monkeypatch.delenv("IBKR_FLEX_TOKEN", raising=False)
+
+    flex_was_called = []
+    import backend.scripts.fetch_flex_trades as flex_mod
+    monkeypatch.setattr(
+        flex_mod, "fetch_flex_response",
+        lambda *a, **k: flex_was_called.append(a) or "<should-not-be-called/>",
+    )
+    import backend.scripts.indicators_compute as ind_mod
+    import backend.scripts.holding_signals_compute as sig_mod
+    monkeypatch.setattr(ind_mod, "compute_all", lambda conn: {"symbols_processed": [], "rows_written": 0, "errors": 0})
+    monkeypatch.setattr(sig_mod, "compute_all_signals", lambda conn: {"symbols_processed": 0, "signals_evaluated": 0})
+
+    resp = client.post("/api/sync/analytics")
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    assert flex_was_called == []

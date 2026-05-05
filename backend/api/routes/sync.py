@@ -125,6 +125,50 @@ async def sync_full():
     return _wrap(steps)
 
 
+@router.post("/ibkr")
+async def sync_ibkr():
+    """IBKR-only pipeline: positions, transactions, corporate_actions, splits.
+
+    Independent of yfinance and local compute. A failure here never blocks
+    market-data ingest or analytics — those are reachable via their own
+    dedicated endpoints.
+    """
+    logger.info("🚀 Sync step: IBKR pipeline")
+    steps: list = []
+
+    try:
+        xml = fetch_flex_response("last_month")
+    except Exception as e:
+        return {
+            "success": False,
+            "steps": [{"name": "positions", "status": "error", "error": str(e)}],
+        }
+
+    if not _run(steps, "positions", lambda: _step_positions(xml)):
+        return _wrap(steps)
+    if not _run(steps, "transactions", lambda: _step_transactions(xml)):
+        return _wrap(steps)
+    if not _run(steps, "corporate_actions", _step_corporate_actions):
+        return _wrap(steps)
+    _run(steps, "splits", _step_splits)
+    return _wrap(steps)
+
+
+@router.post("/analytics")
+async def sync_analytics():
+    """Recompute analytics: indicators, then holding signals.
+
+    Pure local compute against already-stored market_data + positions_ibkr.
+    No external API calls — safe to run anytime, independent of IBKR Flex
+    or yfinance availability.
+    """
+    logger.info("📐 Sync step: analytics (indicators + holding_signals)")
+    steps: list = []
+    _run(steps, "indicators", _step_indicators)
+    _run(steps, "holding_signals", _step_holding_signals)
+    return _wrap(steps)
+
+
 def _run(steps: list, name: str, fn) -> bool:
     try:
         result = fn()
