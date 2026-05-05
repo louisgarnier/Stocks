@@ -336,6 +336,43 @@ def test_ingest_handles_multiindex_response(temp_db, monkeypatch):
     assert {f["symbol"] for f in result["failures"]} == {"BBB"}
 
 
+def test_ingest_uses_yfinance_symbol_override(temp_db, monkeypatch):
+    """When tracked_universe.yfinance_symbol is set, ingest fetches from yfinance
+    using the override but stores rows under the bare DB symbol.
+
+    Real-world case: IBKR reports 'SGLD' (no yfinance ticker by that bare name)
+    while the user's actual holding is on Euronext Amsterdam as 'SGLD.AS'.
+    """
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at, yfinance_symbol) "
+        "VALUES ('SGLD', '[\"ibkr_position\"]', 1, datetime('now'), 'SGLD.AS')"
+    )
+    conn.commit()
+    conn.close()
+
+    captured_request: list = []
+
+    def fake_download(symbols, **kwargs):
+        captured_request.append(list(symbols))
+        return {"SGLD.AS": _fake_ohlcv_df("SGLD.AS", days=3)}
+
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", fake_download)
+
+    result = ingest_market_data()
+    assert captured_request == [["SGLD.AS"]], "should request the override symbol from yfinance"
+    assert result["rows_inserted"] == 3, "rows must land under the DB symbol SGLD"
+    assert result["failures"] == [], "no failure when override resolves"
+
+    conn = sqlite3.connect(str(temp_db))
+    rows_under_sgld = conn.execute("SELECT COUNT(*) FROM market_data WHERE symbol='SGLD'").fetchone()[0]
+    rows_under_sglas = conn.execute("SELECT COUNT(*) FROM market_data WHERE symbol='SGLD.AS'").fetchone()[0]
+    conn.close()
+    assert rows_under_sgld == 3, "bars stored under DB symbol, not override"
+    assert rows_under_sglas == 0, "no orphan rows under the override symbol"
+
+
 def test_ingest_does_not_flag_failure_for_already_synced_symbol(temp_db, monkeypatch):
     """If a symbol has prior bars and yfinance returns nothing this time
     (because batch_start >= batch_end after the today-skip), it's not a failure."""

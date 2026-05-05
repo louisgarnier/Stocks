@@ -147,6 +147,82 @@ def test_add_manual_symbol_rejects_invalid_ticker(temp_db, monkeypatch):
     assert "rejected" in row[1].lower()
 
 
+def test_set_yfinance_override_validates_and_saves(temp_db, monkeypatch):
+    """PATCH /api/universe/{symbol}/yfinance-symbol validates the override
+    against yfinance before saving."""
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('SGLD', '[\"ibkr_position\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    import backend.api.routes.universe as uni
+    monkeypatch.setattr(
+        uni, "probe_ticker",
+        lambda sym: {"valid": True, "reason": None, "name": f"Mock {sym}", "currency": "EUR", "exchange": "AMS"},
+    )
+
+    resp = client.patch("/api/universe/SGLD/yfinance-symbol", json={"yfinance_symbol": "SGLD.AS"})
+    assert resp.status_code == 200
+    assert resp.json()["symbol"]["yfinance_symbol"] == "SGLD.AS"
+
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute("SELECT yfinance_symbol FROM tracked_universe WHERE symbol='SGLD'").fetchone()
+    conn.close()
+    assert row[0] == "SGLD.AS"
+
+
+def test_set_yfinance_override_rejects_invalid(temp_db, monkeypatch):
+    """Invalid override → 400 with helpful message, no DB write."""
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('SGLD', '[\"ibkr_position\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    import backend.api.routes.universe as uni
+    monkeypatch.setattr(
+        uni, "probe_ticker",
+        lambda sym: {"valid": False, "reason": "yfinance returned no bars (ticker not found)"},
+    )
+
+    resp = client.patch("/api/universe/SGLD/yfinance-symbol", json={"yfinance_symbol": "BOGUS.XX"})
+    assert resp.status_code == 400
+    assert "BOGUS.XX" in resp.json()["detail"]
+
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute("SELECT yfinance_symbol FROM tracked_universe WHERE symbol='SGLD'").fetchone()
+    conn.close()
+    assert row[0] is None  # not saved
+
+
+def test_set_yfinance_override_clear_with_null(temp_db):
+    """Pass null/empty to clear an existing override."""
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at, yfinance_symbol) "
+        "VALUES ('SGLD', '[\"ibkr_position\"]', 1, datetime('now'), 'SGLD.AS')"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client.patch("/api/universe/SGLD/yfinance-symbol", json={"yfinance_symbol": None})
+    assert resp.status_code == 200
+    assert resp.json()["symbol"]["yfinance_symbol"] is None
+
+
+def test_set_yfinance_override_404_for_unknown_symbol(temp_db):
+    resp = client.patch("/api/universe/NONEXISTENT/yfinance-symbol", json={"yfinance_symbol": "X.AS"})
+    assert resp.status_code == 404
+
+
 def test_add_manual_skips_probe_when_symbol_already_tracked(temp_db, monkeypatch):
     """If symbol already exists (e.g. ibkr_position), probe is skipped — adding the
     'manual' tag must succeed even when yfinance is unreachable."""

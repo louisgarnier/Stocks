@@ -127,6 +127,7 @@ def _row_to_dict(row) -> dict:
         "enabled": bool(row[7]),
         "added_at": row[8],
         "last_synced_at": row[9],
+        "yfinance_symbol": row[10] if len(row) > 10 else None,
     }
 
 
@@ -140,7 +141,7 @@ async def list_universe():
     conn = get_db_connection()
     rows = conn.execute(
         "SELECT symbol, name, sector, currency, exchange, benchmark, sources, "
-        "enabled, added_at, last_synced_at FROM tracked_universe "
+        "enabled, added_at, last_synced_at, yfinance_symbol FROM tracked_universe "
         "WHERE enabled=1 ORDER BY symbol"
     ).fetchall()
     conn.close()
@@ -220,7 +221,7 @@ async def add_manual_symbol(req: ManualSymbolRequest):
         conn.commit()
         full = conn.execute(
             "SELECT symbol, name, sector, currency, exchange, benchmark, sources, "
-            "enabled, added_at, last_synced_at FROM tracked_universe WHERE symbol = ?",
+            "enabled, added_at, last_synced_at, yfinance_symbol FROM tracked_universe WHERE symbol = ?",
             (sym,),
         ).fetchone()
         conn.close()
@@ -232,6 +233,56 @@ async def add_manual_symbol(req: ManualSymbolRequest):
             run.summary(f"{sym} added" + (f" ({' · '.join(meta_bits)})" if meta_bits else ""))
         run.details({"symbol": sym, "existed": existed, "probe": dict(probe)})
         return {"success": True, "symbol": _row_to_dict(full)}
+
+
+class YfinanceOverrideRequest(BaseModel):
+    yfinance_symbol: Optional[str] = None  # None or "" clears the override
+
+
+@router.patch("/{symbol}/yfinance-symbol")
+async def set_yfinance_symbol_override(symbol: str, req: YfinanceOverrideRequest):
+    """Set or clear the yfinance ticker override for a tracked symbol.
+
+    Use case: IBKR reports 'SGLD' but yfinance only knows 'SGLD.AS'. The
+    override tells the market data ingestor to fetch from 'SGLD.AS' but
+    keep storing rows under 'SGLD' so positions / signals stay aligned
+    with the IBKR identifier.
+
+    Pass yfinance_symbol=null or empty string to clear the override.
+    Validates the override against yfinance before saving.
+    """
+    sym = symbol.upper().strip()
+    override = (req.yfinance_symbol or "").strip().upper() or None
+
+    conn = get_db_connection()
+    row = conn.execute("SELECT 1 FROM tracked_universe WHERE symbol = ?", (sym,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"{sym} not in universe")
+
+    if override is not None:
+        probe = probe_ticker(override)
+        if not probe.get("valid"):
+            conn.close()
+            raise HTTPException(
+                status_code=400,
+                detail=f"override '{override}' rejected: {probe.get('reason')}. "
+                       f"Try a different exchange suffix — common ones: {SUFFIX_HINTS}",
+            )
+
+    conn.execute(
+        "UPDATE tracked_universe SET yfinance_symbol = ? WHERE symbol = ?",
+        (override, sym),
+    )
+    conn.commit()
+    full = conn.execute(
+        "SELECT symbol, name, sector, currency, exchange, benchmark, sources, "
+        "enabled, added_at, last_synced_at, yfinance_symbol FROM tracked_universe WHERE symbol = ?",
+        (sym,),
+    ).fetchone()
+    conn.close()
+    logger.info(f"🔧 yfinance override for {sym}: {override}")
+    return {"success": True, "symbol": _row_to_dict(full)}
 
 
 @router.delete("/manual/{symbol}")

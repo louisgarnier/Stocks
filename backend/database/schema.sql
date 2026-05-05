@@ -158,7 +158,10 @@ CREATE TABLE IF NOT EXISTS tracked_universe (
     sources TEXT NOT NULL DEFAULT '[]',  -- JSON array, e.g. ["sp500", "ibkr_position"]
     enabled INTEGER NOT NULL DEFAULT 1,
     added_at TIMESTAMP NOT NULL,
-    last_synced_at TIMESTAMP
+    last_synced_at TIMESTAMP,
+    yfinance_symbol TEXT  -- override when the bare symbol isn't a valid yfinance ticker
+                          -- (e.g. IBKR reports 'SGLD' but yfinance needs 'SGLD.AS').
+                          -- NULL means use the symbol column as-is.
 );
 CREATE INDEX IF NOT EXISTS idx_tracked_universe_enabled ON tracked_universe(enabled);
 

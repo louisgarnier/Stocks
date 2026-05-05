@@ -28,11 +28,18 @@ def _latest_bar_date(conn, symbol: str) -> Optional[str]:
     return row[0] if row and row[0] else None
 
 
-def _enabled_symbols(conn) -> list[str]:
+def _enabled_symbols(conn) -> list[tuple[str, str]]:
+    """Return (db_symbol, yfinance_symbol) pairs for every enabled symbol.
+
+    yfinance_symbol falls back to db_symbol when the override column is NULL.
+    The override exists for cases like SGLD (IBKR's bare ticker) → SGLD.AS
+    (Euronext Amsterdam ticker yfinance recognizes).
+    """
     rows = conn.execute(
-        "SELECT symbol FROM tracked_universe WHERE enabled = 1 ORDER BY symbol"
+        "SELECT symbol, COALESCE(yfinance_symbol, symbol) "
+        "FROM tracked_universe WHERE enabled = 1 ORDER BY symbol"
     ).fetchall()
-    return [r[0] for r in rows]
+    return [(r[0], r[1]) for r in rows]
 
 
 def _normalize_response(resp, symbols: list[str]) -> dict[str, pd.DataFrame]:
@@ -142,10 +149,10 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
     now_iso = datetime.now().astimezone().isoformat()
 
     for i in range(0, len(symbols), BATCH_SIZE):
-        batch = symbols[i:i + BATCH_SIZE]
+        batch = symbols[i:i + BATCH_SIZE]   # list of (db_sym, yf_sym)
         starts = []
-        for sym in batch:
-            last = _latest_bar_date(conn, sym)
+        for db_sym, _yf_sym in batch:
+            last = _latest_bar_date(conn, db_sym)
             if last:
                 next_day = (datetime.strptime(last, "%Y-%m-%d").date() + timedelta(days=1))
                 starts.append(next_day)
@@ -159,16 +166,18 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
             processed += len(batch)
             continue
 
+        # Build the yf-ticker list to send and a yf→db map for the response lookup.
+        batch_yf_syms = [t[1] for t in batch]
         try:
-            resp = _yf_download(batch, start=batch_start, end=batch_end, threads=True)
-            per_symbol = _normalize_response(resp, batch)
-            for sym in batch:
-                df = per_symbol.get(sym)
-                inserted_n = _insert_bars(conn, sym, df, today)
+            resp = _yf_download(batch_yf_syms, start=batch_start, end=batch_end, threads=True)
+            per_yf_symbol = _normalize_response(resp, batch_yf_syms)
+            for db_sym, yf_sym in batch:
+                df = per_yf_symbol.get(yf_sym)
+                inserted_n = _insert_bars(conn, db_sym, df, today)
                 rows_inserted += inserted_n
                 conn.execute(
                     "UPDATE tracked_universe SET last_synced_at = ? WHERE symbol = ?",
-                    (now_iso, sym),
+                    (now_iso, db_sym),
                 )
                 processed += 1
                 # If we wrote zero bars AND the symbol has no prior bars, the
@@ -178,13 +187,18 @@ def ingest_market_data(default_lookback_days: int = 730) -> dict:
                 # df has 500 rows of all-NaN Close (e.g. HEIA: yfinance returns
                 # the shape but logs "possibly delisted; no timezone found",
                 # which silently filters out in _insert_bars' NaN check).
-                if inserted_n == 0 and _latest_bar_date(conn, sym) is None:
-                    failures.append({"symbol": sym, "reason": "yfinance returned no usable bars (invalid ticker or delisted?)"})
+                if inserted_n == 0 and _latest_bar_date(conn, db_sym) is None:
+                    reason = (
+                        f"yfinance returned no usable bars for '{yf_sym}'"
+                        + (f" (override of {db_sym})" if yf_sym != db_sym else "")
+                        + " — invalid ticker or delisted?"
+                    )
+                    failures.append({"symbol": db_sym, "reason": reason})
         except Exception as e:
-            logger.error(f"❌ yf.download failed for batch {batch[0]}..{batch[-1]}: {e}")
+            logger.error(f"❌ yf.download failed for batch {batch[0][0]}..{batch[-1][0]}: {e}")
             errors += len(batch)
-            for sym in batch:
-                failures.append({"symbol": sym, "reason": f"batch fetch error: {type(e).__name__}: {e}"})
+            for db_sym, _ in batch:
+                failures.append({"symbol": db_sym, "reason": f"batch fetch error: {type(e).__name__}: {e}"})
             continue
 
         conn.commit()
