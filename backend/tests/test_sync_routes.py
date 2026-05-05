@@ -388,6 +388,42 @@ def test_get_sync_runs_filter_by_action(temp_db):
     assert all(it["action"] == "ibkr" for it in body["items"])
 
 
+def test_sync_analytics_lifts_per_symbol_failures_to_top_level(temp_db, monkeypatch):
+    """When indicators or signals computes report per-symbol failures, the
+    finalize_run wrapper must lift them to the top-level details and downgrade
+    the run status to 'partial' even if all steps themselves return 'ok'."""
+    import backend.scripts.indicators_compute as ind_mod
+    import backend.scripts.holding_signals_compute as sig_mod
+    monkeypatch.setattr(
+        ind_mod, "compute_all",
+        lambda conn: {
+            "symbols_processed": ["AAPL"], "rows_written": 1, "errors": 1,
+            "failures": [{"symbol": "FAKE", "reason": "ZeroDivisionError: bench=0"}],
+        },
+    )
+    monkeypatch.setattr(
+        sig_mod, "compute_all_signals",
+        lambda conn: {"symbols_processed": 1, "signals_evaluated": 11, "failures": []},
+    )
+
+    resp = client.post("/api/sync/analytics")
+    assert resp.status_code == 200
+    body = resp.json()
+    # Both steps reported ok at the step level…
+    assert all(s["status"] == "ok" for s in body["steps"])
+    # …but the run got recorded as 'partial' with a failures list.
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute(
+        "SELECT status, summary, details_json FROM sync_runs WHERE action='analytics' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    import json
+    assert row[0] == "partial"
+    assert "FAKE" in row[1]
+    details = json.loads(row[2])
+    assert details["failures"] == [{"symbol": "FAKE", "reason": "ZeroDivisionError: bench=0", "step": "indicators"}]
+
+
 def test_sync_analytics_does_not_call_flex(temp_db, monkeypatch):
     """Analytics endpoint is independent of IBKR — even with no Flex token, it succeeds."""
     monkeypatch.delenv("IBKR_FLEX_TOKEN", raising=False)

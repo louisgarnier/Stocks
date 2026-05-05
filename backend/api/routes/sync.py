@@ -219,13 +219,41 @@ async def sync_analytics():
 
 
 def _finalize_run(run, steps: list) -> dict:
-    """Wrap the steps list into a response and update the recorder builder."""
+    """Wrap the steps list into a response and update the recorder builder.
+
+    If any step's result includes a per-symbol `failures` list, lift them
+    to a top-level details key so the UI can render them uniformly. Also
+    downgrade status to "partial" when any per-symbol failure occurred,
+    even if every step itself reported "ok".
+    """
     success = all(s["status"] == "ok" for s in steps)
     n_ok = sum(1 for s in steps if s["status"] == "ok")
     n_err = len(steps) - n_ok
-    run.summary(f"{n_ok} ok · {n_err} error" + (f" · failed at: {[s['name'] for s in steps if s['status']=='error'][0]}" if n_err else ""))
-    run.details({"steps": steps})
-    run.status("success" if success else ("partial" if n_ok > 0 else "error"))
+
+    all_failures: list = []
+    for s in steps:
+        result = s.get("result") if isinstance(s.get("result"), dict) else None
+        if result and isinstance(result.get("failures"), list):
+            for f in result["failures"]:
+                all_failures.append({**f, "step": s["name"]})
+
+    summary_bits = [f"{n_ok} ok", f"{n_err} error"]
+    if all_failures:
+        sample = ", ".join(f["symbol"] for f in all_failures[:3])
+        if len(all_failures) > 3:
+            sample += "…"
+        summary_bits.append(f"{len(all_failures)} per-symbol failures ({sample})")
+    if n_err:
+        first_err = next(s["name"] for s in steps if s["status"] == "error")
+        summary_bits.append(f"failed at: {first_err}")
+
+    run.summary(" · ".join(summary_bits))
+    run.details({"steps": steps, "failures": all_failures} if all_failures else {"steps": steps})
+
+    if not success:
+        run.status("partial" if n_ok > 0 else "error")
+    elif all_failures:
+        run.status("partial")
     return {"success": success, "steps": steps}
 
 

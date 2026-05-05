@@ -213,7 +213,16 @@ def compute_for_symbol(conn, symbol: str) -> int:
 def compute_all(conn) -> dict:
     """Compute indicators for every enabled symbol in tracked_universe.
 
-    Returns: {"symbols_processed": list[str], "rows_written": int, "errors": int}
+    Returns: {
+        "symbols_processed": list[str],
+        "rows_written": int,
+        "errors": int,
+        "failures": list[{"symbol": str, "reason": str}],
+    }
+
+    "failures" only captures real exceptions (compute crashed for this symbol).
+    Symbols with no market_data return 0 rows silently — that's an upstream
+    ingest concern, already surfaced by /sync/market-data.
     """
     rows = conn.execute(
         "SELECT symbol FROM tracked_universe WHERE enabled = 1 ORDER BY symbol"
@@ -221,6 +230,7 @@ def compute_all(conn) -> dict:
     symbols_processed = []
     rows_written = 0
     errors = 0
+    failures: list[dict] = []
     for (sym,) in rows:
         try:
             n = compute_for_symbol(conn, sym)
@@ -230,8 +240,14 @@ def compute_all(conn) -> dict:
         except Exception as e:
             logger.error(f"❌ indicators compute failed for {sym}: {e}")
             errors += 1
+            failures.append({"symbol": sym, "reason": f"{type(e).__name__}: {e}"})
     logger.info(
         f"✅ Indicators: {len(symbols_processed)} symbols processed, "
         f"{rows_written} rows written, {errors} errors"
     )
-    return {"symbols_processed": symbols_processed, "rows_written": rows_written, "errors": errors}
+    return {
+        "symbols_processed": symbols_processed,
+        "rows_written": rows_written,
+        "errors": errors,
+        "failures": failures,
+    }
