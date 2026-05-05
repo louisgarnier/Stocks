@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 import pandas as pd
+import pytest
 
 from backend.scripts.market_data_ingestor import ingest_market_data
 
@@ -222,6 +223,117 @@ def test_ingest_records_failure_for_all_nan_close(temp_db, monkeypatch):
     assert result["rows_inserted"] == 0
     assert {f["symbol"] for f in result["failures"]} == {"HEIA"}
     assert "delisted" in result["failures"][0]["reason"].lower() or "invalid" in result["failures"][0]["reason"].lower()
+
+
+# ---------------------------------------------------------------------------
+# yfinance response-shape coverage — locks the contract so future bugs in this
+# layer fail loudly. Each shape is a real failure mode observed in production
+# or in yfinance's own test suite.
+# ---------------------------------------------------------------------------
+
+def _seed_one(temp_db, symbol="X"):
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES (?, '[\"manual\"]', 1, datetime('now'))",
+        (symbol,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def _make_dates(days=3):
+    today = datetime.now().date()
+    return pd.to_datetime([today - timedelta(days=days - i) for i in range(days)])
+
+
+@pytest.mark.parametrize(
+    "shape_name, build_response",
+    [
+        # 1. yfinance silently dropped the symbol from the response dict
+        ("symbol_dropped", lambda: {}),
+
+        # 2. yfinance returned an empty DataFrame for the symbol
+        ("empty_df", lambda: {"X": pd.DataFrame()}),
+
+        # 3. yfinance returned 500 rows of all-NaN Close (HEIA case)
+        ("all_nan_close", lambda: {"X": pd.DataFrame({
+            "Open": [None, None, None], "High": [None, None, None], "Low": [None, None, None],
+            "Close": [None, None, None], "Adj Close": [None, None, None], "Volume": [None, None, None],
+        }, index=_make_dates())}),
+
+        # 4. yfinance returned a DataFrame whose Close column is missing entirely
+        ("missing_close_col", lambda: {"X": pd.DataFrame({
+            "Open": [10.0, 11.0, 12.0], "High": [11.0, 12.0, 13.0], "Low": [9.0, 10.0, 11.0],
+        }, index=_make_dates())}),
+    ],
+)
+def test_ingest_flags_failure_for_each_unusable_yfinance_shape(temp_db, monkeypatch, shape_name, build_response):
+    """All four 'no usable data' shapes from yfinance must land as a per-symbol failure."""
+    _seed_one(temp_db)
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: build_response())
+
+    result = ingest_market_data()
+    assert result["rows_inserted"] == 0, f"{shape_name}: expected 0 inserts"
+    assert {f["symbol"] for f in result["failures"]} == {"X"}, f"{shape_name}: missing X failure"
+
+
+def test_ingest_handles_partial_nan_close(temp_db, monkeypatch):
+    """Mixed bag: some rows have Close, some are NaN. The NaN ones get skipped,
+    valid ones land. NOT a failure since some rows did insert."""
+    _seed_one(temp_db, "Y")
+    today = datetime.now().date()
+    dates = pd.to_datetime([today - timedelta(days=4 - i) for i in range(4)])
+    df = pd.DataFrame({
+        "Open":  [10.0, 11.0, 12.0, 13.0],
+        "High":  [11.0, 12.0, 13.0, 14.0],
+        "Low":   [9.0, 10.0, 11.0, 12.0],
+        "Close": [10.5, None, 12.5, None],   # 2 valid, 2 NaN
+        "Adj Close": [10.5, None, 12.5, None],
+        "Volume": [1000, None, 1100, None],
+    }, index=dates)
+
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: {"Y": df})
+
+    result = ingest_market_data()
+    assert result["rows_inserted"] == 2  # only the valid Close rows
+    assert result["failures"] == []      # not a failure — partial data is data
+
+
+def test_ingest_handles_multiindex_response(temp_db, monkeypatch):
+    """yfinance returns a multi-index DataFrame (default for multi-symbol batch)
+    with one good symbol and one missing — only the missing one fails."""
+    conn = sqlite3.connect(str(temp_db))
+    for sym in ("AAA", "BBB"):
+        conn.execute(
+            "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+            "VALUES (?, '[\"manual\"]', 1, datetime('now'))",
+            (sym,),
+        )
+    conn.commit()
+    conn.close()
+
+    today = datetime.now().date()
+    dates = pd.to_datetime([today - timedelta(days=2), today - timedelta(days=1)])
+    cols = pd.MultiIndex.from_tuples(
+        [("AAA", "Open"), ("AAA", "High"), ("AAA", "Low"), ("AAA", "Close"),
+         ("AAA", "Adj Close"), ("AAA", "Volume"),
+         ("BBB", "Open"), ("BBB", "High"), ("BBB", "Low"), ("BBB", "Close"),
+         ("BBB", "Adj Close"), ("BBB", "Volume")]
+    )
+    df = pd.DataFrame(
+        [[10, 11, 9, 10.5, 10.5, 1000, None, None, None, None, None, None],
+         [11, 12, 10, 11.5, 11.5, 1100, None, None, None, None, None, None]],
+        index=dates, columns=cols,
+    )
+    import backend.scripts.market_data_ingestor as ingestor
+    monkeypatch.setattr(ingestor, "_yf_download", lambda *a, **k: df)
+
+    result = ingest_market_data()
+    assert result["rows_inserted"] == 2  # AAA both bars
+    assert {f["symbol"] for f in result["failures"]} == {"BBB"}
 
 
 def test_ingest_does_not_flag_failure_for_already_synced_symbol(temp_db, monkeypatch):
