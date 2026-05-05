@@ -1,6 +1,8 @@
 """Tests for universe + market_data tables and routes."""
 import sqlite3
 
+import pytest
+
 
 def test_universe_schema_has_tracked_universe(temp_db):
     """The schema must create a tracked_universe table with required columns."""
@@ -63,7 +65,17 @@ def test_get_universe_empty(temp_db):
     assert resp.json() == {"symbols": [], "count": 0}
 
 
-def test_add_manual_symbol(temp_db):
+@pytest.fixture
+def stub_probe_valid(monkeypatch):
+    """Stub probe_ticker to return valid + minimal metadata. Hermetic."""
+    import backend.api.routes.universe as uni
+    monkeypatch.setattr(
+        uni, "probe_ticker",
+        lambda sym: {"valid": True, "reason": None, "name": f"{sym} Inc.", "currency": "USD", "exchange": "NMS", "sector": "Tech"},
+    )
+
+
+def test_add_manual_symbol(temp_db, stub_probe_valid):
     """POST /api/universe/manual creates a manual entry."""
     resp = client.post("/api/universe/manual", json={"symbol": "TSLA"})
     assert resp.status_code == 200, resp.text
@@ -73,14 +85,14 @@ def test_add_manual_symbol(temp_db):
     assert "manual" in body["symbol"]["sources"]
 
 
-def test_add_manual_symbol_uppercases(temp_db):
+def test_add_manual_symbol_uppercases(temp_db, stub_probe_valid):
     """Manual symbols are normalized to uppercase."""
     resp = client.post("/api/universe/manual", json={"symbol": "tsla"})
     assert resp.status_code == 200
     assert resp.json()["symbol"]["symbol"] == "TSLA"
 
 
-def test_add_manual_symbol_idempotent(temp_db):
+def test_add_manual_symbol_idempotent(temp_db, stub_probe_valid):
     """Adding the same manual symbol twice is a no-op."""
     client.post("/api/universe/manual", json={"symbol": "TSLA"})
     resp = client.post("/api/universe/manual", json={"symbol": "TSLA"})
@@ -90,16 +102,75 @@ def test_add_manual_symbol_idempotent(temp_db):
     assert syms.count("TSLA") == 1
 
 
-def test_remove_manual_symbol(temp_db):
-    """DELETE /api/universe/manual/{symbol} removes manual contribution.
-    If symbol came only from 'manual', the row is deleted.
-    """
+def test_remove_manual_symbol(temp_db, stub_probe_valid):
+    """DELETE /api/universe/manual/{symbol} removes manual contribution."""
     client.post("/api/universe/manual", json={"symbol": "TSLA"})
     resp = client.delete("/api/universe/manual/TSLA")
     assert resp.status_code == 200
     assert resp.json()["success"] is True
     list_resp = client.get("/api/universe")
     assert list_resp.json()["count"] == 0
+
+
+def test_add_manual_symbol_fills_metadata_from_probe(temp_db, stub_probe_valid):
+    """Name, currency, exchange, sector pulled from yfinance probe land in tracked_universe."""
+    resp = client.post("/api/universe/manual", json={"symbol": "AAPL"})
+    assert resp.status_code == 200
+    body = resp.json()["symbol"]
+    assert body["name"] == "AAPL Inc."
+    assert body["currency"] == "USD"
+    assert body["exchange"] == "NMS"
+    assert body["sector"] == "Tech"
+
+
+def test_add_manual_symbol_rejects_invalid_ticker(temp_db, monkeypatch):
+    """Probe returns valid=False → 400 with helpful message + sync_runs error row."""
+    import backend.api.routes.universe as uni
+    monkeypatch.setattr(
+        uni, "probe_ticker",
+        lambda sym: {"valid": False, "reason": "yfinance returned no bars (ticker not found)"},
+    )
+
+    resp = client.post("/api/universe/manual", json={"symbol": "TSMC"})
+    assert resp.status_code == 400
+    assert "TSMC" in resp.json()["detail"]
+    assert "exchange suffix" in resp.json()["detail"].lower()
+
+    # The rejection still gets recorded as an error in sync_runs
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute(
+        "SELECT status, summary FROM sync_runs WHERE action='manual_add' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    assert row[0] == "error"
+    assert "rejected" in row[1].lower()
+
+
+def test_add_manual_skips_probe_when_symbol_already_tracked(temp_db, monkeypatch):
+    """If symbol already exists (e.g. ibkr_position), probe is skipped — adding the
+    'manual' tag must succeed even when yfinance is unreachable."""
+    import sqlite3
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) "
+        "VALUES ('SGLD', '[\"ibkr_position\"]', 1, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    import backend.api.routes.universe as uni
+    probe_called = []
+    monkeypatch.setattr(
+        uni, "probe_ticker",
+        lambda sym: probe_called.append(sym) or {"valid": False, "reason": "should not have been called"},
+    )
+
+    resp = client.post("/api/universe/manual", json={"symbol": "SGLD"})
+    assert resp.status_code == 200
+    assert probe_called == []
+    body = resp.json()["symbol"]
+    assert set(body["sources"]) == {"ibkr_position", "manual"}
 
 
 def test_remove_manual_keeps_row_if_other_sources(temp_db):

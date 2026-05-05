@@ -1,12 +1,77 @@
 """Universe management routes — tracked symbols and index lists."""
 import json
 from datetime import datetime
+from typing import Optional, TypedDict
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.api.utils.logger import logger
 from backend.database.connection import get_db_connection
+
+
+class TickerProbe(TypedDict, total=False):
+    valid: bool
+    reason: Optional[str]
+    name: Optional[str]
+    currency: Optional[str]
+    exchange: Optional[str]
+    sector: Optional[str]
+
+
+def probe_ticker(symbol: str) -> TickerProbe:
+    """Validate a ticker against yfinance and pull lightweight metadata.
+
+    Returns {valid: bool, reason?, name?, currency?, exchange?, sector?}.
+    Indirected so tests can monkeypatch without hitting the network.
+
+    Validation: 5-day history must produce >= 1 bar with non-NaN Close.
+    Catches the same failure modes as the ingestor: 404, empty df, all-NaN.
+    Metadata: fast_info first (cheap), info as fallback (slower, can 404).
+    """
+    try:
+        import yfinance as yf
+    except ImportError:
+        return {"valid": True, "reason": None}  # offline / dev fallback — let it through
+
+    try:
+        ticker = yf.Ticker(symbol)
+        h = ticker.history(period="5d")
+        if h is None or h.empty:
+            return {"valid": False, "reason": "yfinance returned no bars (ticker not found)"}
+        if "Close" not in h.columns or h["Close"].dropna().empty:
+            return {"valid": False, "reason": "yfinance returned bars but all Close values are NaN (delisted?)"}
+    except Exception as e:
+        return {"valid": False, "reason": f"yfinance probe failed: {type(e).__name__}: {e}"}
+
+    name: Optional[str] = None
+    currency: Optional[str] = None
+    exchange: Optional[str] = None
+    sector: Optional[str] = None
+    try:
+        fi = getattr(ticker, "fast_info", None)
+        if fi is not None:
+            currency = getattr(fi, "currency", None) or currency
+            exchange = getattr(fi, "exchange", None) or exchange
+    except Exception:
+        pass
+    try:
+        info = ticker.info or {}
+        name = info.get("longName") or info.get("shortName") or name
+        currency = currency or info.get("currency")
+        exchange = exchange or info.get("exchange")
+        sector = info.get("sector")
+    except Exception:
+        pass
+
+    return {
+        "valid": True,
+        "reason": None,
+        "name": name,
+        "currency": currency,
+        "exchange": exchange,
+        "sector": sector,
+    }
 
 router = APIRouter(prefix="/api/universe", tags=["universe"])
 
@@ -83,9 +148,20 @@ async def list_universe():
     return {"symbols": symbols, "count": len(symbols)}
 
 
+SUFFIX_HINTS = (
+    ".AS (Euronext Amsterdam) · .L (London) · .PA (Paris) · "
+    ".DE (XETRA) · .SW (SIX Swiss) · .TO (Toronto) · .HK (Hong Kong)"
+)
+
+
 @router.post("/manual")
 async def add_manual_symbol(req: ManualSymbolRequest):
-    """Add a symbol with source='manual'. Merges if symbol already exists from another source."""
+    """Add a symbol with source='manual'. Validates against yfinance first.
+
+    Rejects unknown tickers at add time with a helpful error including
+    common exchange suffixes. Auto-fills name/currency/exchange/sector
+    from yfinance metadata when available.
+    """
     from backend.utils.sync_recorder import record_run
 
     sym = req.symbol.strip().upper()
@@ -93,13 +169,33 @@ async def add_manual_symbol(req: ManualSymbolRequest):
         raise HTTPException(status_code=400, detail="symbol required")
 
     with record_run("manual_add") as run:
+        # Validate against yfinance BEFORE inserting. Skip the probe if the
+        # symbol already exists in our universe (e.g. ibkr_position) — we
+        # don't want a transient yfinance hiccup to block a merge-add.
         conn = get_db_connection()
-        row = conn.execute(
+        existing = conn.execute(
             "SELECT sources FROM tracked_universe WHERE symbol = ?", (sym,)
         ).fetchone()
-        existed = row is not None
-        if row:
-            sources = json.loads(row[0] or "[]")
+
+        probe: TickerProbe = {"valid": True}
+        if existing is None:
+            probe = probe_ticker(sym)
+            if not probe.get("valid"):
+                conn.close()
+                run.summary(f"{sym} rejected: {probe.get('reason')}")
+                run.details({"symbol": sym, "probe": dict(probe)})
+                run.status("error")
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"'{sym}' not found in yfinance: {probe.get('reason')}. "
+                        f"Try with an exchange suffix — common ones: {SUFFIX_HINTS}"
+                    ),
+                )
+
+        existed = existing is not None
+        if existing:
+            sources = json.loads(existing[0] or "[]")
             if "manual" not in sources:
                 sources.append("manual")
                 conn.execute(
@@ -108,8 +204,18 @@ async def add_manual_symbol(req: ManualSymbolRequest):
                 )
         else:
             conn.execute(
-                "INSERT INTO tracked_universe (symbol, sources, enabled, added_at) VALUES (?, ?, 1, ?)",
-                (sym, json.dumps(["manual"]), _now_iso()),
+                "INSERT INTO tracked_universe "
+                "(symbol, name, currency, exchange, sector, sources, enabled, added_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+                (
+                    sym,
+                    probe.get("name"),
+                    probe.get("currency"),
+                    probe.get("exchange"),
+                    probe.get("sector"),
+                    json.dumps(["manual"]),
+                    _now_iso(),
+                ),
             )
         conn.commit()
         full = conn.execute(
@@ -119,8 +225,12 @@ async def add_manual_symbol(req: ManualSymbolRequest):
         ).fetchone()
         conn.close()
         logger.info(f"📥 Added manual symbol: {sym}")
-        run.summary(f"{sym} {'merged (manual tag)' if existed else 'added'}")
-        run.details({"symbol": sym, "existed": existed})
+        if existed:
+            run.summary(f"{sym} merged (manual tag)")
+        else:
+            meta_bits = [b for b in [probe.get("name"), probe.get("currency"), probe.get("exchange")] if b]
+            run.summary(f"{sym} added" + (f" ({' · '.join(meta_bits)})" if meta_bits else ""))
+        run.details({"symbol": sym, "existed": existed, "probe": dict(probe)})
         return {"success": True, "symbol": _row_to_dict(full)}
 
 
