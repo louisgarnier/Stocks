@@ -349,6 +349,45 @@ def test_sync_analytics_runs_only_compute_steps(temp_db, monkeypatch):
     assert [s["name"] for s in body["steps"]] == ["indicators", "holding_signals"]
 
 
+def test_get_sync_runs_returns_recent_first(temp_db):
+    """GET /api/sync/runs returns rows newest-first with pagination."""
+    conn = sqlite3.connect(str(temp_db))
+    for i, action in enumerate(["ibkr", "market_data", "analytics", "manual_add"]):
+        conn.execute(
+            "INSERT INTO sync_runs (started_at, finished_at, duration_ms, action, status, summary, details_json) "
+            "VALUES (?, ?, ?, ?, 'success', ?, '{\"k\":\"v\"}')",
+            (f"2026-05-05T10:0{i}:00+02:00", f"2026-05-05T10:0{i}:01+02:00", 1000, action, f"summary {i}"),
+        )
+    conn.commit()
+    conn.close()
+
+    r = client.get("/api/sync/runs")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] == 4
+    assert body["total"] == 4
+    actions_in_order = [it["action"] for it in body["items"]]
+    assert actions_in_order == ["manual_add", "analytics", "market_data", "ibkr"]
+    assert body["items"][0]["details"] == {"k": "v"}
+
+
+def test_get_sync_runs_filter_by_action(temp_db):
+    conn = sqlite3.connect(str(temp_db))
+    for action in ["ibkr", "market_data", "ibkr"]:
+        conn.execute(
+            "INSERT INTO sync_runs (started_at, action, status) VALUES (?, ?, 'success')",
+            ("2026-05-05T10:00:00+02:00", action),
+        )
+    conn.commit()
+    conn.close()
+
+    r = client.get("/api/sync/runs?action=ibkr")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 2
+    assert all(it["action"] == "ibkr" for it in body["items"])
+
+
 def test_sync_analytics_does_not_call_flex(temp_db, monkeypatch):
     """Analytics endpoint is independent of IBKR — even with no Flex token, it succeeds."""
     monkeypatch.delenv("IBKR_FLEX_TOKEN", raising=False)

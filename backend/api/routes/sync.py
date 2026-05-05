@@ -95,6 +95,51 @@ async def sync_splits():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/runs")
+async def list_sync_runs(action: str | None = None, limit: int = 100, offset: int = 0):
+    """List recent sync runs ordered newest-first.
+
+    Filter by action (ibkr|market_data|analytics|manual_add) via ?action=.
+    Pagination via ?limit + ?offset (default 100 / 0).
+    """
+    import json as _json
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+    conn = get_db_connection()
+    sql = (
+        "SELECT id, started_at, finished_at, duration_ms, action, status, summary, details_json "
+        "FROM sync_runs"
+    )
+    params: tuple = ()
+    if action:
+        sql += " WHERE action = ?"
+        params = (action,)
+    sql += " ORDER BY started_at DESC LIMIT ? OFFSET ?"
+    rows = conn.execute(sql, params + (limit, offset)).fetchall()
+    total = conn.execute(
+        "SELECT COUNT(*) FROM sync_runs" + (" WHERE action = ?" if action else ""),
+        (action,) if action else (),
+    ).fetchone()[0]
+    conn.close()
+    return {
+        "items": [
+            {
+                "id": r[0],
+                "started_at": r[1],
+                "finished_at": r[2],
+                "duration_ms": r[3],
+                "action": r[4],
+                "status": r[5],
+                "summary": r[6],
+                "details": _json.loads(r[7]) if r[7] else None,
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+        "total": total,
+    }
+
+
 @router.post("/full")
 async def sync_full():
     """Run the full pipeline: positions, transactions, corporate actions, splits.
