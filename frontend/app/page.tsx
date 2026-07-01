@@ -247,6 +247,12 @@ export default function Dashboard() {
   const [manualSymbolInput, setManualSymbolInput] = useState<string>('');
   const [marketDataSyncing, setMarketDataSyncing] = useState(false);
   const [analyticsSyncing, setAnalyticsSyncing] = useState(false);
+  const [fundamentalsSyncing, setFundamentalsSyncing] = useState(false);
+  const [fundamentalsStatus, setFundamentalsStatus] = useState<{
+    last_run: string | null;
+    suggested_next: string | null;
+    overdue: boolean;
+  } | null>(null);
   const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
   const [syncRunsLoading, setSyncRunsLoading] = useState(false);
 
@@ -363,6 +369,13 @@ export default function Dashboard() {
     } catch (e) { console.error('fetchMarketDataStatus', e); }
   };
 
+  const fetchFundamentalsStatus = async () => {
+    try {
+      const r = await fetch('/api/proxy/api/sync/fundamentals/status');
+      if (r.ok) setFundamentalsStatus(await r.json());
+    } catch (e) { console.error('fetchFundamentalsStatus', e); }
+  };
+
   const handleSyncMarketData = async () => {
     setMarketDataSyncing(true);
     try {
@@ -410,6 +423,25 @@ export default function Dashboard() {
       toast.error('Analytics recompute failed', { description: e instanceof Error ? e.message : String(e) });
     } finally {
       setAnalyticsSyncing(false);
+    }
+  };
+
+  const handleSyncFundamentals = async () => {
+    setFundamentalsSyncing(true);
+    toast('Fundamentals refresh started', { description: 'Fetching yfinance fundamentals for the universe — this can take a few minutes.' });
+    try {
+      const r = await fetch('/api/proxy/api/sync/fundamentals', { method: 'POST' });
+      const body = await r.json();
+      if (r.ok) {
+        toast.success('Fundamentals refresh complete', { description: JSON.stringify(body) });
+      } else {
+        toast.error('Fundamentals refresh failed', { description: JSON.stringify(body) });
+      }
+      await fetchFundamentalsStatus();
+    } catch (e) {
+      toast.error('Fundamentals refresh failed', { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setFundamentalsSyncing(false);
     }
   };
 
@@ -1194,6 +1226,7 @@ export default function Dashboard() {
     fetchIndices();
     fetchMarketDataStatus();
     fetchUniverseCoverage();
+    fetchFundamentalsStatus();
     if (activeTab === 'transactions') {
       fetchTransactions();
     }
@@ -1348,7 +1381,7 @@ export default function Dashboard() {
             🔎 Screener
           </button>
           <button
-            onClick={() => { setActiveTab('configuration'); refreshSyncRuns(); }}
+            onClick={() => { setActiveTab('configuration'); refreshSyncRuns(); fetchFundamentalsStatus(); }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'configuration' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'configuration' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
             ⚙️ Configuration
@@ -1684,6 +1717,34 @@ export default function Dashboard() {
                       </div>
                     </div>
 
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Fundamentals</CardTitle>
+                    <Button onClick={handleSyncFundamentals} disabled={fundamentalsSyncing} variant="outline">
+                      <RefreshCcw className={`w-4 h-4 mr-2 ${fundamentalsSyncing ? 'animate-spin' : ''}`} />
+                      {fundamentalsSyncing ? 'Refreshing…' : 'Refresh fundamentals'}
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Last run: {fundamentalsStatus?.last_run ? new Date(fundamentalsStatus.last_run).toLocaleDateString() : 'never'}
+                      {' · '}
+                      Suggested next: {fundamentalsStatus?.suggested_next ? new Date(fundamentalsStatus.suggested_next).toLocaleDateString() : '—'}
+                      {fundamentalsStatus?.overdue && (
+                        <span
+                          className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: '#fef3c7', color: '#b45309' }}
+                        >
+                          Overdue
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Pulls fundamentals (sector, market cap, etc.) from yfinance for every enabled symbol. Recommended cadence: every 30 days.
+                    </p>
                   </CardContent>
                 </Card>
 
