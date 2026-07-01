@@ -880,16 +880,19 @@ def _ret(closes, n):
 
 
 def _ma_cross_status(ma50, ma100, ma150):
+    # Faithful to f_watch.py:326-334 SQL CASE (FIRST-MATCH). The SQL's
+    # "Short-term Bullish/Bearish" WHENs are dead (any ma50>ma150 already
+    # matched "Mostly Bullish"; any ma50<ma150 already matched "Mostly Bearish").
     if None in (ma50, ma100, ma150):
         return None
     if ma50 > ma100 and ma100 > ma150:
         return "All Bullish"
+    if ma50 > ma150:
+        return "Mostly Bullish"
     if ma50 < ma100 and ma100 < ma150:
         return "All Bearish"
-    if ma50 > ma150:
-        return "Mostly Bullish" if ma50 > ma100 else "Short-term Bullish"
     if ma50 < ma150:
-        return "Mostly Bearish" if ma50 < ma100 else "Short-term Bearish"
+        return "Mostly Bearish"
     return "Mixed"
 
 
