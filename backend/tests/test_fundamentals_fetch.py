@@ -1,4 +1,5 @@
 import sqlite3
+import pandas as pd
 import backend.scripts.fundamentals_fetch as ff
 from backend.database.connection import get_db_connection
 
@@ -54,3 +55,52 @@ def test_fetch_records_error_not_crash(temp_db, monkeypatch):
     conn.close()
     assert result["errors"] == 1
     assert result["failures"][0]["symbol"] == "BAD"
+
+
+def test_as_dict_dataframe_reverses_newest_first_columns_to_oldest_first():
+    # yfinance shape: index = line items, columns = period timestamps, NEWEST first.
+    df = pd.DataFrame(
+        {
+            pd.Timestamp("2025-12-31"): [500, 2.0],
+            pd.Timestamp("2024-12-31"): [400, 1.0],
+        },
+        index=["EBIT", "Diluted EPS"],
+    )
+    out = ff._as_dict(df)
+    assert out["EBIT"] == [400, 500]
+    assert out["Diluted EPS"] == [1.0, 2.0]
+
+
+def test_as_dict_dataframe_failure_logs_and_returns_empty(monkeypatch, caplog):
+    class _BrokenDF:
+        @property
+        def columns(self):
+            raise RuntimeError("shape changed")
+
+    with caplog.at_level("WARNING"):
+        out = ff._as_dict(_BrokenDF())
+    assert out == {}
+    assert "_as_dict" in caplog.text
+
+
+def test_earnings_list_dataframe_yields_row_dicts():
+    hist = pd.DataFrame(
+        {"epsActual": [1.5, 1.8], "epsEstimate": [1.5, 1.6]},
+        index=pd.to_datetime(["2025-06-30", "2025-09-30"]),
+    )
+    out = ff._earnings_list(hist)
+    assert isinstance(out, list)
+    assert len(out) == 2
+    assert out[0]["epsActual"] == 1.5
+    assert out[1]["epsEstimate"] == 1.6
+
+
+def test_earnings_list_failure_logs_and_returns_empty(caplog):
+    class _BrokenHist:
+        def reset_index(self):
+            raise RuntimeError("shape changed")
+
+    with caplog.at_level("WARNING"):
+        out = ff._earnings_list(_BrokenHist())
+    assert out == []
+    assert "_earnings_list" in caplog.text

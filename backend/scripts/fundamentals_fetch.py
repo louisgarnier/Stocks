@@ -135,7 +135,8 @@ def _as_dict(stmt):
         for label in stmt.index:
             out[str(label)] = [stmt.loc[label, c] for c in cols]
         return out
-    except Exception:
+    except Exception as e:
+        logger.warning(f"⚠️ _as_dict: failed to normalize statement, treating as empty: {type(e).__name__}: {e}")
         return {}
 
 
@@ -146,7 +147,8 @@ def _earnings_list(hist):
         return hist
     try:
         return hist.reset_index().to_dict("records")
-    except Exception:
+    except Exception as e:
+        logger.warning(f"⚠️ _earnings_list: failed to normalize earnings history, treating as empty: {type(e).__name__}: {e}")
         return []
 
 
