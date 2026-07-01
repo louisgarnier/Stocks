@@ -1,7 +1,7 @@
 import json
 import sqlite3
 
-from backend.scripts.scoring_compute import score_symbol, compute_all
+from backend.scripts.scoring_compute import score_symbol, compute_all, load_scoring_weights
 
 WEIGHTS = {"above_ma50":10,"above_ma200":10,"volume_spike":7,"breakout":12,
            "consolidation_quality":10,"momentum_60d_positive":10,"near_52w_high":5}
@@ -122,3 +122,44 @@ def test_compute_all_isolates_per_symbol_failures(temp_db):
     assert result["errors"] == 1
     assert "BADCO" in result["failures"]
     assert result["rows_written"] == 1
+
+
+# ---- load_scoring_weights: seed-drift hardening -------------------------------
+
+CONSUMED_WEIGHT_KEYS = [
+    "above_ma50", "above_ma200", "volume_spike", "momentum_60d_positive",
+    "near_52w_high", "breakout", "consolidation_quality",
+]
+
+
+def test_load_scoring_weights_missing_row_falls_back_to_all_defaults(temp_db):
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute("DELETE FROM screener_settings WHERE key='scoring_weights'")
+    conn.commit()
+
+    weights = load_scoring_weights(conn)
+    conn.close()
+
+    for key in CONSUMED_WEIGHT_KEYS:
+        assert key in weights, f"missing consumed key {key!r} when row absent"
+    assert weights["breakout"] == 12
+
+
+def test_load_scoring_weights_partial_row_fills_missing_keys_and_keeps_overrides(temp_db):
+    conn = sqlite3.connect(str(temp_db))
+    partial = {"breakout": 20}  # missing every other key; overrides breakout
+    conn.execute(
+        "UPDATE screener_settings SET value_json=? WHERE key='scoring_weights'",
+        (json.dumps(partial),),
+    )
+    conn.commit()
+
+    weights = load_scoring_weights(conn)
+    conn.close()
+
+    for key in CONSUMED_WEIGHT_KEYS:
+        assert key in weights, f"missing consumed key {key!r} on partial row"
+    assert weights["breakout"] == 20          # DB value overrides default
+    assert weights["above_ma50"] == 10        # falls back to canonical default
+    assert weights["consolidation_quality"] == 10
+    assert weights["near_52w_high"] == 5

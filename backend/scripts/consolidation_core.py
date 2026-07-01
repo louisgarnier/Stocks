@@ -129,6 +129,36 @@ def calculate_zigzag(df: pd.DataFrame, params: dict) -> List[Dict]:
     return zigzag_points
 
 
+# Canonical seed — MUST mirror backend/database/schema.sql's
+# `consolidation_params` row exactly. Guards against schema seed drift:
+# a DB whose row is missing or partially populated (e.g. after a code
+# deploy adds a new key that an existing finance.db's `INSERT OR IGNORE`
+# seed never backfills) still yields every key the compute modules read
+# via `params["key"]`, instead of raising KeyError for every symbol.
+CONSOLIDATION_DEFAULTS = {
+    "zigzag_deviation": 6.0,
+    "lookback_days": 40,
+    "min_days_between_swings": 2,
+    "breakout_confirmation_pct": 1.5,
+    "volume_lookback_days": 20,
+    "min_resistance_touches": 2,
+    "min_support_touches": 2,
+    "extreme_grouping_tolerance": 2.5,
+    "timeframes": [15, 30, 60],
+    "max_consolidation_range_pct": 5.0,
+    "min_consolidation_duration": 20,
+    "max_daily_change": 30.0,
+    "min_volume_threshold": 5000,
+    "max_volatility_filter": 150.0,
+    "channel_test_tolerance": 0.02,
+    "min_touches_per_level": 2,
+    "min_range_size_pct": 2.0,
+    "min_bounces_in_channel": 3,
+}
+
+
 def load_params(conn) -> dict:
     row = conn.execute("SELECT value_json FROM screener_settings WHERE key='consolidation_params'").fetchone()
-    return json.loads(row[0]) if row else {}
+    if not row:
+        return dict(CONSOLIDATION_DEFAULTS)
+    return {**CONSOLIDATION_DEFAULTS, **json.loads(row[0])}

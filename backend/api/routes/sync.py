@@ -218,11 +218,29 @@ async def sync_analytics():
         return _finalize_run(run, steps)
 
 
-def _prune_retention(conn) -> dict:
+# Canonical seed — MUST mirror backend/database/schema.sql's `retention` row
+# exactly. See CONSOLIDATION_DEFAULTS in consolidation_core.py for why:
+# guards against a missing/partial row after seed-drift (previously a
+# missing ROW crashed `.fetchone()[0]` on None outright).
+RETENTION_DEFAULTS = {
+    "breakout_fresh_days": 3,
+    "breakout_retention_days": 30,
+    "screen_scores_retention_days": 60,
+}
+
+
+def _load_retention(conn) -> dict:
+    row = conn.execute(
+        "SELECT value_json FROM screener_settings WHERE key='retention'").fetchone()
+    if not row:
+        return dict(RETENTION_DEFAULTS)
     import json
+    return {**RETENTION_DEFAULTS, **json.loads(row[0])}
+
+
+def _prune_retention(conn) -> dict:
     from datetime import datetime, timedelta, timezone
-    ret = json.loads(conn.execute(
-        "SELECT value_json FROM screener_settings WHERE key='retention'").fetchone()[0])
+    ret = _load_retention(conn)
     today = datetime.now(timezone.utc).date()
     brk_cut = (today - timedelta(days=int(ret.get("breakout_retention_days", 30)))).isoformat()
     sc_cut = (today - timedelta(days=int(ret.get("screen_scores_retention_days", 60)))).isoformat()

@@ -152,9 +152,25 @@ def _earnings_list(hist):
         return []
 
 
+# Canonical seed — MUST mirror backend/database/schema.sql's `quality_gates`
+# row exactly. See CONSOLIDATION_DEFAULTS in consolidation_core.py for why:
+# guards against a missing/partial row after seed-drift.
+QUALITY_GATES_DEFAULTS = {
+    "gross_margin": 0.60,
+    "roe": 0.15,
+    "roic": 0.10,
+    "levered_fcf_margin": 0.20,
+    "interest_cover": 3.0,
+    "eps_5y_growth": 0.10,
+    "free_cashflow": 0,
+}
+
+
 def _load_gates(conn) -> dict:
     row = conn.execute("SELECT value_json FROM screener_settings WHERE key='quality_gates'").fetchone()
-    return json.loads(row[0]) if row else {}
+    if not row:
+        return dict(QUALITY_GATES_DEFAULTS)
+    return {**QUALITY_GATES_DEFAULTS, **json.loads(row[0])}
 
 
 _COLS = [

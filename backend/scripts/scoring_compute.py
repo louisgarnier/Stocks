@@ -38,6 +38,33 @@ def score_symbol(fund, sig, cons, brk, weights) -> dict:
 
 import json  # noqa: E402
 
+# Canonical seed — MUST mirror backend/database/schema.sql's `scoring_weights`
+# row exactly. See CONSOLIDATION_DEFAULTS in consolidation_core.py for why:
+# guards against a missing/partial row after seed-drift (a missing weight key
+# would otherwise silently score that factor as 0 instead of its seeded weight).
+SCORING_WEIGHTS_DEFAULTS = {
+    "above_ma50": 10,
+    "above_ma200": 10,
+    "ma50_rising_8d": 10,
+    "ma50_above_ma200": 8,
+    "macd_bullish": 8,
+    "rsi_neutral": 5,
+    "volume_spike": 7,
+    "breakout": 12,
+    "consolidation_quality": 10,
+    "momentum_20d_positive": 8,
+    "momentum_60d_positive": 10,
+    "near_52w_high": 5,
+}
+
+
+def load_scoring_weights(conn) -> dict:
+    row = conn.execute(
+        "SELECT value_json FROM screener_settings WHERE key='scoring_weights'").fetchone()
+    if not row:
+        return dict(SCORING_WEIGHTS_DEFAULTS)
+    return {**SCORING_WEIGHTS_DEFAULTS, **json.loads(row[0])}
+
 
 def compute_all(conn) -> dict:
     """Compute provisional scores for every enabled symbol in tracked_universe.
@@ -53,8 +80,7 @@ def compute_all(conn) -> dict:
     Symbols with no screen_signals row are skipped silently — that's an
     upstream compute concern, not a scoring failure.
     """
-    weights = json.loads(conn.execute(
-        "SELECT value_json FROM screener_settings WHERE key='scoring_weights'").fetchone()[0])
+    weights = load_scoring_weights(conn)
     syms = [r[0] for r in conn.execute(
         "SELECT symbol FROM tracked_universe WHERE enabled = 1 ORDER BY symbol").fetchall()]
     written, now = 0, datetime.now(timezone.utc).isoformat()

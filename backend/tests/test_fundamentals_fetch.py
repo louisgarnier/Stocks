@@ -57,6 +57,45 @@ def test_fetch_records_error_not_crash(temp_db, monkeypatch):
     assert result["failures"][0]["symbol"] == "BAD"
 
 
+ALL_GATE_KEYS = [
+    "gross_margin", "roe", "roic", "levered_fcf_margin",
+    "interest_cover", "eps_5y_growth", "free_cashflow",
+]
+
+
+def test_load_gates_missing_row_falls_back_to_all_defaults(temp_db):
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute("DELETE FROM screener_settings WHERE key='quality_gates'")
+    conn.commit()
+
+    gates = ff._load_gates(conn)
+    conn.close()
+
+    for key in ALL_GATE_KEYS:
+        assert key in gates, f"missing required key {key!r} when row absent"
+    assert gates["roe"] == 0.15
+
+
+def test_load_gates_partial_row_fills_missing_keys_and_keeps_overrides(temp_db):
+    conn = sqlite3.connect(str(temp_db))
+    import json
+    partial = {"roe": 0.5}  # missing all other keys; overrides roe
+    conn.execute(
+        "UPDATE screener_settings SET value_json=? WHERE key='quality_gates'",
+        (json.dumps(partial),),
+    )
+    conn.commit()
+
+    gates = ff._load_gates(conn)
+    conn.close()
+
+    for key in ALL_GATE_KEYS:
+        assert key in gates, f"missing required key {key!r} on partial row"
+    assert gates["roe"] == 0.5           # DB value overrides default
+    assert gates["gross_margin"] == 0.60  # falls back to canonical default
+    assert gates["interest_cover"] == 3.0
+
+
 def test_as_dict_dataframe_reverses_newest_first_columns_to_oldest_first():
     # yfinance shape: index = line items, columns = period timestamps, NEWEST first.
     df = pd.DataFrame(
