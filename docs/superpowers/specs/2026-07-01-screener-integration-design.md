@@ -49,7 +49,7 @@ wired as new `/api/sync/*` steps and a new Screener tab. **Data first, calibrate
 | # | Decision |
 |---|---|
 | Universe | **Indices, expandable.** Start S&P500 + CAC40 (existing `tracked_universe`); design universe as switchable index seeders (NASDAQ100, DAX, STOXX600…). |
-| Fundamentals storage | **Latest snapshot, weekly refresh.** One row/symbol, overwritten with `fetched_at`. Decoupled sync step + on-demand button. |
+| Fundamentals storage | **Latest snapshot, monthly refresh.** One row/symbol, overwritten with `fetched_at`. Decoupled sync step + on-demand button (shows last-run / suggested-next-run date). Reframed as a **quality/MOAT scorecard**, not a generic ratio dump. |
 | Signal placement | **Broad layer feeds the score.** Momentum/MA/volume/52w flags AND the base/breakout engines run nightly over the whole universe as scoring inputs. |
 | Buy-signal engine | **Exact legacy logic, ported verbatim** — `g_consolidation` (base quality 0–100) + `d_breakout` (breakout event) + `f_watch` momentum. Math preserved; only I/O rewired. |
 | R/R inputs | **Config setting, editable in UI.** `screener_settings` holds account_size (default PEA), risk_pct_per_trade, default stop method. R/R + sizing both computed. |
@@ -88,18 +88,38 @@ All SQLite, raw SQL, added to `backend/database/schema.sql` + migrations. Time-s
 use `PRIMARY KEY (symbol, <date>)` like `indicators`. Columns below are the intended shape;
 final DDL lands in the implementation plan.
 
-### 5.1 `fundamentals` (1 row/symbol, snapshot)
-Snake-cased `ticker.info` fields, overwritten on refresh. `fetched_at` timestamp.
-- **Identity:** symbol (PK), long_name, sector, industry, country, currency, exchange, quote_type
-- **Valuation:** trailing_pe, forward_pe, price_to_book, price_to_sales, ev_to_ebitda
-- **Growth:** revenue_growth, earnings_growth, earnings_quarterly_growth
-- **Profitability:** gross_margins, operating_margins, profit_margins, roe, roa
-- **Health:** debt_to_equity, current_ratio, quick_ratio, total_cash, total_debt, free_cashflow
-- **Market:** market_cap, beta, fifty_two_week_high, fifty_two_week_low, dividend_yield, payout_ratio
-- **Analyst:** recommendation_mean, recommendation_key, number_of_analyst_opinions,
-  target_mean_price, target_high_price, target_low_price
-- **EPS:** trailing_eps, forward_eps
-- **Meta:** fetched_at, fetch_error (nullable)
+### 5.1 `fundamentals` (1 row/symbol, snapshot) — QUALITY SCORECARD
+Reframed from a generic ratio dump into a **MOAT / quality scorecard** (pricing power, returns
+on capital, cash generation). Fetched from `.info` + `.income_stmt` + `.balance_sheet` +
+`.earnings_history`. Overwritten on refresh.
+
+**The 7 quality gates** — each stored as a raw value AND evaluated pass/fail vs a threshold in
+`screener_settings.quality_gates`. Fundamental score = **gates passed / 7**.
+| Gate | Threshold | Source |
+|---|---|---|
+| gross_margin | >60% | `.info grossMargins` [direct] |
+| roe | >15% | `.info returnOnEquity` [direct] |
+| free_cashflow | >0 (cash for dividends) | `.info freeCashflow` [direct] |
+| levered_fcf_margin | >20% | freeCashflow / total_revenue [computed] |
+| roic | >10–12% | EBIT×(1−tax)/(debt+equity−cash) from statements; **pre-tax ROCE fallback** when tax/cash missing [computed] |
+| interest_cover | >3× | EBIT / interest_expense [computed] |
+| eps_5y_growth | >10% | CAGR from multi-year EPS series [computed] |
+
+**Raw statement inputs (stored for later recompute, per rec #1):** ebit, tax_provision,
+total_revenue, total_debt, total_equity, cash, interest_expense, eps_annual_series (JSON).
+
+**Context fields:** market_cap, trailing_pe, forward_pe, trailing_eps, forward_eps,
+dividend_yield, recommendation_mean, recommendation_key, number_of_analyst_opinions,
+target_mean_price, target_high_price, target_low_price.
+
+**Earnings history (beat/miss):** last ~4 quarters eps_actual vs eps_estimate + surprise_pct
+(JSON), beat_rate_4q.
+
+**Identity:** symbol (PK), long_name, sector, industry, country, currency, exchange, quote_type.
+
+**Meta:** fetched_at, fetch_error (nullable), fields_missing (JSON — which computed gates nulled out).
+
+*Dropped from the original proposal:* price_to_book, price_to_sales, ev_to_ebitda, beta, payout_ratio.
 
 ### 5.2 `screen_signals` (symbol + date) — from `f_watch`
 Holds only what `indicators` lacks (no duplication; scoring JOINs `indicators` for
@@ -150,27 +170,51 @@ Best pattern per symbol/date (all patterns optional via `is_best` flag):
 - symbol (PK), note, added_at
 
 ### 5.9 `screener_settings` (key/value, category)
-Mirrors `signal_settings` pattern. Categories:
-- **scoring_weights** (JSON) — doc's technical + fundamental + bonus weights
-- **thresholds** (JSON) — min_score_total/tech/fund, min_rr_ratio, max_rsi, min_market_cap, profiles
+Mirrors `signal_settings` pattern. **All values editable from the Configuration UI — thresholds
+are tunable after seeing data, no code change** (rec #3). Categories:
+- **quality_gates** (JSON) — pass thresholds for the 7 quality metrics: gross_margin 0.60,
+  roe 0.15, roic 0.10, levered_fcf_margin 0.20, interest_cover 3.0, eps_5y_growth 0.10,
+  free_cashflow 0. These are the fundamental screening gates.
+- **scoring_weights** (JSON) — **technical** signal weights (momentum / MA / consolidation / breakout).
+  (Fundamental side is gate-count based, not weighted — see §6.2.)
+- **thresholds** (JSON) — min_score_total/tech, min_quality_gates, min_rr_ratio, max_rsi, min_market_cap, profiles
 - **consolidation_params** (JSON) — `g`/`d` legacy defaults: zigzag_deviation 6.0,
   lookback_days 40, min_days_between_swings 2, breakout_confirmation_pct 1.5, volume_lookback 20,
   timeframes [15,30,60], max_consolidation_range_pct 5.0, min_consolidation_duration, grouping tolerances…
 - **account** — account_size (default 13596 EUR / PEA), risk_pct_per_trade (1.0), default_stop_method
 
+### 5.10 `macro_indicators` (date + indicator) — DEFERRED (Phase 4, portfolio-level)
+Market-regime dashboard, **NOT per-stock**. One row per indicator per date.
+- indicator (VIX / US_10Y / US_30Y / USDJPY / JGB_10Y / CAPE), value, level_status (green/amber/red)
+- Auto-sourced via existing `market_data` ingestion (`^VIX`, `^TNX`, `^TYX`, `JPY=X`);
+  **JGB_10Y + CAPE via manual entry / external source** (no reliable yfinance series).
+- Levels (`screener_settings.macro_levels`): US_10Y 4.5 danger, US_30Y 5.0 break,
+  JGB_10Y 2.5 stress, USDJPY 162 intervention, CAPE 30 danger / 40 bubble.
+
 ## 6. The Five Components
 
 ### 6.1 Fundamentals (`fundamentals_fetch.py`)
-New fetcher hits `yf.Ticker(symbol).info` for all enabled universe symbols, snake-cases the
-FIELDS set, writes/overwrites `fundamentals`. Weekly cadence, decoupled sync step + on-demand
-button. Reuses the failure-tracking discipline from the OBS epic (per-symbol errors → `fetch_error`).
+Fetcher pulls `yf.Ticker(symbol)` `.info` + `.income_stmt` + `.balance_sheet` +
+`.earnings_history` for all enabled universe symbols, **computes the 7 quality gates** (ROIC via
+NOPAT/invested-capital with a pre-tax ROCE fallback when tax/cash are missing), stores raw
+statement inputs + context fields + earnings-history, and writes/overwrites `fundamentals`.
+**Default cadence monthly** (statements only change at earnings) via a decoupled sync step,
+plus an always-available on-demand button that shows **"Last run: {date} · Suggested next:
+{date + 1 month}"** and flags overdue (reuses the Epic-B staleness-badge pattern).
+Reuses OBS-epic per-symbol failure tracking (`fetch_error`, `fields_missing`). Expect the
+computed gates (ROIC / interest-cover / EPS-5Y) to null out on some symbols — Phase-1 surfaces
+the coverage.
 
 ### 6.2 Scoring / verdict engine (`scoring_compute.py`)
 Pure module. Reads `indicators` + `screen_signals` + `consolidation_patterns` +
-`breakout_signals` + `fundamentals`. Applies the doc's weighted scheme (config-driven from
-`screener_settings.scoring_weights` + `thresholds`). Writes `screen_scores` as a daily
-time-series, **storing all sub-scores + raw inputs** so distributions are inspectable.
-Weights + verdict thresholds are **provisional** (Phase 2 calibration).
+`breakout_signals` + `fundamentals`. Two sub-scores:
+- **Fundamental score = quality gates passed / 7** — each of the 7 quality metrics is a binary
+  pass/fail vs its threshold in `screener_settings.quality_gates`. Transparent and debuggable
+  (e.g. "6/7 — fails interest cover"). **Replaces the doc's weighted fundamental scheme.**
+- **Technical score** — weighted from momentum / MA / consolidation-quality / breakout signals
+  (config-driven, `screener_settings.scoring_weights`), **provisional** until Phase-2 calibration.
+Writes `screen_scores` as a daily time-series, **storing all sub-scores + raw inputs** so
+distributions are inspectable. Verdict thresholds provisional (Phase 2).
 
 ### 6.3 Buy-side signals — EXACT legacy logic
 - `consolidation_core.py` — shared ZigZag + validated support/resistance zone construction
@@ -196,9 +240,18 @@ stop = most conservative, R/R targets 1:1/1:2/1:3, position sizing from
 `watchlist` table. Pinned symbols are always scored and always get a `trade_plan`, regardless
 of screen result. Managed from the UI.
 
+### 6.6 Macro / market-regime panel — DEFERRED (Phase 4, portfolio-level)
+A **portfolio-level** "should I be buying at all right now?" risk dashboard — **not** stock-level.
+Ingest `^VIX` / `^TNX` (US 10Y) / `^TYX` (US 30Y) / `JPY=X` (USD/JPY) through the existing
+`market_data_ingestor` as a small macro universe; a regime panel colors each red/amber/green vs
+the user's levels (§5.10). **JGB 10Y + CAPE (Shiller)** have no reliable yfinance series → manual
+entry with an "auto-source later" note. CAPE framing confirmed sound (>30 danger / >40 bubble ≈
+historical top decile). Out of Phase 1 — see §9 Phase 4.
+
 ## 7. Sync Steps (added to `/api/sync/*`, composable into `full`)
 
-- `POST /api/sync/fundamentals` — weekly snapshot; on-demand button.
+- `POST /api/sync/fundamentals` — **monthly** snapshot (`.info` + statements + earnings history);
+  on-demand button showing last-run / suggested-next-run date.
 - `POST /api/sync/screen` — nightly: `screen_signals` + `consolidation_patterns` +
   `breakout_signals` + `support_resistance` → scoring engine → `screen_scores`.
 - `POST /api/sync/trade-plans` — deep-dive for passers + watchlist.
@@ -237,6 +290,11 @@ Config tuning in `screener_settings` + re-run `/api/sync/screen`, not code churn
 ### Phase 3 — Deep-dive on winners (§4 + watchlist)
 `trade_plans` (R/R + sizing), watchlist, deep-dive panel in `SecurityDetailSheet`.
 
+### Phase 4 — Macro / market-regime dashboard (portfolio-level)
+VIX, US 10Y/30Y, USD/JPY (auto via `market_data`) + JGB 10Y, CAPE (manual entry) with
+threshold alerts (§5.10 / §6.6). Portfolio-level context, separate from the per-stock funnel.
+Deferred by design — not needed to prove the screener.
+
 ## 10. Testing Approach
 
 - **Unit (TDD):** each `*_compute.py` module tested in isolation with fixture OHLCV/fundamentals.
@@ -249,11 +307,16 @@ Config tuning in `screener_settings` + re-run `/api/sync/screen`, not code churn
 
 ## 11. Open Items (deferred to Phase 2, intentionally)
 
-- Final scoring weights and verdict thresholds.
-- Final `min_score` / R-R / RSI / market-cap filter cutoffs.
+- Final technical scoring weights and verdict thresholds.
+- Final quality-gate thresholds (>60% GM etc. — tuned in `screener_settings.quality_gates`
+  after seeing distributions).
+- **Coverage validation:** whether ROIC / interest-cover / EPS-5Y statement data is reliable
+  enough across the universe to keep all 7 gates (Phase-1 surfaces null rates via `fields_missing`).
+- Final `min_score` / min-quality-gates / R-R / RSI / market-cap filter cutoffs.
 - Final `g`/`d` consolidation parameters (calibrated to real coverage).
 - Whether Watchlist is also a top-level tab vs. Screener-tab filter only.
 - Whether to keep the vs-SPY momentum alongside MRSI, or standardize on MRSI.
+- **Phase 4:** JGB 10Y + CAPE sourcing (external feed vs. manual entry).
 
 ## 12. Module Inventory (new files)
 
