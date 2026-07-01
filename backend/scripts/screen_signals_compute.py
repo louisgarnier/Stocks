@@ -26,12 +26,12 @@ def _ma_cross_status(ma50, ma100, ma150):
         return None
     if ma50 > ma100 and ma100 > ma150:
         return "All Bullish"
+    if ma50 > ma150:
+        return "Mostly Bullish"
     if ma50 < ma100 and ma100 < ma150:
         return "All Bearish"
-    if ma50 > ma150:
-        return "Mostly Bullish" if ma50 > ma100 else "Short-term Bullish"
     if ma50 < ma150:
-        return "Mostly Bearish" if ma50 < ma100 else "Short-term Bearish"
+        return "Mostly Bearish"
     return "Mixed"
 
 
@@ -80,8 +80,6 @@ def compute_signals(df: pd.DataFrame, ind: dict) -> dict:
         "near_52w_high": 1 if dist_high is not None and dist_high > -5 else 0,
     }
 
-
-from backend.database.connection import get_db_connection  # noqa: E402
 
 _COLS = ["symbol","date","momentum_5d","momentum_20d","momentum_60d","multi_factor_momentum",
          "vs_benchmark","price_vs_ma50","above_ma50","above_ma100","above_ma150","above_ma200",
