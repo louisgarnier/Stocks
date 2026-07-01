@@ -154,6 +154,12 @@ CONSOLIDATION_DEFAULTS = {
     "min_touches_per_level": 2,
     "min_range_size_pct": 2.0,
     "min_bounces_in_channel": 3,
+    # Previously-hardcoded consolidation gates, now tunable (R-2). Defaults keep
+    # the original strict values so out-of-the-box breakout signals stay reliable;
+    # loosen these in the app to surface more (lower-quality) candidates.
+    "min_pct_in_channel": 70.0,        # % of bars that must sit inside the channel
+    "min_boundary_touches": 4,          # min support+resistance boundary tests
+    "min_pct_closes_in_channel": 85.0,  # % of closes that must sit inside the channel
 }
 
 

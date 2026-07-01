@@ -185,7 +185,7 @@ def _is_valid_channel(df: pd.DataFrame, support: Dict, resistance: Dict, params:
     prices_in_channel = df[(df['low'] >= channel_bottom) & (df['high'] <= channel_top)]
     pct_in_channel = len(prices_in_channel) / len(df) * 100
 
-    return pct_in_channel >= 70  # At least 70% of time in channel
+    return pct_in_channel >= params["min_pct_in_channel"]  # tunable (R-2), default 70%
 
 
 def calculate_zigzag_within_channel(df: pd.DataFrame, channel: Dict, params: dict) -> Tuple[List[Dict], Dict]:
@@ -461,7 +461,7 @@ def detect_consolidation_patterns_hybrid(df: pd.DataFrame, timeframe: str, param
 
         # Check for adequate channel boundary tests
         total_boundary_touches = channel_touches['support'] + channel_touches['resistance']
-        if total_boundary_touches < 4:  # Need at least 4 boundary tests
+        if total_boundary_touches < params["min_boundary_touches"]:  # tunable (R-2), default 4
             continue
 
         # Calculate time metrics
@@ -490,7 +490,7 @@ def detect_consolidation_patterns_hybrid(df: pd.DataFrame, timeframe: str, param
         ]
         pct_closes_in_channel = len(closes_in_channel) / len(consolidation_data) * 100
 
-        if pct_closes_in_channel < 85:  # Require 85% of closes in channel
+        if pct_closes_in_channel < params["min_pct_closes_in_channel"]:  # tunable (R-2), default 85%
             continue
 
         # Create comprehensive consolidation pattern
