@@ -11,15 +11,19 @@
 | **D** | [Indicators](epic-D-indicators/spec.md) | [x] Done | 7 | MA / BB / RSI / **MRSI (Mansfield)** / ATR / Volume MA |
 | **G** | [Sell Signals on Holdings](epic-G-sell-signals/spec.md) | [ ] Pending | TBD | Positions tab Signals column with traffic light + 11 signal types |
 | **H** | [Security Detail View](epic-H-security-detail/spec.md) | [x] Done v1 | 8 | Universal modal — Sheet with About / Position / Transactions / Indicators / Recent bars. Chart + sell simulator + signal checklist deferred. |
-| **E** | [Tech Analysis Tab v1](epic-E-tech-analysis/spec.md) | [ ] Pending | TBD | Range + Trend Breakouts, ZigZag + BB Squeeze consolidation, technical S/R |
+| **S** | [Screener](../../../superpowers/specs/2026-07-01-screener-integration-design.md) | [x] Phase 1 done | 16 | Fundamentals fetch + quality gates, `screen_signals` (momentum/MA/52w), ZigZag consolidation, breakout + S/R, provisional scoring, Screener grid. Built outside epic tracking (`[E-1]` commits). **Phase 2 = calibration, pending.** |
+| **R** | [Research Unified View](epic-R-research-unified/spec.md) | [→] In Progress | 4 | **Correction (now).** Merge Browse Universe + Screener into one configurable Research view on a single per-symbol dataset; 3+1 sync buttons; fix consolidation reliability; fundamentals in detail popup. |
+| **G** | [Sell Signals on Holdings](epic-G-sell-signals/spec.md) | [~] Backend done | TBD | Positions tab Signals column with traffic light + 11 signal types. Frontend pending. |
+| **E** | [Tech Analysis Tab v1](epic-E-tech-analysis/spec.md) | [ ] Pending (reduced) | TBD | **Remaining scope only:** per-symbol drill-down chart `/tech-analysis/{symbol}` (lightweight-charts). Signals/S-R/consolidation already delivered by Epic S. |
 | **F** | [Options S/R + Polish](epic-F-options-sr/spec.md) | [ ] Pending | TBD | yfinance options chain → max pain + call/put walls, chart polish |
 
 ## Execution order
 
-Already shipped: A, B.
-Queued in priority: **C → D → G → H → E → F**.
+Already shipped: A, B, C, D, H, **S (Phase 1)**.
+**Correction in progress: R (Research Unified View) — do now.**
+Then queued in priority: **R → G → E(remaining) → F**, with **S Phase 2 (calibration)** slotting after R.
 
-Stories C through H ship sequentially, each builds on the previous. Story F can technically slot anywhere after E ships, but ordered last as enrichment.
+Rationale: R corrects the split/unreliable per-stock data model that S and Browse Universe drifted into. Building G/E/F on top of a clean unified dataset is cheaper than on the split one, so R goes first. F is enrichment, ordered last.
 
 ## Story numbering convention
 
@@ -36,7 +40,7 @@ Going forward (Story C onward), commits use `[STORY-C-1]`, `[STORY-D-1]`, etc.
 | Topic | Notes |
 |---|---|
 | **FIFO Module** | Lot-level cost basis tracking. Reads `transactions_adjusted` view. Upgrades Story H sell simulator from avg-cost to FIFO/LIFO matching. |
-| **Fundamental Analysis Tab** | Port `Automated-Fundamental-Analysis` methodology, swap finviz → yfinance. Adds fundamental cards to Story H modal. |
+| **Fundamental Analysis Tab** | **Partially delivered by Epic S** (yfinance fundamentals + quality gates + fundamental columns) and **Epic R-4** (fundamentals card in detail popup). Remaining: deeper dedicated fundamental analysis views if wanted. |
 | **Watchlist Tab** | Saved screens / candidate tracking; integrates with Story H "Add to watchlist". |
 | **Auto-scheduling** | Cron-style runs of `/api/sync/full`. Once manual flow is stable. |
 | **Historical positions snapshots** | `positions_ibkr_history` for time-series of holdings (P&L over time chart). |

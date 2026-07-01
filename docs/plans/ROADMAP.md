@@ -19,12 +19,17 @@ Single source of truth for what's done, in flight, and queued. Each story has it
 |---|---|---|---|
 | ✅ | **C — Foundation: Universe + Market Data + Design System** | `2026-04-28-story-c-foundation.md` | [§ Story C](#story-c--foundation) |
 | ✅ | **D — Indicators** | `2026-04-28-story-d-indicators.md` | [§ Story D](#story-d--indicators) |
-| 1 | **H — Security Detail View popup** | not yet | [§ Story H](#story-h--security-detail-view) |
-| 2 | **G — Sell signals on holdings** | not yet | [§ Story G](#story-g--sell-signals-on-holdings) |
-| 3 | **E — Tech Analysis tab v1** | not yet | [§ Story E](#story-e--tech-analysis-tab-v1) |
+| ✅ | **H — Security Detail View popup** | shipped v1 | [§ Story H](#story-h--security-detail-view) |
+| ✅ | **S — Screener (Phase 1)** | `docs/superpowers/plans/2026-07-01-screener-phase1.md` | `docs/superpowers/specs/2026-07-01-screener-integration-design.md` |
+| **→** | **R — Research Unified View (correction, NOW)** | next: R-1 plan | `docs/superpowers/specs/2026-07-01-research-unified-view-design.md` · epic: `config/epics/epic-R-research-unified/spec.md` |
+| 1 | **G — Sell signals on holdings** (backend done; frontend G-6/G-7) | not yet | [§ Story G](#story-g--sell-signals-on-holdings) |
+| 2 | **S Phase 2 — Screener calibration** | not yet | tuned gate/tech weights |
+| 3 | **E — Tech Analysis drill-down chart** (remaining: `/tech-analysis/{symbol}`) | not yet | [§ Story E](#story-e--tech-analysis-tab-v1) |
 | 4 | **F — Options S/R + polish** | not yet | [§ Story F](#story-f--options-based-sr--polish) |
 
 > **Reordering note (2026-04-29):** H moved ahead of G. Building more detection layers without an inspector to verify them is flying blind. Epic H gives every symbol a click-to-inspect view that validates D's indicators (and every future epic's data) per-symbol.
+>
+> **Correction note (2026-07-01):** Epic **S (Screener)** was built outside this roadmap (`[E-1]` commits). It delivered fundamentals + signals + ZigZag consolidation + breakout/S-R + scoring — a big slice of what was called "Epic E" plus the parked "Fundamental Analysis tab." It drifted into a second per-stock pipeline separate from Browse Universe/Indicators, and consolidation writes 1/561. Epic **R** is inserted **now**, ahead of G/E/F, to merge the two into one clean, reliable, configurable Research view before more features stack on the split model. Nothing later is dropped — G, E-remaining, F, S-Phase-2 and all parked items stay queued.
 
 ---
 
