@@ -287,9 +287,18 @@ historical top decile). Out of Phase 1 — see §9 Phase 4.
 
 - **New "Screener" tab.** Phase 1: a **raw diagnostic data grid** — every signal value
   (momentum, MA cross, consolidation quality + sub-scores, breakout direction/strength,
-  fundamentals), sortable/filterable, CSV export, provisional score shown but clearly labeled
+  fundamentals), sortable/filterable, provisional score shown but clearly labeled
   *uncalibrated*. Phase 2: becomes a polished ranked candidate list with verdict + filters
   (min score, verdict, sector, in-portfolio, watchlist-only).
+- **`screener_overview` — flattened data access (Phase 1, first-class).** A SQL **view** that
+  JOINs `screen_signals` + `consolidation_patterns` + `breakout_signals` + `fundamentals` +
+  `screen_scores` into one wide row per symbol (price, MAs, momentum, base quality, support/
+  resistance, breakout direction/strength/day, the 7 quality gates + N/7, tech/fund scores,
+  verdict). Surfaced three ways, replacing the old `breakout_analysis_*.csv` /
+  `fixed_watchlist_analysis_*.csv` extracts with something richer: (1) **direct SQL** on
+  `finance.db` (sqlite3 / DB Browser / pandas); (2) **one-click CSV/Excel export** button on the
+  Screener tab (full overview, or any single table); (3) **`GET /api/screener/overview?format=csv`**
+  endpoint for programmatic/n8n access.
 - **Watchlist.** Pin/unpin from any symbol; a filter within the Screener tab. (Top-level tab TBD — user preference.)
 - **Deep-dive.** Extend existing `SecurityDetailSheet` (Epic H) — score breakdown, base-quality +
   breakout detail, stop/targets/R-R, position sizing.
