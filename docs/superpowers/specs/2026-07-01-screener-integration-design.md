@@ -121,7 +121,7 @@ target_mean_price, target_high_price, target_low_price.
 
 *Dropped from the original proposal:* price_to_book, price_to_sales, ev_to_ebitda, beta, payout_ratio.
 
-### 5.2 `screen_signals` (symbol + date) — from `f_watch`
+### 5.2 `screen_signals` (symbol, latest-only) — from `f_watch`
 Holds only what `indicators` lacks (no duplication; scoring JOINs `indicators` for
 ma_50/100/150/200, rsi_14, mrsi, atr_14, volume_ma_20, bb_*):
 - momentum_5d, momentum_20d, momentum_60d, multi_factor_momentum (0.4·m5 + 0.3·m20 + 0.3·m60)
@@ -132,7 +132,7 @@ ma_50/100/150/200, rsi_14, mrsi, atr_14, volume_ma_20, bb_*):
 - volume, avg_volume_20, volume_spike (volume > 1.5× avg_vol_20)
 - high_52w, low_52w, dist_from_52w_high, dist_from_52w_low, near_52w_high
 
-### 5.3 `consolidation_patterns` (symbol + date) — from `g_consolidation` (EXACT)
+### 5.3 `consolidation_patterns` (symbol, latest-only) — from `g_consolidation` (EXACT)
 Best pattern per symbol/date (all patterns optional via `is_best` flag):
 - timeframe (15d/30d/60d), detection_method
 - support_level, resistance_level, range_pct, duration_days
@@ -142,18 +142,18 @@ Best pattern per symbol/date (all patterns optional via `is_best` flag):
 - volume_trend, volume_decline_pct, price_position_pct, position_desc
 - current_price, is_best
 
-### 5.4 `breakout_signals` (symbol + date) — from `d_breakout` (EXACT)
+### 5.4 `breakout_signals` (symbol + date, event log) — from `d_breakout` (EXACT)
 - breakout_status (breakout_detected / consolidation_found_no_breakout / no_consolidation)
 - breakout_direction (bullish/bearish/none), breakout_day (0/1/2), breakout_strength, breakout_volume_ratio
 - consolidation_bottom, consolidation_top, consolidation_range_pct, consolidation_duration_days
 - rejection_reason
 - (per-case detail day0/day1/day2 retained for parity/debug — optional columns or JSON blob)
 
-### 5.5 `support_resistance` (symbol + date) — shared ZigZag zone core
+### 5.5 `support_resistance` (symbol, latest-only) — shared ZigZag zone core
 - zone_type (support/resistance), center_price, zone_bottom, zone_top, min_price, max_price
 - touches, strength
 
-### 5.6 `screen_scores` (symbol + date)
+### 5.6 `screen_scores` (symbol + date, windowed)
 - score_tech, score_fund, score_total (0–100 normalized)
 - verdict (strong_buy ≥75 / buy ≥60 / watch ≥45 / neutral / avoid <30) — **provisional**
 - tech_flags (csv), fund_flags (csv), multi_factor_momentum
@@ -182,6 +182,7 @@ are tunable after seeing data, no code change** (rec #3). Categories:
   lookback_days 40, min_days_between_swings 2, breakout_confirmation_pct 1.5, volume_lookback 20,
   timeframes [15,30,60], max_consolidation_range_pct 5.0, min_consolidation_duration, grouping tolerances…
 - **account** — account_size (default 13596 EUR / PEA), risk_pct_per_trade (1.0), default_stop_method
+- **retention** — breakout_fresh_days (3), breakout_retention_days (30), screen_scores_retention_days (60)
 
 ### 5.10 `macro_indicators` (date + indicator) — DEFERRED (Phase 4, portfolio-level)
 Market-regime dashboard, **NOT per-stock**. One row per indicator per date.
@@ -190,6 +191,29 @@ Market-regime dashboard, **NOT per-stock**. One row per indicator per date.
   **JGB_10Y + CAPE via manual entry / external source** (no reliable yfinance series).
 - Levels (`screener_settings.macro_levels`): US_10Y 4.5 danger, US_30Y 5.0 break,
   JGB_10Y 2.5 stress, USDJPY 162 intervention, CAPE 30 danger / 40 bubble.
+
+### 5.11 Data Retention & Lifecycle
+Principle: **`market_data` + `indicators` are the source of truth and kept in full; everything
+derived from them is regenerable, so we keep only what we query.** Three tiers:
+
+| Tier | Tables | Retention | Mechanism |
+|---|---|---|---|
+| **Source of truth** | `market_data`, `indicators` | Full history | append/upsert, never pruned |
+| **Derived — windowed** | `breakout_signals`, `screen_scores` | rolling window (nightly prune) | `PK (symbol, date)` + `DELETE WHERE date < today − N` |
+| **Derived — latest-only** | `screen_signals`, `consolidation_patterns`, `support_resistance` | current snapshot | `PK (symbol)` + upsert-replace |
+| **Snapshot** | `fundamentals`, `trade_plans` | latest, overwritten | `PK (symbol)` + upsert-replace |
+
+**Three time windows for breakouts (kept distinct):**
+- **Analysis lookback** — ZigZag/consolidation computed over 40+ days (or longer); a compute
+  window, recomputed nightly from `market_data`, not a storage limit.
+- **Breakout freshness** (`breakout_fresh_days = 3`) — the actionable "just broke out" filter;
+  matches `d_breakout`'s day 0 / −1 / −2 window. The Screener's live breakout list uses this.
+- **Table retention** (`breakout_retention_days = 30`) — how long breakout event rows persist for
+  review/diagnostics before nightly pruning.
+
+Derived signals are **sparse** — a row is written only when a pattern/breakout exists, never a
+"nothing today" row for all 540 symbols. Because signals are regenerable, a "rebuild last N days"
+from `market_data` is always possible if the logic changes.
 
 ## 6. The Five Components
 
@@ -253,7 +277,9 @@ historical top decile). Out of Phase 1 — see §9 Phase 4.
 - `POST /api/sync/fundamentals` — **monthly** snapshot (`.info` + statements + earnings history);
   on-demand button showing last-run / suggested-next-run date.
 - `POST /api/sync/screen` — nightly: `screen_signals` + `consolidation_patterns` +
-  `breakout_signals` + `support_resistance` → scoring engine → `screen_scores`.
+  `breakout_signals` + `support_resistance` → scoring engine → `screen_scores`. **Ends with a
+  retention prune** (delete windowed rows older than their `screener_settings.retention` window;
+  latest-only tables self-overwrite). See §5.11.
 - `POST /api/sync/trade-plans` — deep-dive for passers + watchlist.
 - Each logged to `sync_runs`. `full` orchestrator gains these steps (fundamentals gated to weekly).
 
