@@ -362,6 +362,8 @@ INSERT OR IGNORE INTO screener_settings (key, value_json, category) VALUES
 CREATE VIEW IF NOT EXISTS research_overview AS
 SELECT
     u.symbol, u.name, u.sector,
+    -- latest close price (Epic C market_data)
+    (SELECT md.close FROM market_data md WHERE md.symbol = u.symbol ORDER BY md.time DESC LIMIT 1) AS price,
     -- latest indicators (Epic D)
     i.time AS indicator_date,
     i.ma_50, i.ma_100, i.ma_150, i.ma_200,

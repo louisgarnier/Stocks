@@ -16,6 +16,9 @@ def _seed(temp_db):
     # two indicator rows; the view must surface the LATEST one
     conn.execute("INSERT INTO indicators (symbol, time, ma_50, rsi_14, atr_14) VALUES ('AAPL','2026-06-01', 100.0, 40.0, 2.0)")
     conn.execute("INSERT INTO indicators (symbol, time, ma_50, rsi_14, atr_14) VALUES ('AAPL','2026-06-30', 141.2, 62.5, 3.4)")
+    # market_data for latest-close (price) — latest is 2026-06-30 @ 145.5
+    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) VALUES ('AAPL','2026-06-01', 1,1,1, 130.0, 10)")
+    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) VALUES ('AAPL','2026-06-30', 1,1,1, 145.5, 10)")
     conn.commit()
     conn.close()
 
@@ -33,6 +36,8 @@ def test_research_view_joins_latest_indicators(temp_db):
     assert row["ma_50"] == 141.2
     assert row["rsi_14"] == 62.5
     assert row["atr_14"] == 3.4
+    # latest close price
+    assert row["price"] == 145.5
 
 
 def test_research_overview_json(temp_db):
