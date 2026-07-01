@@ -54,6 +54,18 @@ export interface SecurityDetail {
     atr_14: number | null;
     volume_ma_20: number | null;
   } | null;
+  fundamentals: {
+    gross_margin: number | null;
+    roe: number | null;
+    roic: number | null;
+    levered_fcf_margin: number | null;
+    interest_cover: number | null;
+    eps_5y_growth: number | null;
+    gates_passed: number | null;
+    gates_total: number | null;
+    market_cap: number | null;
+    trailing_pe: number | null;
+  } | null;
   bars: Array<{
     time: string;
     open: number | null;
@@ -259,6 +271,38 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
         </Card>
       )}
 
+      {data.fundamentals && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Fundamentals</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-3 text-sm">
+            <Stat label="Gross margin" value={pct(data.fundamentals.gross_margin)} />
+            <Stat label="ROE" value={pct(data.fundamentals.roe)} />
+            <Stat label="ROIC" value={pct(data.fundamentals.roic)} />
+            <Stat label="Levered FCF margin" value={pct(data.fundamentals.levered_fcf_margin)} />
+            <Stat
+              label="Interest cover"
+              value={data.fundamentals.interest_cover != null ? `${data.fundamentals.interest_cover.toFixed(1)}×` : "—"}
+            />
+            <Stat label="EPS 5y growth" value={pct(data.fundamentals.eps_5y_growth)} />
+            <Stat
+              label="Quality gates"
+              value={
+                data.fundamentals.gates_passed != null && data.fundamentals.gates_total != null
+                  ? `${data.fundamentals.gates_passed}/${data.fundamentals.gates_total}`
+                  : "—"
+              }
+            />
+            <Stat label="Market cap" value={compact(data.fundamentals.market_cap)} />
+            <Stat
+              label="Trailing P/E"
+              value={data.fundamentals.trailing_pe != null ? data.fundamentals.trailing_pe.toFixed(1) : "—"}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {data.bars.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -341,6 +385,19 @@ function Stat({ label, value, colorClass }: { label: string; value: string; colo
 function fmt(n: number | null | undefined): string {
   if (n == null) return "—";
   return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function pct(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function compact(n: number | null | undefined): string {
+  if (n == null) return "—";
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  return `$${n.toLocaleString("en-US")}`;
 }
 
 function fmtCur(n: number, currency: string | null | undefined): string {
