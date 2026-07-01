@@ -1,0 +1,134 @@
+"""
+Consolidation core — shared ZigZag + data-quality primitives.
+
+⚠️ `calculate_zigzag` and `is_stock_data_quality` are a VERBATIM port from
+docs/plans/features_pipe/d_breakout_detector_3.py (lines 105-132 and 134-214
+respectively). The only changes are: converted from instance methods to
+module-level functions taking `(df, params)`, and every `self.<attr>` became
+`params["<attr>"]`. Every threshold, branch, and comparison is unchanged.
+Do not "improve" or refactor this logic — see Task 7 brief.
+"""
+import json
+from typing import Dict, List, Tuple
+
+import pandas as pd
+
+from backend.database.connection import get_db_connection  # noqa: E402
+
+
+def is_stock_data_quality(df: pd.DataFrame, params: dict) -> Tuple[bool, str]:
+    """Check data quality - EXACT same as original"""
+    if len(df) < 10:
+        return False, "insufficient_data"
+
+    # Check for suspicious gaps
+    df['price_change_pct'] = df['close'].pct_change().abs() * 100
+    max_change = df['price_change_pct'].max()
+    if max_change > params["max_daily_change"]:
+        return False, f"suspicious_gap_{max_change:.1f}%"
+
+    # Check volatility
+    price_range = df['high'].max() - df['low'].min()
+    avg_price = df['close'].mean()
+    volatility_pct = (price_range / avg_price) * 100
+
+    if volatility_pct > params["max_volatility_filter"]:
+        return False, f"high_volatility_{volatility_pct:.1f}%"
+
+    # Check volume
+    avg_volume = df['volume'].mean()
+    if avg_volume < params["min_volume_threshold"]:
+        return False, f"low_volume_{avg_volume:.0f}"
+
+    if df['low'].min() <= 0:
+        return False, "invalid_prices"
+
+    return True, "quality_ok"
+
+
+def calculate_zigzag(df: pd.DataFrame, params: dict) -> List[Dict]:
+    """Calculate ZigZag indicator - EXACT same as original"""
+    if len(df) < 3:
+        return []
+
+    zigzag_points = []
+    current_trend = None
+    last_extreme = {
+        'type': 'start',
+        'price': df.iloc[0]['close'],
+        'date': df.iloc[0]['time'],
+        'index': 0,
+        'high': df.iloc[0]['high'],
+        'low': df.iloc[0]['low']
+    }
+
+    for i in range(1, len(df)):
+        current_high = df.iloc[i]['high']
+        current_low = df.iloc[i]['low']
+        current_date = df.iloc[i]['time']
+
+        # Check minimum days between swings
+        days_diff = (current_date - last_extreme['date']).days
+        if days_diff < params["min_days_between_swings"] and last_extreme['type'] != 'start':
+            continue
+
+        high_change_pct = ((current_high - last_extreme['price']) / last_extreme['price']) * 100
+        low_change_pct = ((current_low - last_extreme['price']) / last_extreme['price']) * 100
+
+        if high_change_pct >= params["zigzag_deviation"]:
+            if current_trend == 'down' and last_extreme['type'] in ['trough', 'start']:
+                zigzag_points.append(last_extreme)
+
+            last_extreme = {
+                'type': 'peak',
+                'price': current_high,
+                'date': current_date,
+                'index': i,
+                'high': current_high,
+                'low': current_low
+            }
+            current_trend = 'up'
+
+        elif low_change_pct <= -params["zigzag_deviation"]:
+            if current_trend == 'up' and last_extreme['type'] in ['peak', 'start']:
+                zigzag_points.append(last_extreme)
+
+            last_extreme = {
+                'type': 'trough',
+                'price': current_low,
+                'date': current_date,
+                'index': i,
+                'high': current_high,
+                'low': current_low
+            }
+            current_trend = 'down'
+
+        elif current_trend == 'up' and current_high > last_extreme['price']:
+            last_extreme = {
+                'type': 'peak',
+                'price': current_high,
+                'date': current_date,
+                'index': i,
+                'high': current_high,
+                'low': current_low
+            }
+
+        elif current_trend == 'down' and current_low < last_extreme['price']:
+            last_extreme = {
+                'type': 'trough',
+                'price': current_low,
+                'date': current_date,
+                'index': i,
+                'high': current_high,
+                'low': current_low
+            }
+
+    if last_extreme['type'] != 'start':
+        zigzag_points.append(last_extreme)
+
+    return zigzag_points
+
+
+def load_params(conn) -> dict:
+    row = conn.execute("SELECT value_json FROM screener_settings WHERE key='consolidation_params'").fetchone()
+    return json.loads(row[0]) if row else {}
