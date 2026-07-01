@@ -12,10 +12,11 @@
 
 ### Progress
 
-- ⏳ **R-1** Unified `research_overview` view (+ latest indicators) + `/api/research/overview` json/csv
-- ⏳ **R-2** Consolidation reliability fix (debugging spike: why 1/561) + regression test
-- ⏳ **R-3** Merged Research UI: Screener grid into Browse Universe, 3+1 sync buttons (Fundamentals auto-rescore · Technical · Compute · Run all), column show/hide + persistence, retire Screener tab
-- ⏳ **R-4** Fundamentals card in the Security Detail popup (`/api/security/{sym}/detail` extension)
+- ✅ **R-1** Unified `research_overview` view (+ latest indicators) + `/api/research/overview` json/csv. 4 TDD tests green; live DB migrated (52 cols, 561 rows).
+- ✅ **R-2 backend** Root cause = 3 hardcoded consolidation gates (70%/4/85%), not a bug. Parameterized them (conservative defaults) + `GET/PUT /api/screener/settings/{key}`. Live proof: default=1/561, loosened=236/561. TDD green.
+- ⏳ **R-2/R-3 frontend** Tuning panel (edit consolidation params + reset-to-recommended) + re-run — **needs UI mockup approval first**.
+- ⏳ **R-3** Merged Research UI: Screener grid into Browse Universe, 3+1 sync buttons (Fundamentals auto-rescore · Technical · Compute · Run all), column show/hide + persistence, retire Screener tab — **needs UI mockup approval first**.
+- ⏳ **R-4** Fundamentals card in the Security Detail popup (`/api/security/{sym}/detail` extension).
 
 ## Up next (after Epic R ships)
 
