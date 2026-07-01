@@ -218,6 +218,46 @@ async def sync_analytics():
         return _finalize_run(run, steps)
 
 
+def _prune_retention(conn) -> dict:
+    import json
+    from datetime import datetime, timedelta, timezone
+    ret = json.loads(conn.execute(
+        "SELECT value_json FROM screener_settings WHERE key='retention'").fetchone()[0])
+    today = datetime.now(timezone.utc).date()
+    brk_cut = (today - timedelta(days=int(ret.get("breakout_retention_days", 30)))).isoformat()
+    sc_cut = (today - timedelta(days=int(ret.get("screen_scores_retention_days", 60)))).isoformat()
+    b = conn.execute("DELETE FROM breakout_signals WHERE date < ?", (brk_cut,)).rowcount
+    s = conn.execute("DELETE FROM screen_scores WHERE date < ?", (sc_cut,)).rowcount
+    conn.commit()
+    return {"breakout_signals_pruned": b, "screen_scores_pruned": s}
+
+
+@router.post("/screen")
+async def sync_screen():
+    logger.info("🔎 Sync step: screen")
+    with record_run("screen") as run:
+        from backend.scripts import (screen_signals_compute, consolidation_compute,
+                                     breakout_compute, scoring_compute)
+        conn = get_db_connection()
+        try:
+            steps = {
+                "screen_signals": screen_signals_compute.compute_all(conn),
+                "consolidation": consolidation_compute.compute_all(conn),
+                "breakout": breakout_compute.compute_all(conn),
+                "scoring": scoring_compute.compute_all(conn),
+            }
+            pruned = _prune_retention(conn)
+        finally:
+            conn.close()
+        total_fail = sum(len(s.get("failures", [])) for s in steps.values())
+        run.summary(f"signals/cons/brk/score done · {total_fail} failures · pruned "
+                    f"{pruned['breakout_signals_pruned']}+{pruned['screen_scores_pruned']}")
+        run.details({"steps": steps, "pruned": pruned})
+        if total_fail:
+            run.status("partial")
+        return {"success": True, "steps": steps, "pruned": pruned}
+
+
 def _finalize_run(run, steps: list) -> dict:
     """Wrap the steps list into a response and update the recorder builder.
 
