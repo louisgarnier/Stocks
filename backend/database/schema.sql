@@ -257,3 +257,100 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 );
 CREATE INDEX IF NOT EXISTS idx_sync_runs_started ON sync_runs(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_runs_action ON sync_runs(action);
+
+-- ============================================================
+-- SCREENER (Epic E) — Phase 1
+-- ============================================================
+
+-- Fundamentals snapshot (1 row/symbol, overwritten). QUALITY SCORECARD.
+CREATE TABLE IF NOT EXISTS fundamentals (
+    symbol TEXT PRIMARY KEY,
+    long_name TEXT, sector TEXT, industry TEXT, country TEXT,
+    currency TEXT, exchange TEXT, quote_type TEXT,
+    -- quality gate raw values
+    gross_margin REAL, roe REAL, roic REAL, roic_method TEXT,
+    levered_fcf_margin REAL, interest_cover REAL, eps_5y_growth REAL, free_cashflow REAL,
+    gates_passed INTEGER, gates_total INTEGER,
+    -- raw statement inputs (for recompute)
+    ebit REAL, tax_provision REAL, total_revenue REAL, total_debt REAL,
+    total_equity REAL, cash REAL, interest_expense REAL, eps_annual_json TEXT,
+    -- context
+    market_cap REAL, trailing_pe REAL, forward_pe REAL, trailing_eps REAL, forward_eps REAL,
+    dividend_yield REAL, recommendation_mean REAL, recommendation_key TEXT,
+    number_of_analyst_opinions INTEGER, target_mean_price REAL,
+    target_high_price REAL, target_low_price REAL,
+    -- earnings beat/miss
+    earnings_history_json TEXT, beat_rate_4q REAL,
+    -- meta
+    fetched_at TIMESTAMP, fetch_error TEXT, fields_missing_json TEXT
+);
+
+-- Screening signals (latest-only, f_watch). Holds only what indicators lacks.
+CREATE TABLE IF NOT EXISTS screen_signals (
+    symbol TEXT PRIMARY KEY,
+    date TEXT,
+    momentum_5d REAL, momentum_20d REAL, momentum_60d REAL, multi_factor_momentum REAL,
+    vs_benchmark REAL,
+    price_vs_ma50 TEXT, above_ma50 INTEGER, above_ma100 INTEGER, above_ma150 INTEGER, above_ma200 INTEGER,
+    ma_cross_status TEXT, trend_aligned INTEGER, is_8d_consec INTEGER,
+    volume INTEGER, avg_volume_20 REAL, volume_spike INTEGER,
+    high_52w REAL, low_52w REAL, dist_from_52w_high REAL, dist_from_52w_low REAL, near_52w_high INTEGER,
+    last_evaluated_at TIMESTAMP
+);
+
+-- Current consolidation/base per symbol (latest-only, g_consolidation).
+CREATE TABLE IF NOT EXISTS consolidation_patterns (
+    symbol TEXT PRIMARY KEY,
+    date TEXT, timeframe TEXT, detection_method TEXT,
+    support_level REAL, resistance_level REAL, range_pct REAL, duration_days INTEGER,
+    quality_score REAL, tightness_score REAL, touch_score REAL, duration_score REAL,
+    volume_score REAL, freshness_score REAL,
+    total_touches INTEGER, zigzag_swings INTEGER, boundary_touches INTEGER, pct_closes_in_channel REAL,
+    volume_trend TEXT, volume_decline_pct REAL, price_position_pct REAL, position_desc TEXT,
+    current_price REAL, last_evaluated_at TIMESTAMP
+);
+
+-- Breakout events (windowed, d_breakout). PK(symbol, date).
+CREATE TABLE IF NOT EXISTS breakout_signals (
+    symbol TEXT NOT NULL, date TEXT NOT NULL,
+    breakout_status TEXT, breakout_direction TEXT, breakout_day INTEGER,
+    breakout_strength REAL, breakout_volume_ratio REAL,
+    consolidation_bottom REAL, consolidation_top REAL, consolidation_range_pct REAL,
+    consolidation_duration_days INTEGER, rejection_reason TEXT, detail_json TEXT,
+    last_evaluated_at TIMESTAMP,
+    PRIMARY KEY (symbol, date)
+);
+CREATE INDEX IF NOT EXISTS idx_breakout_signals_date ON breakout_signals(date);
+
+-- Support/resistance zones (latest-only). PK(symbol, zone_type, level).
+CREATE TABLE IF NOT EXISTS support_resistance (
+    symbol TEXT NOT NULL, zone_type TEXT NOT NULL, level REAL NOT NULL,
+    zone_bottom REAL, zone_top REAL, center_price REAL, touches INTEGER, strength REAL,
+    date TEXT, last_evaluated_at TIMESTAMP,
+    PRIMARY KEY (symbol, zone_type, level)
+);
+
+-- Composite score/verdict (windowed). PK(symbol, date). PROVISIONAL until Phase 2.
+CREATE TABLE IF NOT EXISTS screen_scores (
+    symbol TEXT NOT NULL, date TEXT NOT NULL,
+    score_tech REAL, score_fund REAL, score_total REAL, verdict TEXT,
+    tech_flags TEXT, fund_flags TEXT, multi_factor_momentum REAL,
+    passed INTEGER, fail_reasons TEXT, is_provisional INTEGER DEFAULT 1,
+    last_evaluated_at TIMESTAMP,
+    PRIMARY KEY (symbol, date)
+);
+CREATE INDEX IF NOT EXISTS idx_screen_scores_date ON screen_scores(date);
+
+-- Screener config (key/value JSON). All editable from the UI later.
+CREATE TABLE IF NOT EXISTS screener_settings (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    category TEXT
+);
+INSERT OR IGNORE INTO screener_settings (key, value_json, category) VALUES
+ ('quality_gates', '{"gross_margin":0.60,"roe":0.15,"roic":0.10,"levered_fcf_margin":0.20,"interest_cover":3.0,"eps_5y_growth":0.10,"free_cashflow":0}', 'fundamentals'),
+ ('consolidation_params', '{"zigzag_deviation":6.0,"lookback_days":40,"min_days_between_swings":2,"breakout_confirmation_pct":1.5,"volume_lookback_days":20,"min_resistance_touches":2,"min_support_touches":2,"extreme_grouping_tolerance":2.5,"timeframes":[15,30,60],"max_consolidation_range_pct":5.0,"min_consolidation_duration":20,"max_daily_change":30.0,"min_volume_threshold":5000,"max_volatility_filter":150.0}', 'signals'),
+ ('scoring_weights', '{"above_ma50":10,"above_ma200":10,"ma50_rising_8d":10,"ma50_above_ma200":8,"macd_bullish":8,"rsi_neutral":5,"volume_spike":7,"breakout":12,"consolidation_quality":10,"momentum_20d_positive":8,"momentum_60d_positive":10,"near_52w_high":5}', 'scoring'),
+ ('thresholds', '{"min_score_total":55,"min_score_tech":50,"min_quality_gates":4,"min_rr_ratio":1.5,"max_rsi":80,"min_market_cap":500000000}', 'scoring'),
+ ('retention', '{"breakout_fresh_days":3,"breakout_retention_days":30,"screen_scores_retention_days":60}', 'retention'),
+ ('account', '{"account_size":13596,"currency":"EUR","risk_pct_per_trade":1.0,"default_stop_method":"atr_2x"}', 'account');
