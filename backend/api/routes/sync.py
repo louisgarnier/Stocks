@@ -500,9 +500,14 @@ def _step_indicators() -> dict:
 
 def _step_fundamentals() -> dict:
     from backend.scripts.fundamentals_fetch import fetch_all
+    from backend.scripts import scoring_compute
     conn = get_db_connection()
     try:
-        return fetch_all(conn)
+        result = fetch_all(conn)
+        # fundamentals feed score_fund — rescore so verdicts reflect the fresh data
+        rescore = scoring_compute.compute_all(conn)
+        result["rescored"] = rescore.get("rows_written", 0)
+        return result
     finally:
         conn.close()
 
