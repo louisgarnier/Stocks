@@ -354,3 +354,27 @@ INSERT OR IGNORE INTO screener_settings (key, value_json, category) VALUES
  ('thresholds', '{"min_score_total":55,"min_score_tech":50,"min_quality_gates":4,"min_rr_ratio":1.5,"max_rsi":80,"min_market_cap":500000000}', 'scoring'),
  ('retention', '{"breakout_fresh_days":3,"breakout_retention_days":30,"screen_scores_retention_days":60}', 'retention'),
  ('account', '{"account_size":13596,"currency":"EUR","risk_pct_per_trade":1.0,"default_stop_method":"atr_2x"}', 'account');
+
+-- Flattened one-row-per-symbol overview for the Screener grid / export.
+CREATE VIEW IF NOT EXISTS screener_overview AS
+SELECT
+    u.symbol, u.name, u.sector,
+    ss.date AS signal_date, ss.momentum_5d, ss.momentum_20d, ss.momentum_60d,
+    ss.multi_factor_momentum, ss.above_ma50, ss.above_ma200, ss.ma_cross_status,
+    ss.trend_aligned, ss.is_8d_consec, ss.volume_spike,
+    ss.dist_from_52w_high, ss.near_52w_high,
+    cp.quality_score AS consolidation_quality, cp.support_level, cp.resistance_level,
+    cp.range_pct AS consolidation_range_pct, cp.timeframe AS consolidation_timeframe,
+    b.breakout_status, b.breakout_direction, b.breakout_strength, b.breakout_volume_ratio, b.date AS breakout_date,
+    f.gross_margin, f.roe, f.roic, f.levered_fcf_margin, f.interest_cover, f.eps_5y_growth,
+    f.gates_passed, f.gates_total, f.market_cap, f.trailing_pe,
+    sc.score_tech, sc.score_fund, sc.score_total, sc.verdict
+FROM tracked_universe u
+LEFT JOIN screen_signals ss ON ss.symbol = u.symbol
+LEFT JOIN consolidation_patterns cp ON cp.symbol = u.symbol
+LEFT JOIN breakout_signals b ON b.symbol = u.symbol
+    AND b.date = (SELECT MAX(date) FROM breakout_signals b2 WHERE b2.symbol = u.symbol)
+LEFT JOIN fundamentals f ON f.symbol = u.symbol
+LEFT JOIN screen_scores sc ON sc.symbol = u.symbol
+    AND sc.date = (SELECT MAX(date) FROM screen_scores s2 WHERE s2.symbol = u.symbol)
+WHERE u.enabled = 1;
