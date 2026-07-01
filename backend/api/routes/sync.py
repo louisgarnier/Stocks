@@ -377,6 +377,43 @@ async def sync_market_data():
         return {"success": True, **result}
 
 
+@router.post("/fundamentals")
+async def sync_fundamentals():
+    """Fetch and store fundamental metrics for all enabled symbols in tracked_universe."""
+    logger.info("🏦 Sync step: fundamentals")
+    with record_run("fundamentals") as run:
+        try:
+            result = _step_fundamentals()
+        except Exception as e:
+            logger.error(f"❌ sync_fundamentals failed: {e}")
+            run.summary(f"Fundamentals crashed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        n_fail = len(result.get("failures", []))
+        run.summary(f"{len(result['symbols_processed'])} symbols · {result['rows_written']} rows · {n_fail} failures")
+        run.details(result)
+        if n_fail or result.get("errors", 0):
+            run.status("partial")
+        return {"success": True, **result}
+
+
+@router.get("/fundamentals/status")
+async def fundamentals_status():
+    """Get last run, suggested next run (30-day cadence), and overdue flag."""
+    from datetime import datetime, timedelta, timezone
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT finished_at FROM sync_runs WHERE action='fundamentals' AND status != 'error' "
+        "ORDER BY finished_at DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    if not row or not row[0]:
+        return {"last_run": None, "suggested_next": None, "overdue": True}
+    last = datetime.fromisoformat(row[0])
+    nxt = last + timedelta(days=30)
+    overdue = datetime.now(timezone.utc) >= nxt.replace(tzinfo=nxt.tzinfo or timezone.utc)
+    return {"last_run": row[0], "suggested_next": nxt.isoformat(), "overdue": overdue}
+
+
 @router.post("/indicators")
 async def sync_indicators():
     """Compute MA / BB / RSI / MRSI / ATR / Volume MA for every enabled symbol in the universe."""
@@ -399,6 +436,15 @@ def _step_indicators() -> dict:
     conn = get_db_connection()
     try:
         return compute_all(conn)
+    finally:
+        conn.close()
+
+
+def _step_fundamentals() -> dict:
+    from backend.scripts.fundamentals_fetch import fetch_all
+    conn = get_db_connection()
+    try:
+        return fetch_all(conn)
     finally:
         conn.close()
 
