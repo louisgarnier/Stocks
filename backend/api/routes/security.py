@@ -108,6 +108,13 @@ async def get_security_detail(symbol: str):
         for r in bar_rows
     ]
 
+    fund_cols = ["gross_margin", "roe", "roic", "levered_fcf_margin", "interest_cover",
+                 "eps_5y_growth", "gates_passed", "gates_total", "market_cap", "trailing_pe"]
+    frow = conn.execute(
+        f"SELECT {', '.join(fund_cols)} FROM fundamentals WHERE symbol = ?", (sym,)
+    ).fetchone()
+    fundamentals = {c: frow[i] for i, c in enumerate(fund_cols)} if frow else None
+
     conn.close()
     logger.info(f"📂 Security detail for {sym}: held={is_held}, tx={len(transactions)}, bars={len(bars)}")
 
@@ -118,5 +125,6 @@ async def get_security_detail(symbol: str):
         "position": position,
         "transactions": transactions,
         "indicators": indicators,
+        "fundamentals": fundamentals,
         "bars": bars,
     }

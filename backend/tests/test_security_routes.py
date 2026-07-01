@@ -98,3 +98,22 @@ def test_security_detail_uppercases_symbol(temp_db):
     resp = client.get("/api/security/aapl/detail")
     assert resp.status_code == 200
     assert resp.json()["symbol"] == "AAPL"
+
+
+def test_security_detail_includes_fundamentals(temp_db):
+    _seed_security(temp_db, "AAPL", held=False)
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute("INSERT INTO fundamentals (symbol, roe, roic, gates_passed, gates_total, "
+                 "market_cap, trailing_pe) VALUES ('AAPL', 0.4, 0.3, 6, 7, 3.0e12, 35.5)")
+    conn.commit(); conn.close()
+    resp = client.get("/api/security/AAPL/detail")
+    assert resp.status_code == 200
+    f = resp.json()["fundamentals"]
+    assert f["gates_passed"] == 6 and f["roe"] == 0.4 and f["trailing_pe"] == 35.5
+
+
+def test_security_detail_fundamentals_null_when_absent(temp_db):
+    _seed_security(temp_db, "MSFT", held=False)
+    resp = client.get("/api/security/MSFT/detail")
+    assert resp.status_code == 200
+    assert resp.json()["fundamentals"] is None
