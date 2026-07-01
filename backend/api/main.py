@@ -30,6 +30,7 @@ from backend.api.routes.fundamentals import router as fundamentals_router
 from backend.api.routes.security import router as security_router
 from backend.api.routes.holding_signals import router as holding_signals_router
 from backend.api.routes.screener import router as screener_router
+from backend.api.routes.research import router as research_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -63,6 +64,7 @@ app.include_router(fundamentals_router)
 app.include_router(security_router)
 app.include_router(holding_signals_router)
 app.include_router(screener_router)
+app.include_router(research_router)
 
 
 @app.on_event("startup")

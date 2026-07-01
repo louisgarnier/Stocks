@@ -356,9 +356,18 @@ INSERT OR IGNORE INTO screener_settings (key, value_json, category) VALUES
  ('account', '{"account_size":13596,"currency":"EUR","risk_pct_per_trade":1.0,"default_stop_method":"atr_2x"}', 'account');
 
 -- Flattened one-row-per-symbol overview for the Screener grid / export.
-CREATE VIEW IF NOT EXISTS screener_overview AS
+-- Unified per-symbol research dataset (Epic R). Single source of truth for the
+-- Research grid, CSV export, and the detail popup. Joins latest indicators
+-- (Epic D), screener signals, consolidation, breakout, fundamentals, and score.
+CREATE VIEW IF NOT EXISTS research_overview AS
 SELECT
     u.symbol, u.name, u.sector,
+    -- latest indicators (Epic D)
+    i.time AS indicator_date,
+    i.ma_50, i.ma_100, i.ma_150, i.ma_200,
+    i.bb_upper_20, i.bb_lower_20, i.bb_width,
+    i.rsi_14, i.mrsi, i.atr_14, i.volume_ma_20,
+    -- screener signals (Epic S)
     ss.date AS signal_date, ss.momentum_5d, ss.momentum_20d, ss.momentum_60d,
     ss.multi_factor_momentum, ss.above_ma50, ss.above_ma200, ss.ma_cross_status,
     ss.trend_aligned, ss.is_8d_consec, ss.volume_spike,
@@ -370,6 +379,8 @@ SELECT
     f.gates_passed, f.gates_total, f.market_cap, f.trailing_pe,
     sc.score_tech, sc.score_fund, sc.score_total, sc.verdict
 FROM tracked_universe u
+LEFT JOIN indicators i ON i.symbol = u.symbol
+    AND i.time = (SELECT MAX(time) FROM indicators i2 WHERE i2.symbol = u.symbol)
 LEFT JOIN screen_signals ss ON ss.symbol = u.symbol
 LEFT JOIN consolidation_patterns cp ON cp.symbol = u.symbol
 LEFT JOIN breakout_signals b ON b.symbol = u.symbol
@@ -378,3 +389,6 @@ LEFT JOIN fundamentals f ON f.symbol = u.symbol
 LEFT JOIN screen_scores sc ON sc.symbol = u.symbol
     AND sc.date = (SELECT MAX(date) FROM screen_scores s2 WHERE s2.symbol = u.symbol)
 WHERE u.enabled = 1;
+
+-- Backward-compat alias: existing /api/screener/overview reads this.
+CREATE VIEW IF NOT EXISTS screener_overview AS SELECT * FROM research_overview;
