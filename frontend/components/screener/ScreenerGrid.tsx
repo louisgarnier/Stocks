@@ -207,6 +207,36 @@ export function ScreenerGrid() {
             </Badge>
           </div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <a
+            href="/api/proxy/api/screener/overview?format=csv"
+            download
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: '1px solid #4f46e5',
+              background: '#4f46e5',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              textDecoration: 'none',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#4338ca'
+              e.currentTarget.style.borderColor = '#4338ca'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#4f46e5'
+              e.currentTarget.style.borderColor = '#4f46e5'
+            }}
+          >
+            ⬇ Export CSV
+          </a>
+        </div>
       </div>
 
       {loading && (
