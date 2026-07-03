@@ -6,7 +6,7 @@
 
 **Epic R — Research Unified View** (correction — do now)
 
-- **Status:** [→] In Progress
+- **Status:** [✓] Complete — R-1..R-4 all shipped (frontend merged 2026-07-03)
 - **Spec:** [epic-R-research-unified/spec.md](epic-R-research-unified/spec.md) · full design: [`docs/superpowers/specs/2026-07-01-research-unified-view-design.md`](../../../superpowers/specs/2026-07-01-research-unified-view-design.md)
 - **Why now:** The Screener (Epic S) and Browse Universe drifted into two divergent per-stock pipelines — indicators in one, screener signals + fundamentals in the other; detail popup has no fundamentals; and `consolidation_patterns` writes only 1 row / 561 (ZigZag/S-R effectively empty). Correct the data model before resuming G → E → F.
 
@@ -14,9 +14,11 @@
 
 - ✅ **R-1** Unified `research_overview` view (+ latest indicators) + `/api/research/overview` json/csv. 4 TDD tests green; live DB migrated (52 cols, 561 rows).
 - ✅ **R-2 backend** Root cause = 3 hardcoded consolidation gates (70%/4/85%), not a bug. Parameterized them (conservative defaults) + `GET/PUT /api/screener/settings/{key}`. Live proof: default=1/561, loosened=236/561. TDD green.
-- ⏳ **R-2/R-3 frontend** Tuning panel (edit consolidation params + reset-to-recommended) + re-run — **needs UI mockup approval first**.
-- ⏳ **R-3** Merged Research UI: Screener grid into Browse Universe, 3+1 sync buttons (Fundamentals auto-rescore · Technical · Compute · Run all), column show/hide + persistence, retire Screener tab — **needs UI mockup approval first**.
-- ⏳ **R-4** Fundamentals card in the Security Detail popup (`/api/security/{sym}/detail` extension).
+- ✅ **R-2/R-3 frontend** `TuningPanel` — all numeric consolidation params as labeled inputs (recommended captions), Reset-to-recommended, Save & re-run (`PUT settings` → `POST /sync/screen`). Collapsible under the Research header.
+- ✅ **R-3** Merged Research UI: `ResearchGrid` (configurable columns + localStorage persistence `research.columns.v1`, sort, filter chips, CSV export) + `SyncToolbar` (Fundamentals · Technical · Compute · Run all) mounted in Browse Universe; standalone Screener tab + orphaned `ScreenerGrid` retired. 8 TDD tests green.
+- ✅ **R-4** Fundamentals card in the Security Detail popup (`/api/security/{sym}/detail` extension). Verified live (SPG: ROE 113.6% · ROIC 18.9% · gates 7/7 · P/E 15.4).
+
+**E2E evidence (2026-07-03, headless Chromium against live backend):** Research grid renders 561/561 real rows; toolbar + tuning (recommended max range = 5) present; MA200 column toggles on; row-click → detail sheet with Fundamentals card; **0 console errors**. Screenshots in session scratchpad.
 
 ## Up next (after Epic R ships)
 
