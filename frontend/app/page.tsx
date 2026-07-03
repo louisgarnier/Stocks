@@ -15,7 +15,9 @@ import { SignalsExpandPanel } from '@/components/positions/SignalsExpandPanel';
 import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/holding-signals';
 import { SyncRunsPanel } from '@/components/sync-runs/SyncRunsPanel';
 import { fetchSyncRuns, type SyncRun } from '@/lib/sync-runs';
-import { ScreenerGrid } from '@/components/screener/ScreenerGrid';
+import { ResearchGrid } from '@/components/research/ResearchGrid';
+import { SyncToolbar } from '@/components/research/SyncToolbar';
+import { TuningPanel } from '@/components/research/TuningPanel';
 
 interface HealthResponse {
   status: string;
@@ -182,7 +184,7 @@ interface PositionsResponse {
   };
 }
 
-type TabType = 'positions' | 'transactions' | 'browse-universe' | 'screener' | 'configuration';
+type TabType = 'positions' | 'transactions' | 'browse-universe' | 'configuration';
 type TransactionsSubTab = 'original' | 'split-adjusted' | 'corporate-actions';
 
 function previousBusinessDay(d: Date): Date {
@@ -291,6 +293,9 @@ export default function Dashboard() {
     bb_width: number | null;
   }
   const [universeCoverage, setUniverseCoverage] = useState<UniverseCoverageItem[]>([]);
+  const [showTuning, setShowTuning] = useState<boolean>(false);
+  const [researchKey, setResearchKey] = useState<number>(0);
+  const refreshResearch = () => setResearchKey((k) => k + 1);
   const [coverageSearch, setCoverageSearch] = useState<string>('');
   const [coverageSourceFilter, setCoverageSourceFilter] = useState<string>('');
   const [coverageSortKey, setCoverageSortKey] = useState<keyof UniverseCoverageItem>('symbol');
@@ -1375,12 +1380,6 @@ export default function Dashboard() {
             🌐 Browse Universe
           </button>
           <button
-            onClick={() => setActiveTab('screener')}
-            style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'screener' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'screener' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
-          >
-            🔎 Screener
-          </button>
-          <button
             onClick={() => { setActiveTab('configuration'); refreshSyncRuns(); fetchFundamentalsStatus(); }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'configuration' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'configuration' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
@@ -1418,6 +1417,27 @@ export default function Dashboard() {
           {/* Tab: Browse Universe — searchable table of every tracked symbol */}
           {activeTab === 'browse-universe' && (
             <div className="p-6 space-y-4">
+              {/* Research — unified per-stock view (technical + fundamental) */}
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight">Research</h2>
+                    <p className="text-sm text-muted-foreground">
+                      One row = all technical + fundamental data across your tracked universe.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowTuning((v) => !v)}
+                    className="text-sm font-medium px-3 py-2 rounded-md border bg-card hover:bg-secondary/40"
+                  >
+                    ⚙ {showTuning ? 'Hide' : 'Tune'} parameters
+                  </button>
+                </div>
+                <SyncToolbar onSynced={refreshResearch} />
+                {showTuning && <TuningPanel onRerun={refreshResearch} />}
+                <ResearchGrid key={researchKey} onSelectSymbol={setSelectedSymbol} />
+              </div>
+
               {/* Market data sync — operates on enabled symbols in the universe shown below */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -1623,9 +1643,6 @@ export default function Dashboard() {
               </Card>
             </div>
           )}
-
-          {/* Tab: Screener */}
-          {activeTab === 'screener' && <ScreenerGrid />}
 
           {/* Tab 1: Configuration (formerly Load Trades) */}
           {activeTab === 'configuration' && (
