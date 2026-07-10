@@ -33,6 +33,38 @@ def test_sync_fundamentals_endpoint(temp_db, monkeypatch):
     assert n == 1
 
 
+def test_sync_fundamentals_does_not_block_other_requests(temp_db, monkeypatch):
+    """A long fundamentals sync must not freeze the API: /health answers while it runs."""
+    import threading
+    import backend.api.routes.sync as sync_mod
+    started = threading.Event()
+    release = threading.Event()
+
+    def fake_step_fundamentals():
+        started.set()
+        release.wait(timeout=10)
+        return {"symbols_processed": [], "rows_written": 0, "failures": [], "errors": 0}
+
+    monkeypatch.setattr(sync_mod, "_step_fundamentals", fake_step_fundamentals)
+
+    with TestClient(app) as c:  # context manager => all requests share one event loop
+        sync_result = {}
+        t = threading.Thread(target=lambda: sync_result.update(resp=c.post("/api/sync/fundamentals")))
+        t.start()
+        try:
+            assert started.wait(timeout=5), "sync request never reached the endpoint"
+            health_result = {}
+            h = threading.Thread(target=lambda: health_result.update(resp=c.get("/health")))
+            h.start()
+            h.join(timeout=2)
+            assert "resp" in health_result, "/health blocked while fundamentals sync was in flight"
+            assert health_result["resp"].status_code == 200
+        finally:
+            release.set()
+            t.join(timeout=10)
+        assert sync_result["resp"].status_code == 200
+
+
 def test_fundamentals_status_overdue_when_never_run(temp_db):
     resp = client.get("/api/sync/fundamentals/status")
     assert resp.status_code == 200

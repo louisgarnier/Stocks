@@ -87,15 +87,24 @@ _COLS = ["symbol","date","momentum_5d","momentum_20d","momentum_60d","multi_fact
          "high_52w","low_52w","dist_from_52w_high","dist_from_52w_low","near_52w_high","last_evaluated_at"]
 
 
+# Max calendar-day gap between the last market_data bar and the indicators row it
+# feeds. Covers weekends/holidays; beyond this the MAs are stale and joining them
+# with fresh prices produces wrong signals (e.g. "All Bearish" on a bullish stack).
+INDICATOR_FRESHNESS_DAYS = 7
+
+
 def compute_for_symbol(conn, symbol: str) -> int:
     df = pd.read_sql_query(
         "SELECT time, high, low, close, volume FROM market_data WHERE symbol = ? ORDER BY time ASC",
         conn, params=[symbol])
     if len(df) < 60:
         return 0
+    last_bar = str(df["time"].iloc[-1])
     ind_row = conn.execute(
         "SELECT ma_50, ma_100, ma_150, ma_200, mrsi FROM indicators WHERE symbol = ? "
-        "ORDER BY time DESC LIMIT 1", (symbol,)).fetchone()
+        "AND date(time) <= date(?) AND date(time) >= date(?, ?) "
+        "ORDER BY time DESC LIMIT 1",
+        (symbol, last_bar, last_bar, f"-{INDICATOR_FRESHNESS_DAYS} days")).fetchone()
     ind = {"ma_50": ind_row[0], "ma_100": ind_row[1], "ma_150": ind_row[2],
            "ma_200": ind_row[3], "mrsi": ind_row[4]} if ind_row else {}
     sig = compute_signals(df, ind)

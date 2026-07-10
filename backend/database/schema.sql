@@ -377,6 +377,10 @@ SELECT
     cp.quality_score AS consolidation_quality, cp.support_level, cp.resistance_level,
     cp.range_pct AS consolidation_range_pct, cp.timeframe AS consolidation_timeframe,
     b.breakout_status, b.breakout_direction, b.breakout_strength, b.breakout_volume_ratio, b.date AS breakout_date,
+    -- bounds from the breakout detector's OWN consolidation pass (independent of
+    -- consolidation_patterns above — two detectors, see workflow/ADR.md)
+    b.consolidation_bottom AS breakout_support, b.consolidation_top AS breakout_resistance,
+    b.consolidation_range_pct AS breakout_range_pct, b.consolidation_duration_days AS breakout_duration_days,
     f.gross_margin, f.roe, f.roic, f.levered_fcf_margin, f.interest_cover, f.eps_5y_growth,
     f.gates_passed, f.gates_total, f.market_cap, f.trailing_pe,
     sc.score_tech, sc.score_fund, sc.score_total, sc.verdict

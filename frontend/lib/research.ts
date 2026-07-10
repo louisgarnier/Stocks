@@ -48,6 +48,12 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: 'consolidation_range_pct', label: 'Consol. range %', group: 'Consolidation', align: 'r' },
   { key: 'breakout_status', label: 'Breakout', group: 'Breakout', align: 'l' },
   { key: 'breakout_strength', label: 'Breakout str', group: 'Breakout', align: 'r' },
+  // bounds from the breakout detector's own consolidation pass (independent of
+  // the Consolidation group's ZigZag detector)
+  { key: 'breakout_support', label: 'Brk support', group: 'Breakout', align: 'r' },
+  { key: 'breakout_resistance', label: 'Brk resist.', group: 'Breakout', align: 'r' },
+  { key: 'breakout_range_pct', label: 'Brk range %', group: 'Breakout', align: 'r' },
+  { key: 'breakout_duration_days', label: 'Brk days', group: 'Breakout', align: 'r' },
   { key: 'gross_margin', label: 'Gross M', group: 'Fundamentals', align: 'r' },
   { key: 'roe', label: 'ROE', group: 'Fundamentals', align: 'r' },
   { key: 'roic', label: 'ROIC', group: 'Fundamentals', align: 'r' },

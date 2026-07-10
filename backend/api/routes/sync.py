@@ -141,11 +141,13 @@ async def list_sync_runs(action: str | None = None, limit: int = 100, offset: in
 
 
 @router.post("/full")
-async def sync_full():
+def sync_full():
     """Run the full pipeline: positions, transactions, corporate actions, splits.
 
     Steps 1+2 share one Flex pull. Failures stop the chain at that step but
     earlier steps remain committed. Returns per-step status for the UI.
+    Plain `def` (threadpool) — network + chained compute must not block the
+    event loop.
     """
     logger.info("🚀 Sync step: FULL pipeline")
     steps = []
@@ -168,6 +170,7 @@ async def sync_full():
         return _wrap(steps)
     _run(steps, "indicators", _step_indicators)
     _run(steps, "holding_signals", _step_holding_signals)
+    _run(steps, "screen", _step_screen)
     return _wrap(steps)
 
 
@@ -203,18 +206,22 @@ async def sync_ibkr():
 
 
 @router.post("/analytics")
-async def sync_analytics():
-    """Recompute analytics: indicators, then holding signals.
+def sync_analytics():
+    """Recompute analytics: indicators, holding signals, then screen.
 
     Pure local compute against already-stored market_data + positions_ibkr.
     No external API calls — safe to run anytime, independent of IBKR Flex
-    or yfinance availability.
+    or yfinance availability. The screen step is chained so screen_signals
+    can never go stale against freshly recomputed indicators. Plain `def`
+    (threadpool) — the chained compute takes minutes and must not block
+    the event loop.
     """
-    logger.info("📐 Sync step: analytics (indicators + holding_signals)")
+    logger.info("📐 Sync step: analytics (indicators + holding_signals + screen)")
     with record_run("analytics") as run:
         steps: list = []
         _run(steps, "indicators", _step_indicators)
         _run(steps, "holding_signals", _step_holding_signals)
+        _run(steps, "screen", _step_screen)
         return _finalize_run(run, steps)
 
 
@@ -251,22 +258,13 @@ def _prune_retention(conn) -> dict:
 
 
 @router.post("/screen")
-async def sync_screen():
+def sync_screen():
+    """Plain `def` (threadpool): ~561-symbol ZigZag/breakout compute must not
+    block the event loop (see ERRORS.md 2026-07-10)."""
     logger.info("🔎 Sync step: screen")
     with record_run("screen") as run:
-        from backend.scripts import (screen_signals_compute, consolidation_compute,
-                                     breakout_compute, scoring_compute)
-        conn = get_db_connection()
-        try:
-            steps = {
-                "screen_signals": screen_signals_compute.compute_all(conn),
-                "consolidation": consolidation_compute.compute_all(conn),
-                "breakout": breakout_compute.compute_all(conn),
-                "scoring": scoring_compute.compute_all(conn),
-            }
-            pruned = _prune_retention(conn)
-        finally:
-            conn.close()
+        result = _step_screen()
+        steps, pruned = result["steps"], result["pruned"]
         total_fail = sum(len(s.get("failures", [])) for s in steps.values())
         run.summary(f"signals/cons/brk/score done · {total_fail} failures · pruned "
                     f"{pruned['breakout_signals_pruned']}+{pruned['screen_scores_pruned']}")
@@ -436,8 +434,12 @@ async def sync_market_data():
 
 
 @router.post("/fundamentals")
-async def sync_fundamentals():
-    """Fetch and store fundamental metrics for all enabled symbols in tracked_universe."""
+def sync_fundamentals():
+    """Fetch and store fundamental metrics for all enabled symbols in tracked_universe.
+
+    Plain `def` (not `async def`) is load-bearing: FastAPI runs it in the threadpool,
+    keeping the event loop — and every other endpoint — responsive during the ~15 min fetch.
+    """
     logger.info("🏦 Sync step: fundamentals")
     with record_run("fundamentals") as run:
         try:
@@ -519,6 +521,29 @@ def _step_holding_signals() -> dict:
         return compute_all_signals(conn)
     finally:
         conn.close()
+
+
+def _step_screen() -> dict:
+    """Run the 4 screen computes (signals, consolidation, breakout, scoring) + prune.
+
+    Chained after every indicators recompute so screen_signals can never go stale
+    against fresh indicators (see workflow/ERRORS.md 2026-07-10 stale-join entry).
+    """
+    from backend.scripts import (screen_signals_compute, consolidation_compute,
+                                 breakout_compute, scoring_compute)
+    conn = get_db_connection()
+    try:
+        steps = {
+            "screen_signals": screen_signals_compute.compute_all(conn),
+            "consolidation": consolidation_compute.compute_all(conn),
+            "breakout": breakout_compute.compute_all(conn),
+            "scoring": scoring_compute.compute_all(conn),
+        }
+        pruned = _prune_retention(conn)
+    finally:
+        conn.close()
+    failures = [f for s in steps.values() for f in s.get("failures", [])]
+    return {"steps": steps, "pruned": pruned, "failures": failures}
 
 
 def _flag_orange(symbols: list) -> None:

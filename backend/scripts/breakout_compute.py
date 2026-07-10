@@ -565,6 +565,17 @@ def _first_fired_breakout(result: dict):
     return None, None, None
 
 
+def _best_available_pattern(result: dict):
+    """Return the most recent case's consolidation pattern (day0 first) when a
+    consolidation was found but no breakout fired — its bounds must still be
+    stored, otherwise 'consolidation_found_no_breakout' rows carry no levels."""
+    for _, _, pattern_key in _DAY_CASE:
+        pattern = result.get(pattern_key)
+        if pattern:
+            return pattern
+    return None
+
+
 def compute_for_symbol(conn, symbol: str) -> int:
     params = load_params(conn)
     df = pd.read_sql_query(
@@ -590,6 +601,7 @@ def compute_for_symbol(conn, symbol: str) -> int:
         breakout_day = None
         breakout_strength = None
         breakout_volume_ratio = None
+        pattern = _best_available_pattern(result)
 
     if pattern:
         consolidation_bottom = pattern.get('consolidation_bottom')

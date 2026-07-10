@@ -69,3 +69,35 @@ def test_breakout_detected_bullish_on_gap_above_resistance(temp_db):
     assert row is not None
     assert row[0] == "breakout_detected"
     assert row[1] == "bullish"
+
+
+def _tight_consolidation_still_inside(n=43, support=100.0, resistance=112.0):
+    """Same tight channel as _tight_consolidation_then_gap_up but the final day
+    stays INSIDE the channel — consolidation found, no breakout."""
+    df = _tight_consolidation_then_gap_up(n, support, resistance)
+    mid = (support + resistance) / 2
+    df.loc[df.index[-1], ["open", "high", "low", "close", "volume"]] = [
+        mid, mid + 0.6, mid - 0.6, mid, 1_000_000]
+    return df
+
+
+def test_consolidation_without_breakout_still_stores_bounds(temp_db):
+    """A 'consolidation_found_no_breakout' row must carry the bounds of the
+    consolidation it found (regression: bounds were only extracted when a
+    breakout FIRED, so 60/561 prod rows claimed a consolidation with no levels)."""
+    _seed(temp_db, "INSIDE", _tight_consolidation_still_inside())
+    conn = get_db_connection()
+    compute_for_symbol(conn, "INSIDE")
+    row = conn.execute(
+        "SELECT breakout_status, consolidation_bottom, consolidation_top, "
+        "consolidation_range_pct, consolidation_duration_days "
+        "FROM breakout_signals WHERE symbol='INSIDE'").fetchone()
+    sr = conn.execute(
+        "SELECT COUNT(*) FROM support_resistance WHERE symbol='INSIDE'").fetchone()[0]
+    conn.close()
+    assert row is not None
+    assert row[0] == "consolidation_found_no_breakout"
+    assert row[1] is not None and abs(row[1] - 100.0) < 2.0   # support ~100
+    assert row[2] is not None and abs(row[2] - 112.0) < 2.0   # resistance ~112
+    assert row[3] is not None and row[4] is not None
+    assert sr == 2  # support + resistance zones persisted too

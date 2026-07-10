@@ -57,6 +57,29 @@ def test_research_overview_csv(temp_db):
     assert "rsi_14" in header and "symbol" in header
 
 
+def test_breakout_rows_carry_their_own_consolidation_bounds(temp_db):
+    """breakout_signals embeds its own consolidation detector (independent of the
+    consolidation_patterns ZigZag detector). A breakout row must expose the bounds
+    that produced it — previously the view only showed consolidation_patterns
+    columns, so 'breakout_detected' rows displayed empty consolidation data."""
+    _seed(temp_db)
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO breakout_signals (symbol, date, breakout_status, breakout_direction, "
+        "consolidation_bottom, consolidation_top, consolidation_range_pct, consolidation_duration_days) "
+        "VALUES ('AAPL','2026-06-30','breakout_detected','bullish', 130.0, 142.0, 9.2, 35)"
+    )
+    conn.commit()
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM research_overview WHERE symbol='AAPL'").fetchone()
+    conn.close()
+    assert row["breakout_status"] == "breakout_detected"
+    assert row["breakout_support"] == 130.0
+    assert row["breakout_resistance"] == 142.0
+    assert row["breakout_range_pct"] == 9.2
+    assert row["breakout_duration_days"] == 35
+
+
 def test_screener_overview_alias_still_works(temp_db):
     _seed(temp_db)
     resp = client.get("/api/screener/overview")

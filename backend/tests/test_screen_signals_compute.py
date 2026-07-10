@@ -57,11 +57,11 @@ def _seed_market_data(conn, symbol: str, days: int, start_close: float = 100.0, 
     conn.commit()
 
 
-def _seed_indicators(conn, symbol: str, ma_50, ma_100, ma_150, ma_200, mrsi=None):
+def _seed_indicators(conn, symbol: str, ma_50, ma_100, ma_150, ma_200, mrsi=None, time="2026-04-01"):
     conn.execute(
         "INSERT INTO indicators (symbol, time, ma_50, ma_100, ma_150, ma_200, mrsi) "
-        "VALUES (?, datetime('now'), ?, ?, ?, ?, ?)",
-        (symbol, ma_50, ma_100, ma_150, ma_200, mrsi),
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (symbol, time, ma_50, ma_100, ma_150, ma_200, mrsi),
     )
     conn.commit()
 
@@ -98,3 +98,55 @@ def test_compute_for_symbol_writes_and_upserts_single_row(temp_db):
     cnt = conn.execute("SELECT COUNT(*) FROM screen_signals WHERE symbol='AAPL'").fetchone()[0]
     conn.close()
     assert cnt == 1
+
+
+def test_stale_indicators_are_not_joined(temp_db):
+    """Indicators older than the last market_data bar by more than the freshness
+    tolerance must NOT feed MA-derived signals (regression: prod stored 'All Bearish'
+    for a bullish stack because signals joined 06-30 prices with ~05-13 MAs)."""
+    from backend.scripts.screen_signals_compute import compute_for_symbol
+    from backend.database.connection import get_db_connection
+
+    conn = sqlite3.connect(str(temp_db))
+    _seed_market_data(conn, "NVDA", days=60)  # last bar 2026-04-01
+    # Stale bullish-stack indicators, ~2 months before the last bar
+    _seed_indicators(conn, "NVDA", ma_50=105.0, ma_100=100.0, ma_150=95.0, ma_200=90.0,
+                     time="2026-02-01")
+    conn.close()
+
+    conn = get_db_connection()
+    compute_for_symbol(conn, "NVDA")
+    conn.close()
+
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute(
+        "SELECT ma_cross_status, above_ma50, trend_aligned FROM screen_signals WHERE symbol='NVDA'"
+    ).fetchone()
+    conn.close()
+    assert row is not None  # row still written (momentum/volume/52w are price-only)
+    assert row[0] is None   # no MA cross verdict from stale MAs
+    assert row[1] == 0
+    assert row[2] == 0
+
+
+def test_fresh_indicators_within_tolerance_are_joined(temp_db):
+    """Indicators dated within the freshness tolerance of the last bar (e.g. computed
+    the Friday before a Monday bar) are still used."""
+    from backend.scripts.screen_signals_compute import compute_for_symbol
+    from backend.database.connection import get_db_connection
+
+    conn = sqlite3.connect(str(temp_db))
+    _seed_market_data(conn, "MSFT", days=60)  # last bar 2026-04-01
+    _seed_indicators(conn, "MSFT", ma_50=105.0, ma_100=100.0, ma_150=95.0, ma_200=90.0,
+                     time="2026-03-29")
+    conn.close()
+
+    conn = get_db_connection()
+    compute_for_symbol(conn, "MSFT")
+    conn.close()
+
+    conn = sqlite3.connect(str(temp_db))
+    row = conn.execute(
+        "SELECT ma_cross_status FROM screen_signals WHERE symbol='MSFT'").fetchone()
+    conn.close()
+    assert row[0] == "All Bullish"

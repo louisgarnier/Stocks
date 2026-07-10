@@ -23,7 +23,9 @@ def test_health_endpoint():
     """Test health check endpoint."""
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "healthy"
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["database"] in ("connected", "disconnected")
 
 
 # Add more API tests as you develop endpoints

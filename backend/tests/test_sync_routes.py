@@ -201,7 +201,7 @@ def test_sync_full_runs_all_five_steps(temp_db, stub_flex_http, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals"]
+    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals", "screen"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
@@ -299,7 +299,8 @@ def test_sync_full_includes_indicators_step(temp_db, stub_flex_http, monkeypatch
     assert resp.status_code == 200, resp.text
     body = resp.json()
     step_names = [s["name"] for s in body["steps"]]
-    assert step_names == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals"]
+    assert step_names == ["positions", "transactions", "corporate_actions", "splits",
+                          "indicators", "holding_signals", "screen"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
@@ -330,7 +331,11 @@ def test_sync_ibkr_runs_only_ibkr_steps(temp_db, stub_flex_http, monkeypatch):
 
 
 def test_sync_analytics_runs_only_compute_steps(temp_db, monkeypatch):
-    """/api/sync/analytics runs indicators + holding_signals; no IBKR or yfinance."""
+    """/api/sync/analytics runs indicators + holding_signals + screen; no IBKR or yfinance.
+
+    The screen step is chained so screen_signals can never go stale against
+    freshly recomputed indicators (regression: signals stored 2026-07-01 were
+    never recomputed while indicators advanced to 07-09)."""
     import backend.scripts.indicators_compute as ind_mod
     import backend.scripts.holding_signals_compute as sig_mod
     monkeypatch.setattr(
@@ -346,7 +351,7 @@ def test_sync_analytics_runs_only_compute_steps(temp_db, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert [s["name"] for s in body["steps"]] == ["indicators", "holding_signals"]
+    assert [s["name"] for s in body["steps"]] == ["indicators", "holding_signals", "screen"]
 
 
 def test_get_sync_runs_returns_recent_first(temp_db):

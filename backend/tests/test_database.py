@@ -41,14 +41,12 @@ def test_database_initialization(temp_db):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Check if examples table exists
-    cursor.execute("""
-        SELECT name FROM sqlite_master 
-        WHERE type='table' AND name='examples'
-    """)
-    result = cursor.fetchone()
-    
-    assert result is not None
+    # Check core tables from the current schema exist
+    for table in ("transactions", "tracked_universe", "market_data", "indicators"):
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        )
+        assert cursor.fetchone() is not None, f"missing table: {table}"
     conn.close()
 
 

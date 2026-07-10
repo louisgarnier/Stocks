@@ -1,0 +1,49 @@
+# ERRORS.md — known error patterns and prevention rules
+
+## 2026-07-10 — Split-artifact corruption: incremental ingest + INSERT OR IGNORE never re-adjusts history
+
+**Symptom:** absurd momentum values (DD momentum_60d = +185.9%) and fake price discontinuities at *sync-gap boundaries* (not at the split date): DD jumped 3.25× on 2026-05-05 in our data, while the actual 1-for-3 reverse split was 2026-06-24.
+
+**Root cause:** yfinance retro-adjusts ALL history when a split occurs, but our ingest is incremental (`start = last bar + 1`) with `INSERT OR IGNORE` — existing bars are never updated. Bars stored before the split stay on the old price basis; bars fetched after are on the new basis. Every price-derived analytic (momentum, MAs, 52w, consolidation, breakout) is then wrong for that symbol. Affected & repaired 2026-07-10: CRWD (4:1, 07-02), CVNA (5:1, 05-08), KLAC (10:1, 06-12), DD (1:3, 06-24) — purged market_data+indicators for those symbols and re-fetched clean 730d history.
+
+**How to detect:** `close/LAG(close)` day-ratio scan — ratios >1.6 or <0.55 that don't match a real one-day move; cross-check `yf.Ticker(sym).splits`.
+
+**Prevention rule (not yet implemented):** when corporate_actions records a new split for a tracked symbol, purge and re-fetch that symbol's market_data (and indicators) instead of trusting stored history. Until then, re-run the day-ratio scan after any split announcement.
+
+**Related caveat:** indicators (MA/BB/RSI) compute on `adj_close` (split+dividend adjusted) while screen signals/momentum use raw `close` (split-adjusted only) — a small mixed-basis bias for dividend payers; standardization tracked in the analytics audit.
+
+## 2026-07-10 — Stale-join: screen_signals stored wrong MA verdicts ("All Bearish" on a bullish stack)
+
+**Symptom:** research_overview showed incoherent analytics — e.g. AAPL price > MA50 > MA100 > MA150 (textbook bullish) yet `ma_cross_status = "All Bearish"`, `trend_aligned = 0`. 56/561 symbols had a bullish stack labeled Bearish; only 244/561 stored statuses matched current indicators.
+
+**Root cause (two layers):**
+1. `screen_signals_compute.compute_for_symbol` joined the LAST market_data bar (fresh) with the LATEST `indicators` row *regardless of its date*. On 2026-07-01 the indicators table was ~7 weeks stale (AAPL's latest row ≤ 2026-05-13, when the stack genuinely was bearish), so fresh prices were joined with May MAs and stored.
+2. Nothing ever recomputed signals: `/api/sync/analytics` and `/api/sync/full` refresh indicators but never chained the screen compute, so `signal_date` (06-30) drifted 9 days behind `indicator_date` (07-09) with no invalidation and no UI staleness cue.
+
+**Fix:** (a) `screen_signals_compute` now only joins indicators dated within `INDICATOR_FRESHNESS_DAYS` (7) **before or at** the last market bar; stale MAs → MA-derived fields stored as NULL/0 (honest) while price-only signals still compute. Regression tests: `test_stale_indicators_are_not_joined`, `test_fresh_indicators_within_tolerance_are_joined`. (b) `_step_screen()` is chained after indicators in `/api/sync/analytics` and `/api/sync/full` so the dates can't drift; endpoints converted to plain `def` (threadpool) per the 2026-07-10 event-loop entry below.
+
+**Prevention rule:** any compute that JOINS two independently-synced tables must enforce a freshness contract (date-match with tolerance) at read time, AND the sync orchestration must chain dependents after their inputs. Never trust "latest row" semantics across pipeline stages.
+
+## 2026-07-10 — Multiple projects share localhost ports: 8000 is NOT the Stocks backend
+
+**Symptom:** POST to `localhost:8000/api/sync/...` returns 404; `/health` returns `{"status":"healthy"}` (Stocks returns `{"status":"ok", "database": ...}`).
+
+**Root cause:** three dev stacks run side by side: **Stocks = frontend 3010 / backend 8010**; LMNP = 3000/8000; compta_sasu = 3001/8001. The Stocks frontend proxy defaults to `BACKEND_URL=http://localhost:8000` unless the env var overrides it at launch.
+
+**Prevention rule:** before hitting or restarting "the backend", verify identity: `lsof -p <pid> | grep cwd` and `curl /health` (Stocks health includes `database_path` with `/Claude/Stocks/`). Stocks lives on 3010/8010.
+
+**Related artifact:** a 0-byte `backend/database/finance.db` appeared 2026-07-10 16:24 (something ran with a wrong cwd/path). The real DB is `output/database/finance.db` (~67 MB); `connection.py` resolves it absolutely. The 0-byte file is inert — safe to delete.
+
+## 2026-07-10 — "Erreur de connexion / Cannot connect to API" while backend is alive
+
+**Symptom:** Frontend shows the connection-error screen (`frontend/app/page.tsx:1287` / `:461`) even though the backend process is up and listening.
+
+**Root cause:** `POST /api/sync/fundamentals` runs **synchronously on the request path**. While it fetches fundamentals for the ~560-symbol universe via yfinance (~14 min), the backend answers no other request — `/health` times out, so the UI concludes the API is down. The process is NOT crashed; it recovers by itself when the sync finishes.
+
+**How to diagnose:** `lsof -nP -iTCP:<backend-port> -sTCP:LISTEN` shows the process alive; backend log shows `🏦 Sync step: fundamentals` with no completion line yet; `curl /health` times out even at 90s.
+
+**Prevention rule:** Before restarting a "dead" backend, check the log for an in-flight fundamentals sync — killing it discards the sync.
+
+**FIXED 2026-07-10:** `sync_fundamentals` in `backend/api/routes/sync.py` changed from `async def` to plain `def`, so FastAPI runs it in its threadpool and the event loop stays free. Regression test: `test_sync_fundamentals_does_not_block_other_requests` in `backend/tests/test_sync_fundamentals.py`. Live-verified: /health answered in ~5ms while a real 561-symbol sync was in flight.
+
+**Watch out — same latent bug elsewhere:** other sync endpoints (`/api/sync/screen`, `/api/sync/analytics`, `/api/sync/market-data`, …) are still `async def` running blocking work directly; they block the loop for their duration (seen: 15s during analytics). Apply the same `def` fix if any of them grows long enough to matter.
