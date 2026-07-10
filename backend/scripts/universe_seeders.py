@@ -60,6 +60,26 @@ _INDEX_CONFIG = {
 }
 
 
+FX_SYMBOLS = [("EURUSD=X", "EUR/USD", "USD")]
+
+
+def seed_fx_symbols(conn) -> int:
+    """Seed FX rate symbols so they flow through the normal market-data ingest.
+
+    Source tag 'fx' (like 'benchmark') — INSERT OR IGNORE keeps it idempotent.
+    """
+    n = 0
+    for symbol, name, currency in FX_SYMBOLS:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO tracked_universe (symbol, name, currency, sources, enabled, added_at) "
+            "VALUES (?, ?, ?, ?, 1, datetime('now'))",
+            (symbol, name, currency, json.dumps(["fx"])),
+        )
+        n += cur.rowcount
+    conn.commit()
+    return n
+
+
 def seed_index(index_name: str) -> dict:
     """Fetch the index member list and upsert into tracked_universe.
 

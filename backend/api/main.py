@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from backend.database.connection import init_database, get_db_connection, get_db_path
+from backend.scripts.universe_seeders import seed_fx_symbols
 from backend.api.middleware.logging_middleware import log_requests
 from backend.api.utils.logger import logger, api_logger
 from backend.api.routes.transactions import router as transactions_router
@@ -72,6 +73,9 @@ async def startup_event():
     """Initialize database on application startup."""
     logger.info("🚀 Starting IBKR Portfolio Tracker API")
     init_database()
+    conn = get_db_connection()
+    seed_fx_symbols(conn)
+    conn.close()
     logger.info("✅ Application startup complete")
 
 
