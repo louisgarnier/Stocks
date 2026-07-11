@@ -171,6 +171,7 @@ def sync_full():
     _run(steps, "indicators", _step_indicators)
     _run(steps, "holding_signals", _step_holding_signals)
     _run(steps, "screen", _step_screen)
+    _run(steps, "portfolio_history", _step_portfolio_history)
     return _wrap(steps)
 
 
@@ -222,6 +223,7 @@ def sync_analytics():
         _run(steps, "indicators", _step_indicators)
         _run(steps, "holding_signals", _step_holding_signals)
         _run(steps, "screen", _step_screen)
+        _run(steps, "portfolio_history", _step_portfolio_history)
         return _finalize_run(run, steps)
 
 
@@ -412,6 +414,12 @@ async def sync_market_data():
         try:
             from backend.scripts.market_data_ingestor import ingest_market_data
             result = ingest_market_data()
+            conn = get_db_connection()
+            try:
+                from backend.scripts.portfolio_history_compute import compute_history
+                result["portfolio_history"] = compute_history(conn)
+            finally:
+                conn.close()
         except Exception as e:
             logger.error(f"❌ sync_market_data failed: {e}")
             run.summary(f"Ingest crashed: {e}")
@@ -544,6 +552,15 @@ def _step_screen() -> dict:
         conn.close()
     failures = [f for s in steps.values() for f in s.get("failures", [])]
     return {"steps": steps, "pruned": pruned, "failures": failures}
+
+
+def _step_portfolio_history() -> dict:
+    from backend.scripts.portfolio_history_compute import compute_history
+    conn = get_db_connection()
+    try:
+        return compute_history(conn)
+    finally:
+        conn.close()
 
 
 def _flag_orange(symbols: list) -> None:

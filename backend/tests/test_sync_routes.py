@@ -201,7 +201,7 @@ def test_sync_full_runs_all_five_steps(temp_db, stub_flex_http, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals", "screen"]
+    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals", "screen", "portfolio_history"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
@@ -300,7 +300,7 @@ def test_sync_full_includes_indicators_step(temp_db, stub_flex_http, monkeypatch
     body = resp.json()
     step_names = [s["name"] for s in body["steps"]]
     assert step_names == ["positions", "transactions", "corporate_actions", "splits",
-                          "indicators", "holding_signals", "screen"]
+                          "indicators", "holding_signals", "screen", "portfolio_history"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
@@ -351,7 +351,7 @@ def test_sync_analytics_runs_only_compute_steps(temp_db, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert [s["name"] for s in body["steps"]] == ["indicators", "holding_signals", "screen"]
+    assert [s["name"] for s in body["steps"]] == ["indicators", "holding_signals", "screen", "portfolio_history"]
 
 
 def test_get_sync_runs_returns_recent_first(temp_db):
