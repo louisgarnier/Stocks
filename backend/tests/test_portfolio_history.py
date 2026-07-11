@@ -68,3 +68,70 @@ def test_get_fx_rate_latest_and_dated(temp_db):
     assert get_fx_rate(conn) == 1.20
     assert get_fx_rate(conn, on_date="2026-01-06") == 1.10
     conn.close()
+
+
+def test_same_day_trade_not_dropped(temp_db):
+    """A trade dated after the last available price bar must not vanish from cumsum.
+
+    _seed buys 10 sh TEST on 2026-01-05, with price bars only through 01-07.
+    Add a second buy (+5 sh) dated 2026-01-08 — a date with NO market_data row —
+    then a price bar on 2026-01-09. Before the fix, qty.reindex(closes.index)
+    drops the 01-08 row entirely, so the 01-08 purchase never enters the cumsum
+    and 01-09's snapshot still shows only 10 sh.
+    """
+    from backend.scripts.portfolio_history_compute import compute_history
+    from backend.database.connection import get_db_connection
+
+    _seed(temp_db)
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO transactions (transaction_id, asset_category, currency, symbol, trade_date, quantity, t_price) "
+        "VALUES ('t2', 'STK', 'USD', 'TEST', '2026-01-08', 5, 125.0)")
+    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) "
+                 "VALUES ('TEST', '2026-01-09', 130.0, 130.0, 130.0, 130.0, 1000)")
+    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) "
+                 "VALUES ('EURUSD=X', '2026-01-09', 1.20, 1.20, 1.20, 1.20, 0)")
+    conn.commit(); conn.close()
+
+    conn = get_db_connection()
+    result = compute_history(conn)
+    conn.close()
+    assert result["days_written"] == 4
+
+    conn = sqlite3.connect(str(temp_db))
+    rows = dict(conn.execute(
+        "SELECT date, value_eur FROM portfolio_value_history").fetchall())
+    conn.close()
+    # day 01-07 unaffected: still 10 sh @ 120 / 1.20 = 1000.0
+    assert abs(rows["2026-01-07"] - 1000.0) < 0.01
+    # day 01-09 must reflect the +5 sh bought on 01-08 (a no-price-bar date):
+    # 15 sh * 130 / 1.20 = 1625.0. Pre-fix this stayed at 10*130/1.20=1083.33.
+    assert abs(rows["2026-01-09"] - 1625.0) < 0.01
+
+
+def test_missing_price_symbol_logged(temp_db, caplog):
+    """A symbol with transactions but zero market_data rows must be logged, not silent."""
+    import logging
+    from backend.scripts.portfolio_history_compute import compute_history
+    from backend.database.connection import get_db_connection
+
+    _seed(temp_db)
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute(
+        "INSERT INTO transactions (transaction_id, asset_category, currency, symbol, trade_date, quantity, t_price) "
+        "VALUES ('t3', 'STK', 'USD', 'MISSING', '2026-01-05', 5, 50.0)")
+    conn.commit(); conn.close()
+
+    conn = get_db_connection()
+    with caplog.at_level(logging.WARNING):
+        compute_history(conn)
+    conn.close()
+
+    assert any("MISSING" in r.message for r in caplog.records)
+
+    conn = sqlite3.connect(str(temp_db))
+    v = conn.execute(
+        "SELECT value_eur FROM portfolio_value_history WHERE date='2026-01-05'").fetchone()[0]
+    conn.close()
+    # TEST's own valuation must be unaffected by the missing MISSING symbol
+    assert abs(v - 909.09) < 0.1

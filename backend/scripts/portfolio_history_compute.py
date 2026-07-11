@@ -42,13 +42,24 @@ def compute_history(conn, start: str | None = None) -> dict:
         return {"days_written": 0}
     closes = px.pivot(index="time", columns="symbol", values="close").ffill()
 
+    missing = sorted(set(symbols) - set(closes.columns))
+    if missing:
+        logger.warning(f"⚠️ [PortfolioHistory] no market_data for {missing} — excluded from valuation")
+
     fx = pd.read_sql_query(
         "SELECT time, close FROM market_data WHERE symbol=? ORDER BY time",
         conn, params=[FX_SYMBOL]).set_index("time")["close"]
 
-    # cumulative shares held per symbol per day
+    # cumulative shares held per symbol per day. Trade dates that fall on a
+    # non-priced day (e.g. today's trade, before today's EOD bar exists) are
+    # not in closes.index — cumsum over closes.index alone would silently
+    # drop that quantity change. So cumsum over the UNION of trade/close
+    # dates first, then align to close dates with ffill to carry the change
+    # forward into the next priced day.
+    all_days = closes.index.union(tx["trade_date"].unique())
     qty = (tx.pivot_table(index="trade_date", columns="symbol", values="qty", aggfunc="sum")
-             .reindex(closes.index).fillna(0.0).cumsum())
+             .reindex(all_days).fillna(0.0).cumsum()
+             .reindex(closes.index, method="ffill").fillna(0.0))
 
     ccy = dict(tx.drop_duplicates("symbol")[["symbol", "currency"]].values)
     values = closes * qty
