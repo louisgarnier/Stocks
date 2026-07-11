@@ -462,7 +462,7 @@ export default function Dashboard() {
   };
 
   const handleDeleteCorporateActions = async () => {
-    if (!confirm('Supprimer toutes les corporate actions ?')) return;
+    if (!confirm('Delete all corporate actions?')) return;
     
     try {
       const response = await fetch('/api/proxy/api/corporate-actions', { method: 'DELETE' });
@@ -498,7 +498,7 @@ export default function Dashboard() {
 
   const handleDeleteSelectedCAs = async () => {
     if (selectedCAs.size === 0) return;
-    if (!confirm(`Supprimer ${selectedCAs.size} corporate action(s) sélectionnée(s) ?`)) return;
+    if (!confirm(`Delete ${selectedCAs.size} selected corporate action(s)?`)) return;
     
     try {
       const response = await fetch('/api/proxy/api/corporate-actions/batch-delete', {
@@ -1192,10 +1192,10 @@ export default function Dashboard() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
         <div style={{ textAlign: 'center', color: '#dc2626', maxWidth: '600px', padding: '20px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Erreur de connexion</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Connection error</h2>
           <p style={{ marginBottom: '16px' }}>{error}</p>
           <button onClick={() => window.location.reload()} style={{ padding: '12px 24px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-            Recharger
+            Reload
           </button>
         </div>
       </div>
@@ -1793,8 +1793,8 @@ export default function Dashboard() {
               {!transactions?.data?.length ? (
                 <div style={{ padding: '48px 24px', textAlign: 'center' }}>
                   <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#1f2937', marginBottom: '8px' }}>Aucune transaction</h3>
-                  <p style={{ fontSize: '14px', color: '#6b7280' }}>Chargez des transactions depuis l'onglet "Load Trades".</p>
+                  <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#1f2937', marginBottom: '8px' }}>No transactions</h3>
+                  <p style={{ fontSize: '14px', color: '#6b7280' }}>Load transactions from the &quot;Settings&quot; tab.</p>
                   {transactions && (
                     <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '6px', fontSize: '12px', textAlign: 'left', maxWidth: '500px', margin: '16px auto 0' }}>
                       <p><strong>Debug Info:</strong></p>
@@ -2183,7 +2183,7 @@ export default function Dashboard() {
                   }}>
                     <div style={{ fontSize: '32px', marginBottom: '8px' }}>📭</div>
                     <p>No securities in database.</p>
-                    <p style={{ fontSize: '12px' }}>Chargez des transactions depuis l&apos;onglet &quot;Load Trades&quot;.</p>
+                    <p style={{ fontSize: '12px' }}>Load transactions from the &quot;Settings&quot; tab.</p>
                   </div>
                 )}
               </div>
