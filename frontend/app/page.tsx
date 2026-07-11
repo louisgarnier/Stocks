@@ -12,6 +12,7 @@ import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetail
 import { SignalPill } from '@/components/positions/SignalPill';
 import { SignalsExpandPanel } from '@/components/positions/SignalsExpandPanel';
 import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/holding-signals';
+import { visibleTransactions } from '@/lib/journal';
 import { SyncRunsPanel } from '@/components/sync-runs/SyncRunsPanel';
 import { fetchSyncRuns, type SyncRun } from '@/lib/sync-runs';
 import { ResearchGrid } from '@/components/research/ResearchGrid';
@@ -56,6 +57,7 @@ interface Transaction {
   proceeds: number | null;
   comm_fee: number | null;
   currency: string | null;
+  asset_category: string | null;
 }
 
 interface TransactionsResponse {
@@ -219,6 +221,7 @@ export default function Dashboard() {
   const [dateFromFilter, setDateFromFilter] = useState<string>('');
   const [dateToFilter, setDateToFilter] = useState<string>('');
   const [sideFilter, setSideFilter] = useState<'' | 'buy' | 'sell'>('');
+  const [showCash, setShowCash] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{success: boolean, message: string, parsed: number, inserted: number, skipped: number, errors: number, error_details?: string[]} | null>(null);
   const [importLogs, setImportLogs] = useState<ImportLogsResponse | null>(null);
@@ -841,15 +844,16 @@ export default function Dashboard() {
   };
 
   const handleDeleteAllTransactions = async () => {
-    if (!confirm('⚠️ Are you sure you want to delete ALL transactions? This action cannot be undone.')) {
+    const t = window.prompt('Type DELETE to remove all transactions');
+    if (t !== 'DELETE') {
       return;
     }
-    
+
     try {
       const response = await fetch('/api/proxy/api/transactions', {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         alert(`✅ ${result.message}`);
@@ -1198,6 +1202,9 @@ export default function Dashboard() {
     );
   }
 
+  const visibleTxData = transactions ? visibleTransactions(transactions.data, showCash) : [];
+  const hiddenCashCount = (transactions?.data.length ?? 0) - visibleTxData.length;
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <SecurityDetailSheet symbol={selectedSymbol} onClose={() => setSelectedSymbol(null)} />
@@ -1281,7 +1288,7 @@ export default function Dashboard() {
             }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'transactions' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'transactions' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
-            📋 Transactions
+            📔 Journal
           </button>
           <button
             onClick={() => setActiveTab('browse-universe')}
@@ -1691,6 +1698,9 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>Transactions</h2>
                   {transactions && <span style={{ fontSize: '14px', color: '#6b7280' }}>{transactions.total} transactions</span>}
+                  {hiddenCashCount > 0 && (
+                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>{hiddenCashCount} cash/forex row{hiddenCashCount === 1 ? '' : 's'} hidden on this page</span>
+                  )}
                   {(symbolFilter || dateFromFilter || dateToFilter || sideFilter) && (
                     <button
                       onClick={handleClearAllFilters}
@@ -1721,23 +1731,6 @@ export default function Dashboard() {
                       }}
                     >
                       🗑️ Delete Selected ({selectedTransactions.size})
-                    </button>
-                  )}
-                  {transactions && transactions.total > 0 && (
-                    <button
-                      onClick={handleDeleteAllTransactions}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#dc2626',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      🗑️ Delete All Transactions
                     </button>
                   )}
                 </div>
@@ -1784,6 +1777,18 @@ export default function Dashboard() {
                     <option value="sell">Sell</option>
                   </select>
                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>&nbsp;</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer', padding: '6px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={showCash}
+                      onChange={(e) => setShowCash(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Show cash & forex
+                  </label>
+                </div>
               </div>
               {!transactions?.data?.length ? (
                 <div style={{ padding: '48px 24px', textAlign: 'center' }}>
@@ -1823,7 +1828,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.data.map((tx) => (
+                      {visibleTxData.map((tx) => (
                         <tr key={tx.id} style={{ borderTop: '1px solid #e5e7eb' }}>
                           <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                             <input
@@ -1862,6 +1867,25 @@ export default function Dashboard() {
                       <button onClick={() => fetchTransactions(currentPage + 1, pageSize)} disabled={currentPage === transactions.pages} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: currentPage === transactions.pages ? '#f3f4f6' : 'white', color: currentPage === transactions.pages ? '#9ca3af' : '#374151', cursor: currentPage === transactions.pages ? 'not-allowed' : 'pointer', fontSize: '14px' }}>Suivant →</button>
                     </div>
                   </div>
+                </div>
+              )}
+              {transactions && transactions.total > 0 && (
+                <div style={{ padding: '20px 24px', borderTop: '1px solid #e5e7eb', marginTop: '16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '500', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '6px' }}>Danger zone</div>
+                  <button
+                    onClick={handleDeleteAllTransactions}
+                    style={{
+                      padding: 0,
+                      background: 'none',
+                      border: 'none',
+                      color: '#dc2626',
+                      fontSize: '13px',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Delete all transactions
+                  </button>
                 </div>
               )}
             </div>
