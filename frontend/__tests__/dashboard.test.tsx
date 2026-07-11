@@ -1,17 +1,19 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { useState, useEffect, useRef } from 'react';
 import { Dashboard } from '@/components/dashboard/Dashboard';
-import type { DashboardWindow } from '@/lib/dashboard';
 
-const payload = {
-  as_of: { prices: '2026-07-09', signals: '2026-07-09', fundamentals: '2026-07-10T14:21:00Z', ibkr: '2026-07-10T09:09:00Z' },
-  fx_rate: 1.1,
-  net_worth: { value_eur: 118339, day_change_eur: 614, day_change_pct: 0.52, unrealized_pnl_eur: 29911, positions: 18, usd_exposure_pct: 87.1 },
-  allocation: { sector: [{ label: 'Technology', value_eur: 57815, pct: 48.9 }], position: [], currency: [] },
-  performance: { portfolio: [{ date: '2026-01-02', value: 100 }, { date: '2026-07-09', value: 118.4 }], benchmark: [{ date: '2026-01-02', value: 100 }, { date: '2026-07-09', value: 111.2 }] },
-  movers: [{ symbol: 'SOFI', close: 18.62, prev_close: 17.73, change_pct: 5.02, day_pnl_eur: 573 }],
-  actions: { sell: [{ symbol: 'RGTI', quantity: 29, return_pct: -57.9, fired: ['stop_loss'], n_fired: 6 }], buy: [{ symbol: 'SPG', name: 'Simon Property Group', verdict: 'strong_buy', score_total: 77.3, gates_passed: 7 }] },
-};
+function makePayload(valueEur: number) {
+  return {
+    as_of: { prices: '2026-07-09', signals: '2026-07-09', fundamentals: '2026-07-10T14:21:00Z', ibkr: '2026-07-10T09:09:00Z' },
+    fx_rate: 1.1,
+    net_worth: { value_eur: valueEur, day_change_eur: 614, day_change_pct: 0.52, unrealized_pnl_eur: 29911, positions: 18, usd_exposure_pct: 87.1 },
+    allocation: { sector: [{ label: 'Technology', value_eur: 57815, pct: 48.9 }], position: [], currency: [] },
+    performance: { portfolio: [{ date: '2026-01-02', value: 100 }, { date: '2026-07-09', value: 118.4 }], benchmark: [{ date: '2026-01-02', value: 100 }, { date: '2026-07-09', value: 111.2 }] },
+    movers: [{ symbol: 'SOFI', close: 18.62, prev_close: 17.73, change_pct: 5.02, day_pnl_eur: 573 }],
+    actions: { sell: [{ symbol: 'RGTI', quantity: 29, return_pct: -57.9, fired: ['stop_loss'], n_fired: 6 }], buy: [{ symbol: 'SPG', name: 'Simon Property Group', verdict: 'strong_buy', score_total: 77.3, gates_passed: 7 }] },
+  };
+}
+
+const payload = makePayload(118339);
 
 beforeEach(() => {
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => payload }) as jest.Mock;
@@ -34,58 +36,37 @@ test('clicking a mover calls onSelectSymbol', async () => {
   expect(onSelect).toHaveBeenCalledWith('SOFI');
 });
 
-test('last-request-wins: out-of-order resolve uses latest request data', async () => {
-  const resolvers: Array<{ resolve?: (value: any) => void }> = [];
+test('out-of-order responses: latest window request wins', async () => {
+  const resolvers: Array<(value: any) => void> = [];
 
-  // Mock fetchData to return controllable promises
-  const mockFetchData = jest.fn((param) => {
+  global.fetch = jest.fn(() => {
     return new Promise((resolve) => {
-      resolvers.push({ resolve });
+      resolvers.push(resolve);
     });
-  });
+  }) as jest.Mock;
 
-  function TestComponent({ param }: { param: string }) {
-    const [data, setData] = useState<any>(null);
-    const requestSeq = useRef(0);
+  render(<Dashboard onSelectSymbol={() => {}} />);
 
-    useEffect(() => {
-      const seq = ++requestSeq.current;
-      let cancelled = false;
-      mockFetchData(param)
-        .then((d) => {
-          if (!cancelled && seq === requestSeq.current) setData(d);
-        })
-        .catch(() => {})
-        .finally(() => {});
-      return () => {
-        cancelled = true;
-      };
-    }, [param]);
+  // Initial mount triggers the 6M fetch. Resolve it so the window pills render
+  // (Dashboard shows a full-page loading state until the first response lands).
+  await waitFor(() => expect(resolvers).toHaveLength(1));
+  resolvers[0]({ ok: true, json: async () => makePayload(50000) });
+  await waitFor(() => expect(screen.getByText(/€50,000/)).toBeInTheDocument());
 
-    return <div>{data && `Value: ${data.value}`}</div>;
-  }
+  // Rapidly switch windows twice, without letting either request resolve, so
+  // the two fetches are genuinely in flight at once — the real race the
+  // requestSeq guard in Dashboard.tsx protects against.
+  screen.getByText('1M').click();
+  await waitFor(() => expect(resolvers).toHaveLength(2));
+  screen.getByText('3M').click();
+  await waitFor(() => expect(resolvers).toHaveLength(3));
 
-  const { rerender } = render(<TestComponent param="first" />);
+  // Resolve the newer (3M) request first with payload B, then the now-stale
+  // (1M) request with payload A.
+  resolvers[2]({ ok: true, json: async () => makePayload(200000) });
+  resolvers[1]({ ok: true, json: async () => makePayload(100000) });
 
-  // Wait for first fetch to be initiated
-  await waitFor(() => {
-    expect(mockFetchData).toHaveBeenCalledTimes(1);
-  });
-
-  // Trigger second fetch with different param
-  rerender(<TestComponent param="second" />);
-
-  await waitFor(() => {
-    expect(mockFetchData).toHaveBeenCalledTimes(2);
-  });
-
-  // Resolve second request (newer) with value 200 BEFORE first resolves
-  resolvers[1]?.resolve?.({ value: 200 });
-
-  // Then resolve first request with value 100
-  resolvers[0]?.resolve?.({ value: 100 });
-
-  // Should display 200 (from second/latest request), not 100
-  await waitFor(() => expect(screen.getByText('Value: 200')).toBeInTheDocument());
-  expect(screen.queryByText('Value: 100')).not.toBeInTheDocument();
+  // The rendered net worth must reflect the latest request, never the stale one.
+  await waitFor(() => expect(screen.getByText(/€200,000/)).toBeInTheDocument());
+  expect(screen.queryByText(/€100,000/)).not.toBeInTheDocument();
 });
