@@ -16,6 +16,7 @@ import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/hol
 import { SyncRunsPanel } from '@/components/sync-runs/SyncRunsPanel';
 import { fetchSyncRuns, type SyncRun } from '@/lib/sync-runs';
 import { ResearchGrid } from '@/components/research/ResearchGrid';
+import { Dashboard as DashboardTab } from '@/components/dashboard/Dashboard';
 import { SyncToolbar } from '@/components/research/SyncToolbar';
 import { TuningPanel } from '@/components/research/TuningPanel';
 
@@ -184,7 +185,7 @@ interface PositionsResponse {
   };
 }
 
-type TabType = 'positions' | 'transactions' | 'browse-universe' | 'configuration';
+type TabType = 'dashboard' | 'positions' | 'transactions' | 'browse-universe' | 'configuration';
 type TransactionsSubTab = 'original' | 'split-adjusted' | 'corporate-actions';
 
 function previousBusinessDay(d: Date): Date {
@@ -197,7 +198,7 @@ function previousBusinessDay(d: Date): Date {
 }
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>('positions');
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [transactionsSubTab, setTransactionsSubTab] = useState<TransactionsSubTab>('original');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [transactions, setTransactions] = useState<TransactionsResponse | null>(null);
@@ -1357,6 +1358,12 @@ export default function Dashboard() {
         {/* Top-level Tabs */}
         <div style={{ display: 'flex', gap: '0', marginBottom: '0', borderBottom: '1px solid #e5e7eb' }}>
           <button
+            onClick={() => setActiveTab('dashboard')}
+            style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'dashboard' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'dashboard' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
+          >
+            🏠 Dashboard
+          </button>
+          <button
             onClick={() => { setActiveTab('positions'); fetchPositions(); }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'positions' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'positions' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
@@ -1413,7 +1420,10 @@ export default function Dashboard() {
 
         {/* Tab Content */}
         <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          
+
+          {/* Tab: Dashboard — net worth, allocation, performance, action queue, movers */}
+          {activeTab === 'dashboard' && <DashboardTab onSelectSymbol={setSelectedSymbol} />}
+
           {/* Tab: Browse Universe — searchable table of every tracked symbol */}
           {activeTab === 'browse-universe' && (
             <div className="p-6 space-y-4">
