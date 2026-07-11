@@ -398,3 +398,14 @@ WHERE u.enabled = 1;
 
 -- Backward-compat alias: existing /api/screener/overview reads this.
 CREATE VIEW IF NOT EXISTS screener_overview AS SELECT * FROM research_overview;
+
+-- Daily portfolio valuation (Epic V dashboard). Rebuilt by
+-- portfolio_history_compute.compute_history; safe to delete and recompute.
+CREATE TABLE IF NOT EXISTS portfolio_value_history (
+    date TEXT PRIMARY KEY,
+    value_eur REAL NOT NULL,
+    value_usd_leg REAL,
+    value_eur_leg REAL,
+    fx_rate REAL,
+    computed_at TEXT
+);
