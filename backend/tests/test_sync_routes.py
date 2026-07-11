@@ -448,3 +448,37 @@ def test_sync_analytics_does_not_call_flex(temp_db, monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["success"] is True
     assert flex_was_called == []
+
+
+def test_market_data_sync_survives_snapshot_failure(temp_db, monkeypatch):
+    """A portfolio_history failure must not fail a successful market-data ingest.
+
+    Even if compute_history raises after ingest succeeds and commits, the
+    endpoint must return HTTP 200 with success=True (not 500 with 'Ingest crashed').
+    """
+    import backend.scripts.market_data_ingestor as ing
+    import backend.scripts.portfolio_history_compute as ph
+
+    # Successful ingest
+    monkeypatch.setattr(
+        ing, "ingest_market_data",
+        lambda: {
+            "symbols_processed": 1,
+            "rows_inserted": 5,
+            "errors": 0,
+            "failures": [],
+        },
+    )
+
+    # Portfolio history fails after ingest succeeds
+    def boom(conn):
+        raise RuntimeError("snapshot exploded")
+
+    monkeypatch.setattr(ph, "compute_history", boom)
+
+    resp = client.post("/api/sync/market-data")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["rows_inserted"] == 5
+    assert "error" in body["portfolio_history"]

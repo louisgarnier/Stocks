@@ -414,6 +414,13 @@ async def sync_market_data():
         try:
             from backend.scripts.market_data_ingestor import ingest_market_data
             result = ingest_market_data()
+        except Exception as e:
+            logger.error(f"❌ sync_market_data failed: {e}")
+            run.summary(f"Ingest crashed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        # Snapshot refresh in its own try/except — must not fail the ingest
+        try:
             conn = get_db_connection()
             try:
                 from backend.scripts.portfolio_history_compute import compute_history
@@ -421,9 +428,8 @@ async def sync_market_data():
             finally:
                 conn.close()
         except Exception as e:
-            logger.error(f"❌ sync_market_data failed: {e}")
-            run.summary(f"Ingest crashed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.warning(f"⚠️ portfolio_history snapshot failed after ingest: {e}")
+            result["portfolio_history"] = {"error": str(e)}
 
         n_failures = len(result.get("failures", []))
         failure_syms = [f["symbol"] for f in result.get("failures", [])][:5]
