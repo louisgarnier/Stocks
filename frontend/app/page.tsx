@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCcw, X, Plus, Database, ArrowUpDown } from "lucide-react";
+import { RefreshCcw, X, Plus, Database } from "lucide-react";
 import { toast } from "sonner";
 import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetailSheet";
 import { SignalPill } from '@/components/positions/SignalPill';
@@ -248,8 +247,6 @@ export default function Dashboard() {
   const [indices, setIndices] = useState<IndexInfo[]>([]);
   const [universeLoading, setUniverseLoading] = useState(false);
   const [manualSymbolInput, setManualSymbolInput] = useState<string>('');
-  const [marketDataSyncing, setMarketDataSyncing] = useState(false);
-  const [analyticsSyncing, setAnalyticsSyncing] = useState(false);
   const [fundamentalsSyncing, setFundamentalsSyncing] = useState(false);
   const [fundamentalsStatus, setFundamentalsStatus] = useState<{
     last_run: string | null;
@@ -270,38 +267,10 @@ export default function Dashboard() {
       setSyncRunsLoading(false);
     }
   };
-  const [marketDataStatus, setMarketDataStatus] = useState<{
-    symbols_total: number;
-    symbols_with_data: number;
-    total_bars: number;
-    latest_bar_date: string | null;
-    last_sync_at: string | null;
-  } | null>(null);
-
-  interface UniverseCoverageItem {
-    symbol: string;
-    name: string | null;
-    sources: string[];
-    sector: string | null;
-    currency: string | null;
-    exchange: string | null;
-    bars: number;
-    latest_time: string | null;
-    latest_close: number | null;
-    ma_50: number | null;
-    rsi_14: number | null;
-    mrsi: number | null;
-    bb_width: number | null;
-  }
-  const [universeCoverage, setUniverseCoverage] = useState<UniverseCoverageItem[]>([]);
   const [showTuning, setShowTuning] = useState<boolean>(false);
   const [researchKey, setResearchKey] = useState<number>(0);
   const refreshResearch = () => setResearchKey((k) => k + 1);
-  const [coverageSearch, setCoverageSearch] = useState<string>('');
-  const [coverageSourceFilter, setCoverageSourceFilter] = useState<string>('');
-  const [coverageSortKey, setCoverageSortKey] = useState<keyof UniverseCoverageItem>('symbol');
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const [coverageSortDir, setCoverageSortDir] = useState<'asc' | 'desc'>('asc');
 
   type SyncStepStatus = 'pending' | 'ok' | 'error';
   type SyncStepName = 'positions' | 'transactions' | 'corporate_actions' | 'splits';
@@ -361,75 +330,11 @@ export default function Dashboard() {
     await fetchUniverse();
   };
 
-  const fetchUniverseCoverage = async () => {
-    try {
-      const r = await fetch('/api/proxy/api/universe/coverage');
-      if (r.ok) setUniverseCoverage((await r.json()).items);
-    } catch (e) { console.error('fetchUniverseCoverage', e); }
-  };
-
-  const fetchMarketDataStatus = async () => {
-    try {
-      const r = await fetch('/api/proxy/api/market-data/status');
-      if (r.ok) setMarketDataStatus(await r.json());
-    } catch (e) { console.error('fetchMarketDataStatus', e); }
-  };
-
   const fetchFundamentalsStatus = async () => {
     try {
       const r = await fetch('/api/proxy/api/sync/fundamentals/status');
       if (r.ok) setFundamentalsStatus(await r.json());
     } catch (e) { console.error('fetchFundamentalsStatus', e); }
-  };
-
-  const handleSyncMarketData = async () => {
-    setMarketDataSyncing(true);
-    try {
-      const r = await fetch('/api/proxy/api/sync/market-data', { method: 'POST' });
-      const body = await r.json();
-      if (body.success) {
-        toast.success(
-          `${body.symbols_processed} symbols processed · ${body.rows_inserted.toLocaleString()} new bars · ${body.errors} errors`,
-          { description: 'Market data sync complete' }
-        );
-      } else {
-        toast.error('Market data sync failed', { description: JSON.stringify(body) });
-      }
-      await fetchUniverse();
-      await fetchMarketDataStatus();
-      await fetchUniverseCoverage();
-      await refreshSyncRuns();
-    } catch (e) {
-      toast.error('Market data sync failed', { description: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setMarketDataSyncing(false);
-    }
-  };
-
-  const handleSyncAnalytics = async () => {
-    setAnalyticsSyncing(true);
-    try {
-      const r = await fetch('/api/proxy/api/sync/analytics', { method: 'POST' });
-      const body = await r.json();
-      const stepSummary = (body.steps || [])
-        .map((s: { name: string; status: string }) => `${s.status === 'ok' ? '✅' : '❌'} ${s.name}`)
-        .join(' · ');
-      if (body.success) {
-        toast.success(stepSummary || 'Analytics recomputed', { description: 'Indicators + signals up to date' });
-      } else {
-        toast.error('Analytics recompute failed', { description: stepSummary || JSON.stringify(body) });
-      }
-      await fetchUniverseCoverage();
-      try {
-        const map = await fetchHoldingSignals();
-        setSignalsBySymbol(map);
-      } catch (e) { /* signals refresh is best-effort */ }
-      await refreshSyncRuns();
-    } catch (e) {
-      toast.error('Analytics recompute failed', { description: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setAnalyticsSyncing(false);
-    }
   };
 
   const handleSyncFundamentals = async () => {
@@ -1230,8 +1135,6 @@ export default function Dashboard() {
     fetchPositions();
     fetchUniverse();
     fetchIndices();
-    fetchMarketDataStatus();
-    fetchUniverseCoverage();
     fetchFundamentalsStatus();
     if (activeTab === 'transactions') {
       fetchTransactions();
@@ -1381,7 +1284,7 @@ export default function Dashboard() {
             📋 Transactions
           </button>
           <button
-            onClick={() => { setActiveTab('browse-universe'); fetchUniverseCoverage(); fetchMarketDataStatus(); }}
+            onClick={() => setActiveTab('browse-universe')}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'browse-universe' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'browse-universe' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
             🌐 Browse Universe
@@ -1447,210 +1350,6 @@ export default function Dashboard() {
                 {showTuning && <TuningPanel onRerun={refreshResearch} />}
                 <ResearchGrid key={researchKey} onSelectSymbol={setSelectedSymbol} />
               </div>
-
-              {/* Market data sync — operates on enabled symbols in the universe shown below */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Market Data</CardTitle>
-                  <div className="flex gap-2">
-                    <Button onClick={handleSyncMarketData} disabled={marketDataSyncing || analyticsSyncing}>
-                      <RefreshCcw className={`w-4 h-4 mr-2 ${marketDataSyncing ? 'animate-spin' : ''}`} />
-                      {marketDataSyncing ? 'Syncing…' : 'Sync market data'}
-                    </Button>
-                    <Button onClick={handleSyncAnalytics} disabled={analyticsSyncing || marketDataSyncing} variant="outline">
-                      <RefreshCcw className={`w-4 h-4 mr-2 ${analyticsSyncing ? 'animate-spin' : ''}`} />
-                      {analyticsSyncing ? 'Computing…' : 'Recompute analytics'}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {marketDataStatus && (
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div className="p-3 rounded-md bg-secondary/40">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Coverage</p>
-                        <p className="font-mono font-semibold text-foreground tabular-nums">
-                          {marketDataStatus.symbols_with_data} / {marketDataStatus.symbols_total}
-                        </p>
-                        <p className="text-xs text-muted-foreground">symbols with data</p>
-                      </div>
-                      <div className="p-3 rounded-md bg-secondary/40">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Total bars</p>
-                        <p className="font-mono font-semibold text-foreground tabular-nums">
-                          {marketDataStatus.total_bars.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          latest: {marketDataStatus.latest_bar_date ?? '—'}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-md bg-secondary/40">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Last sync</p>
-                        <p className="font-mono font-semibold text-foreground tabular-nums">
-                          {marketDataStatus.last_sync_at
-                            ? new Date(marketDataStatus.last_sync_at).toLocaleString()
-                            : 'Never'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    Pulls daily OHLCV bars from yfinance for every enabled symbol in the universe below.
-                    First-time syncs fetch the past two years; subsequent runs only fetch new bars.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="w-5 h-5" />
-                    Browse Universe
-                    <Badge variant="secondary" className="ml-auto">
-                      {(() => {
-                        const filtered = universeCoverage.filter((it) => {
-                          const q = coverageSearch.trim().toUpperCase();
-                          const matchSearch = !q || it.symbol.includes(q) || (it.name ?? '').toUpperCase().includes(q);
-                          const matchSrc = !coverageSourceFilter || it.sources.includes(coverageSourceFilter);
-                          return matchSearch && matchSrc;
-                        });
-                        return `${filtered.length} of ${universeCoverage.length}`;
-                      })()}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 mb-3 items-center">
-                    <Input
-                      placeholder="Search symbol or name…"
-                      value={coverageSearch}
-                      onChange={(e) => setCoverageSearch(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <select
-                      value={coverageSourceFilter}
-                      onChange={(e) => setCoverageSourceFilter(e.target.value)}
-                      className="text-sm border rounded-md px-3 py-2 bg-card"
-                    >
-                      <option value="">All sources</option>
-                      <option value="ibkr_position">Held</option>
-                      <option value="manual">Manual</option>
-                      <option value="benchmark">Benchmark</option>
-                      <option value="sp500">S&P 500</option>
-                      <option value="cac40">CAC 40</option>
-                    </select>
-                  </div>
-                  <div className="rounded-md border max-h-[600px] overflow-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-card">
-                        <TableRow>
-                          {([
-                            { key: 'symbol' as const, label: 'Symbol', align: 'text-left' },
-                            { key: 'name' as const, label: 'Name', align: 'text-left' },
-                            { key: 'sources' as const, label: 'Sources', align: 'text-left' },
-                            { key: 'currency' as const, label: 'Cur', align: 'text-left' },
-                            { key: 'bars' as const, label: 'Bars', align: 'text-right' },
-                            { key: 'latest_close' as const, label: 'Last close', align: 'text-right' },
-                            { key: 'latest_time' as const, label: 'As of', align: 'text-left' },
-                            { key: 'ma_50' as const, label: 'MA50', align: 'text-right' },
-                            { key: 'rsi_14' as const, label: 'RSI', align: 'text-right' },
-                            { key: 'mrsi' as const, label: 'MRSI', align: 'text-right' },
-                          ] as const).map((col) => (
-                            <TableHead
-                              key={col.key}
-                              className={`${col.align} cursor-pointer select-none`}
-                              onClick={() => {
-                                if (coverageSortKey === col.key) {
-                                  setCoverageSortDir(coverageSortDir === 'asc' ? 'desc' : 'asc');
-                                } else {
-                                  setCoverageSortKey(col.key as keyof UniverseCoverageItem);
-                                  setCoverageSortDir('asc');
-                                }
-                              }}
-                            >
-                              <span className="inline-flex items-center gap-1">
-                                {col.label}
-                                {coverageSortKey === col.key && (
-                                  <ArrowUpDown className="w-3 h-3 opacity-60" />
-                                )}
-                              </span>
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(() => {
-                          const q = coverageSearch.trim().toUpperCase();
-                          let rows = universeCoverage.filter((it) => {
-                            const matchSearch = !q || it.symbol.includes(q) || (it.name ?? '').toUpperCase().includes(q);
-                            const matchSrc = !coverageSourceFilter || it.sources.includes(coverageSourceFilter);
-                            return matchSearch && matchSrc;
-                          });
-                          const k = coverageSortKey;
-                          rows = [...rows].sort((a, b) => {
-                            const av = a[k];
-                            const bv = b[k];
-                            if (av === null || av === undefined) return 1;
-                            if (bv === null || bv === undefined) return -1;
-                            if (typeof av === 'number' && typeof bv === 'number') {
-                              return coverageSortDir === 'asc' ? av - bv : bv - av;
-                            }
-                            const as = String(av);
-                            const bs = String(bv);
-                            return coverageSortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
-                          });
-                          return rows.map((it) => (
-                            <TableRow
-                              key={it.symbol}
-                              className="cursor-pointer hover:bg-secondary/40"
-                              onClick={() => setSelectedSymbol(it.symbol)}
-                            >
-                              <TableCell className="font-mono font-semibold">{it.symbol}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground max-w-[280px] truncate" title={it.name ?? ''}>
-                                {it.name ?? '—'}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {it.sources.map((s) => (
-                                    <Badge key={s} variant="outline" className="text-xs">
-                                      {s}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{it.currency ?? '—'}</TableCell>
-                              <TableCell className="text-right font-mono tabular-nums">{it.bars}</TableCell>
-                              <TableCell className="text-right font-mono tabular-nums">
-                                {it.latest_close != null ? it.latest_close.toFixed(2) : '—'}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground font-mono tabular-nums">
-                                {it.latest_time ? it.latest_time.slice(0, 10) : '—'}
-                              </TableCell>
-                              <TableCell className="text-right font-mono tabular-nums">
-                                {it.ma_50 != null ? it.ma_50.toFixed(2) : '—'}
-                              </TableCell>
-                              <TableCell className="text-right font-mono tabular-nums">
-                                {it.rsi_14 != null ? it.rsi_14.toFixed(1) : '—'}
-                              </TableCell>
-                              <TableCell
-                                className={`text-right font-mono tabular-nums ${
-                                  it.mrsi != null
-                                    ? it.mrsi > 0
-                                      ? 'text-green-600'
-                                      : it.mrsi < 0
-                                      ? 'text-red-600'
-                                      : ''
-                                    : ''
-                                }`}
-                              >
-                                {it.mrsi != null ? `${it.mrsi > 0 ? '+' : ''}${it.mrsi.toFixed(3)}` : '—'}
-                              </TableCell>
-                            </TableRow>
-                          ));
-                        })()}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
 
