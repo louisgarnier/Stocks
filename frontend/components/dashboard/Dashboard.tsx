@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchDashboard,
   type AllocationMode,
@@ -24,23 +24,28 @@ export function Dashboard({ onSelectSymbol }: Props) {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async (w: DashboardWindow) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const payload = await fetchDashboard(w);
-      setData(payload);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const requestSeq = useRef(0);
 
   useEffect(() => {
-    load(activeWindow);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const seq = ++requestSeq.current;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchDashboard(activeWindow)
+      .then((d) => {
+        if (!cancelled && seq === requestSeq.current) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled && seq === requestSeq.current) {
+          setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+        }
+      })
+      .finally(() => {
+        if (!cancelled && seq === requestSeq.current) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeWindow]);
 
   if (error) {

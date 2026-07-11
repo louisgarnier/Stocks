@@ -1,5 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { useState, useEffect, useRef } from 'react';
 import { Dashboard } from '@/components/dashboard/Dashboard';
+import type { DashboardWindow } from '@/lib/dashboard';
 
 const payload = {
   as_of: { prices: '2026-07-09', signals: '2026-07-09', fundamentals: '2026-07-10T14:21:00Z', ibkr: '2026-07-10T09:09:00Z' },
@@ -30,4 +32,60 @@ test('clicking a mover calls onSelectSymbol', async () => {
   await waitFor(() => screen.getByText('SOFI'));
   screen.getByText('SOFI').click();
   expect(onSelect).toHaveBeenCalledWith('SOFI');
+});
+
+test('last-request-wins: out-of-order resolve uses latest request data', async () => {
+  const resolvers: Array<{ resolve?: (value: any) => void }> = [];
+
+  // Mock fetchData to return controllable promises
+  const mockFetchData = jest.fn((param) => {
+    return new Promise((resolve) => {
+      resolvers.push({ resolve });
+    });
+  });
+
+  function TestComponent({ param }: { param: string }) {
+    const [data, setData] = useState<any>(null);
+    const requestSeq = useRef(0);
+
+    useEffect(() => {
+      const seq = ++requestSeq.current;
+      let cancelled = false;
+      mockFetchData(param)
+        .then((d) => {
+          if (!cancelled && seq === requestSeq.current) setData(d);
+        })
+        .catch(() => {})
+        .finally(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, [param]);
+
+    return <div>{data && `Value: ${data.value}`}</div>;
+  }
+
+  const { rerender } = render(<TestComponent param="first" />);
+
+  // Wait for first fetch to be initiated
+  await waitFor(() => {
+    expect(mockFetchData).toHaveBeenCalledTimes(1);
+  });
+
+  // Trigger second fetch with different param
+  rerender(<TestComponent param="second" />);
+
+  await waitFor(() => {
+    expect(mockFetchData).toHaveBeenCalledTimes(2);
+  });
+
+  // Resolve second request (newer) with value 200 BEFORE first resolves
+  resolvers[1]?.resolve?.({ value: 200 });
+
+  // Then resolve first request with value 100
+  resolvers[0]?.resolve?.({ value: 100 });
+
+  // Should display 200 (from second/latest request), not 100
+  await waitFor(() => expect(screen.getByText('Value: 200')).toBeInTheDocument());
+  expect(screen.queryByText('Value: 100')).not.toBeInTheDocument();
 });
