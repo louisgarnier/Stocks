@@ -1183,7 +1183,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
-        <p style={{ color: '#6b7280' }}>Chargement...</p>
+        <p style={{ color: '#6b7280' }}>Loading...</p>
       </div>
     );
   }
@@ -1242,7 +1242,7 @@ export default function Dashboard() {
             })()}
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: '9999px', fontSize: '14px', fontWeight: '500', backgroundColor: isConnected ? '#dcfce7' : '#fef2f2', color: isConnected ? '#166534' : '#dc2626' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', marginRight: '8px', backgroundColor: isConnected ? '#22c55e' : '#ef4444' }} />
-              {isConnected ? 'Connecté' : 'Déconnecté'}
+              {isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
         </div>
@@ -1300,7 +1300,7 @@ export default function Dashboard() {
             onClick={() => { setActiveTab('configuration'); refreshSyncRuns(); fetchFundamentalsStatus(); }}
             style={{ padding: '12px 24px', fontSize: '14px', fontWeight: '500', border: 'none', borderBottom: activeTab === 'configuration' ? '2px solid #3b82f6' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === 'configuration' ? '#3b82f6' : '#6b7280', cursor: 'pointer' }}
           >
-            ⚙️ Configuration
+            ⚙️ Settings
           </button>
         </div>
 
@@ -1488,10 +1488,10 @@ export default function Dashboard() {
               {/* Database Stats Panel */}
               {health && (
                 <div style={{ maxWidth: '400px', margin: '0 auto 32px', padding: '16px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>Base de données</h3>
+                  <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>Database</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <span style={{ fontSize: '16px' }}>✅</span>
-                    <span style={{ fontSize: '14px', color: '#16a34a', fontWeight: '500' }}>Connectée</span>
+                    <span style={{ fontSize: '14px', color: '#16a34a', fontWeight: '500' }}>Connected</span>
                   </div>
                   <div style={{ fontSize: '14px', color: '#6b7280' }}>
                     <strong>Transactions:</strong> {health.transactions?.toLocaleString() || 0}
@@ -1501,7 +1501,7 @@ export default function Dashboard() {
               
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📥</div>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Configuration</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Settings</h2>
                 <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>Upload a CSV file or sync from IBKR</p>
                 
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center' }}>
@@ -1821,10 +1821,10 @@ export default function Dashboard() {
                         <th onClick={() => handleSort('trade_date')} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Date {sortBy === 'trade_date' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th onClick={() => handleSort('symbol')} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Symbol {sortBy === 'symbol' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Type</th>
-                        <th onClick={() => handleSort('quantity')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Quantité {sortBy === 'quantity' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
-                        <th onClick={() => handleSort('t_price')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Prix {sortBy === 't_price' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
+                        <th onClick={() => handleSort('quantity')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Qty {sortBy === 'quantity' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
+                        <th onClick={() => handleSort('t_price')} style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>Price {sortBy === 't_price' && (sortOrder === 'desc' ? '↓' : '↑')}</th>
                         <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Proceeds</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Frais</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Fees</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1852,7 +1852,7 @@ export default function Dashboard() {
                   </table>
                   <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>Afficher:</span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>Show:</span>
                       {[25, 50, 100, 200].map((size) => (
                         <button key={size} onClick={() => {
                           setPageSize(size);
@@ -1862,9 +1862,9 @@ export default function Dashboard() {
                       ))}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button onClick={() => fetchTransactions(currentPage - 1, pageSize)} disabled={currentPage === 1} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: currentPage === 1 ? '#f3f4f6' : 'white', color: currentPage === 1 ? '#9ca3af' : '#374151', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px' }}>← Précédent</button>
+                      <button onClick={() => fetchTransactions(currentPage - 1, pageSize)} disabled={currentPage === 1} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: currentPage === 1 ? '#f3f4f6' : 'white', color: currentPage === 1 ? '#9ca3af' : '#374151', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px' }}>← Previous</button>
                       <span style={{ padding: '8px 16px', fontSize: '14px', color: '#6b7280' }}>Page {currentPage} / {transactions.pages}</span>
-                      <button onClick={() => fetchTransactions(currentPage + 1, pageSize)} disabled={currentPage === transactions.pages} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: currentPage === transactions.pages ? '#f3f4f6' : 'white', color: currentPage === transactions.pages ? '#9ca3af' : '#374151', cursor: currentPage === transactions.pages ? 'not-allowed' : 'pointer', fontSize: '14px' }}>Suivant →</button>
+                      <button onClick={() => fetchTransactions(currentPage + 1, pageSize)} disabled={currentPage === transactions.pages} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: currentPage === transactions.pages ? '#f3f4f6' : 'white', color: currentPage === transactions.pages ? '#9ca3af' : '#374151', cursor: currentPage === transactions.pages ? 'not-allowed' : 'pointer', fontSize: '14px' }}>Next →</button>
                     </div>
                   </div>
                 </div>
@@ -2071,9 +2071,9 @@ export default function Dashboard() {
                       Showing {((updatedTxPage - 1) * pageSize) + 1} to {Math.min(updatedTxPage * pageSize, updatedTransactions.total)} of {updatedTransactions.total}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button onClick={() => fetchUpdatedTransactions(updatedTxPage - 1)} disabled={updatedTxPage === 1} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: updatedTxPage === 1 ? '#f3f4f6' : 'white', color: updatedTxPage === 1 ? '#9ca3af' : '#374151', cursor: updatedTxPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px' }}>← Précédent</button>
+                      <button onClick={() => fetchUpdatedTransactions(updatedTxPage - 1)} disabled={updatedTxPage === 1} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: updatedTxPage === 1 ? '#f3f4f6' : 'white', color: updatedTxPage === 1 ? '#9ca3af' : '#374151', cursor: updatedTxPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px' }}>← Previous</button>
                       <span style={{ padding: '8px 16px', fontSize: '14px', color: '#6b7280' }}>Page {updatedTxPage} / {updatedTransactions.pages}</span>
-                      <button onClick={() => fetchUpdatedTransactions(updatedTxPage + 1)} disabled={updatedTxPage === updatedTransactions.pages} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: updatedTxPage === updatedTransactions.pages ? '#f3f4f6' : 'white', color: updatedTxPage === updatedTransactions.pages ? '#9ca3af' : '#374151', cursor: updatedTxPage === updatedTransactions.pages ? 'not-allowed' : 'pointer', fontSize: '14px' }}>Suivant →</button>
+                      <button onClick={() => fetchUpdatedTransactions(updatedTxPage + 1)} disabled={updatedTxPage === updatedTransactions.pages} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: updatedTxPage === updatedTransactions.pages ? '#f3f4f6' : 'white', color: updatedTxPage === updatedTransactions.pages ? '#9ca3af' : '#374151', cursor: updatedTxPage === updatedTransactions.pages ? 'not-allowed' : 'pointer', fontSize: '14px' }}>Next →</button>
                     </div>
                   </div>
                 </div>
@@ -2182,7 +2182,7 @@ export default function Dashboard() {
                     color: '#9ca3af'
                   }}>
                     <div style={{ fontSize: '32px', marginBottom: '8px' }}>📭</div>
-                    <p>Aucune security en base de données.</p>
+                    <p>No securities in database.</p>
                     <p style={{ fontSize: '12px' }}>Chargez des transactions depuis l&apos;onglet &quot;Load Trades&quot;.</p>
                   </div>
                 )}
@@ -2420,8 +2420,8 @@ export default function Dashboard() {
                 ) : (
                   <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af' }}>
                     <div style={{ fontSize: '32px', marginBottom: '8px' }}>📭</div>
-                    <p>Aucune corporate action en base.</p>
-                    <p style={{ fontSize: '12px' }}>Cliquez sur &quot;Fetch from yfinance&quot; pour récupérer les données.</p>
+                    <p>No corporate actions.</p>
+                    <p style={{ fontSize: '12px' }}>Click on &quot;Fetch from yfinance&quot; to retrieve the data.</p>
                   </div>
                 )}
               </div>
