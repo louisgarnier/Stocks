@@ -75,6 +75,35 @@ export interface SecurityDetail {
     adj_close: number | null;
     volume: number | null;
   }>;
+  technical: {
+    momentum_5d: number | null;
+    momentum_20d: number | null;
+    momentum_60d: number | null;
+    multi_factor_momentum: number | null;
+    ma_cross_status: string | null;
+    trend_aligned: number | null;
+    volume_spike: number | null;
+    near_52w_high: number | null;
+    dist_from_52w_high: number | null;
+    mrsi: number | null;
+    signal_date: string | null;
+  } | null;
+  breakout: {
+    status: string;
+    direction: string;
+    strength: number | null;
+    volume_ratio: number | null;
+    support: number | null;
+    resistance: number | null;
+    range_pct: number | null;
+    duration_days: number | null;
+    date: string | null;
+  };
+  zigzag: {
+    deviation_pct: number;
+    window_days: number;
+    swings: Array<{ date: string; price: number; type: string }>;
+  };
 }
 
 interface Props {
@@ -271,6 +300,8 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
         </Card>
       )}
 
+      <TechnicalSignalsCard data={data} />
+
       {data.fundamentals && (
         <Card>
           <CardHeader className="pb-2">
@@ -348,6 +379,166 @@ function SecurityDetailContent({ data }: { data: SecurityDetail }) {
       )}
     </div>
   );
+}
+
+function TechnicalSignalsCard({ data }: { data: SecurityDetail }) {
+  const t = data.technical;
+  const breakout = data.breakout ?? {
+    status: "no_consolidation_patterns", direction: "none", strength: null,
+    volume_ratio: null, support: null, resistance: null, range_pct: null,
+    duration_days: null, date: null,
+  };
+  const zigzag = data.zigzag ?? { deviation_pct: 0, window_days: 0, swings: [] };
+  const maCross = t?.ma_cross_status ?? null;
+  const maCrossColor = maCross
+    ? maCross.includes("Bullish")
+      ? "text-green-600"
+      : maCross.includes("Bearish")
+        ? "text-red-600"
+        : undefined
+    : undefined;
+  const breakoutCellColor =
+    breakout.status === "no_consolidation_patterns"
+      ? "text-muted-foreground"
+      : breakout.direction === "bullish"
+        ? "text-green-600"
+        : breakout.direction === "bearish"
+          ? "text-red-600"
+          : undefined;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Technical signals</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="rounded-md border p-3">
+          <p className="text-xs font-semibold text-muted-foreground">
+            Signals{t?.signal_date ? ` as of ${t.signal_date}` : ""}
+          </p>
+          {t ? (
+            <div className="grid grid-cols-3 gap-3 text-sm mt-2">
+              <Stat label="Momentum 5d" value={signedPct(t.momentum_5d)} colorClass={signColor(t.momentum_5d)} />
+              <Stat label="Momentum 20d" value={signedPct(t.momentum_20d)} colorClass={signColor(t.momentum_20d)} />
+              <Stat label="Momentum 60d" value={signedPct(t.momentum_60d)} colorClass={signColor(t.momentum_60d)} />
+              <Stat label="Multi-factor" value={signedNum(t.multi_factor_momentum)} colorClass={signColor(t.multi_factor_momentum)} />
+              <Stat label="MA cross" value={maCross ?? "—"} colorClass={maCrossColor} />
+              <Stat label="vs 52w high" value={signedPct(t.dist_from_52w_high)} colorClass={signColor(t.dist_from_52w_high)} />
+              <Stat
+                label="Breakout"
+                value={breakout.status === "no_consolidation_patterns" ? "no pattern" : breakout.direction}
+                colorClass={breakoutCellColor}
+              />
+              <Stat label="Volume spike" value={t.volume_spike ? "yes" : "no"} />
+              <Stat
+                label={`MRSI vs ${data.universe?.benchmark ?? "benchmark"}`}
+                value={t.mrsi != null ? `${t.mrsi > 0 ? "+" : ""}${t.mrsi.toFixed(3)}` : "—"}
+                colorClass={signColor(t.mrsi)}
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">
+              No technical signals yet for {data.symbol}. Run the screener to compute momentum &amp; trend signals.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-md border p-3">
+          <p className="text-xs font-semibold text-muted-foreground">
+            ZigZag swings <span className="font-normal">· {zigzag.window_days}d window · {zigzag.deviation_pct}% deviation</span>
+          </p>
+          {zigzag.swings.length > 0 ? (
+            <>
+              <svg width="100%" height={90} viewBox="0 0 400 90" preserveAspectRatio="none" className="mt-2">
+                {zigzagPath(zigzag.swings) && (
+                  <polyline points={zigzagPath(zigzag.swings)} fill="none" stroke="#4fd08d" strokeWidth="2" />
+                )}
+                {zigzagPoints(zigzag.swings).map((p, i) => (
+                  <circle key={i} cx={p.x} cy={p.y} r={3} fill={p.type === "peak" ? "#4fd08d" : "#e88b83"} />
+                ))}
+              </svg>
+              <p className="text-[10px] font-mono text-muted-foreground mt-2 leading-relaxed break-words">
+                {zigzag.swings
+                  .map((s) => `${s.type === "peak" ? "▲" : "▼"} ${s.date.slice(5)} @${s.price}`)
+                  .join(" → ")}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">No swings detected in the current window.</p>
+          )}
+        </div>
+
+        {breakout.status !== "no_consolidation_patterns" && (
+          <div className="rounded-md border p-3">
+            <p className="text-xs font-semibold flex items-center gap-2">
+              Breakout
+              <Badge variant={breakout.direction === "bullish" ? "default" : "secondary"} className="text-[10px]">
+                {breakout.direction === "bullish" ? "▲" : breakout.direction === "bearish" ? "▼" : ""} {breakout.status}
+                {breakout.date ? ` · ${breakout.date}` : ""}
+              </Badge>
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm mt-2">
+              <Stat
+                label="Consolidation base"
+                value={
+                  breakout.support != null && breakout.resistance != null
+                    ? `${breakout.support.toFixed(2)} → ${breakout.resistance.toFixed(2)}`
+                    : "—"
+                }
+              />
+              <Stat
+                label="Duration"
+                value={breakout.duration_days != null ? `${breakout.duration_days} days` : "—"}
+              />
+              <Stat
+                label="Breakout strength"
+                value={breakout.strength != null ? `${breakout.strength > 0 ? "+" : ""}${breakout.strength.toFixed(2)}%` : "—"}
+                colorClass={signColor(breakout.strength)}
+              />
+              <Stat
+                label="Volume ratio"
+                value={breakout.volume_ratio != null ? `${breakout.volume_ratio.toFixed(2)}×` : "—"}
+              />
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function zigzagPoints(swings: Array<{ date: string; price: number; type: string }>) {
+  if (swings.length === 0) return [];
+  const w = 400;
+  const h = 90;
+  const prices = swings.map((s) => s.price);
+  const [lo, hi] = [Math.min(...prices), Math.max(...prices)];
+  const x = (i: number) => (swings.length === 1 ? w / 2 : (i / (swings.length - 1)) * (w - 20) + 10);
+  const y = (v: number) => h - ((v - lo) / (hi - lo || 1)) * (h - 16) - 8;
+  return swings.map((s, i) => ({ x: x(i), y: y(s.price), type: s.type }));
+}
+
+function zigzagPath(swings: Array<{ date: string; price: number; type: string }>) {
+  const pts = zigzagPoints(swings);
+  if (pts.length < 2) return "";
+  return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+}
+
+function signColor(n: number | null | undefined): string | undefined {
+  if (n == null) return undefined;
+  if (n > 0) return "text-green-600";
+  if (n < 0) return "text-red-600";
+  return undefined;
+}
+
+function signedPct(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+function signedNum(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${n > 0 ? "+" : ""}${n.toFixed(2)}`;
 }
 
 function LastCloseHeader({ data }: { data: SecurityDetail }) {

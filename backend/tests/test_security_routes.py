@@ -117,3 +117,34 @@ def test_security_detail_fundamentals_null_when_absent(temp_db):
     resp = client.get("/api/security/MSFT/detail")
     assert resp.status_code == 200
     assert resp.json()["fundamentals"] is None
+
+
+def test_detail_includes_technical_breakout_zigzag(temp_db):
+    """Detail response carries screen signals, latest breakout (with bounds) and
+    zigzag swings so the popup can render the Technical signals card."""
+    _seed_security(temp_db, "NVDA", held=False)
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute("INSERT INTO screen_signals (symbol, date, momentum_5d, momentum_60d, ma_cross_status) "
+                 "VALUES ('NVDA','2026-07-09', 2.63, 7.12, 'All Bullish')")
+    conn.execute("INSERT INTO breakout_signals (symbol, date, breakout_status, breakout_direction, "
+                 "consolidation_bottom, consolidation_top) "
+                 "VALUES ('NVDA','2026-07-09','breakout_detected','bullish', 190.0, 200.0)")
+    conn.commit(); conn.close()
+
+    resp = client.get("/api/security/NVDA/detail")
+    body = resp.json()
+    assert body["technical"]["ma_cross_status"] == "All Bullish"
+    assert body["breakout"]["support"] == 190.0
+    assert isinstance(body["zigzag"]["swings"], list)  # may be empty on short seeds
+
+
+def test_detail_technical_and_breakout_null_when_absent(temp_db):
+    """No screen_signals/breakout_signals rows -> technical is None, breakout defaults."""
+    _seed_security(temp_db, "MSFT", held=False)
+    resp = client.get("/api/security/MSFT/detail")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["technical"] is None
+    assert body["breakout"]["status"] == "no_consolidation_patterns"
+    assert body["breakout"]["support"] is None
+    assert isinstance(body["zigzag"]["swings"], list)

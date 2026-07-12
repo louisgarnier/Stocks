@@ -1,9 +1,11 @@
 """Security Detail endpoint — combined per-symbol data for the Sheet modal."""
 import json
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from backend.api.utils.logger import logger
 from backend.database.connection import get_db_connection
+from backend.scripts.consolidation_core import calculate_zigzag, load_params
 
 router = APIRouter(prefix="/api/security", tags=["security"])
 
@@ -115,6 +117,80 @@ async def get_security_detail(symbol: str):
     ).fetchone()
     fundamentals = {c: frow[i] for i, c in enumerate(fund_cols)} if frow else None
 
+    sig_row = conn.execute(
+        "SELECT momentum_5d, momentum_20d, momentum_60d, multi_factor_momentum, "
+        "ma_cross_status, trend_aligned, volume_spike, near_52w_high, "
+        "dist_from_52w_high, vs_benchmark AS mrsi, date FROM screen_signals "
+        "WHERE symbol = ?",
+        (sym,),
+    ).fetchone()
+    technical = None
+    if sig_row:
+        technical = {
+            "momentum_5d": sig_row[0],
+            "momentum_20d": sig_row[1],
+            "momentum_60d": sig_row[2],
+            "multi_factor_momentum": sig_row[3],
+            "ma_cross_status": sig_row[4],
+            "trend_aligned": sig_row[5],
+            "volume_spike": sig_row[6],
+            "near_52w_high": sig_row[7],
+            "dist_from_52w_high": sig_row[8],
+            "mrsi": sig_row[9],
+            "signal_date": sig_row[10],
+        }
+
+    brk_row = conn.execute(
+        "SELECT breakout_status, breakout_direction, breakout_strength, "
+        "breakout_volume_ratio, consolidation_bottom, consolidation_top, "
+        "consolidation_range_pct, consolidation_duration_days, date "
+        "FROM breakout_signals WHERE symbol = ? ORDER BY date DESC LIMIT 1",
+        (sym,),
+    ).fetchone()
+    if brk_row:
+        breakout = {
+            "status": brk_row[0],
+            "direction": brk_row[1],
+            "strength": brk_row[2],
+            "volume_ratio": brk_row[3],
+            "support": brk_row[4],
+            "resistance": brk_row[5],
+            "range_pct": brk_row[6],
+            "duration_days": brk_row[7],
+            "date": brk_row[8],
+        }
+    else:
+        breakout = {
+            "status": "no_consolidation_patterns",
+            "direction": "none",
+            "strength": None,
+            "volume_ratio": None,
+            "support": None,
+            "resistance": None,
+            "range_pct": None,
+            "duration_days": None,
+            "date": None,
+        }
+
+    params = load_params(conn)
+    df = pd.read_sql_query(
+        "SELECT time, high, low, close FROM market_data WHERE symbol = ? ORDER BY time ASC",
+        conn, params=[sym],
+    )
+    swings = []
+    if len(df) >= 20:
+        df["time"] = pd.to_datetime(df["time"])
+        pts = calculate_zigzag(df.tail(41).iloc[:-1].copy(), params) or []
+        swings = [
+            {"date": str(p["date"].date()), "price": round(float(p["price"]), 2), "type": p["type"]}
+            for p in pts
+        ]
+    zigzag = {
+        "deviation_pct": params["zigzag_deviation"],
+        "window_days": params["lookback_days"],
+        "swings": swings,
+    }
+
     conn.close()
     logger.info(f"📂 Security detail for {sym}: held={is_held}, tx={len(transactions)}, bars={len(bars)}")
 
@@ -127,4 +203,7 @@ async def get_security_detail(symbol: str):
         "indicators": indicators,
         "fundamentals": fundamentals,
         "bars": bars,
+        "technical": technical,
+        "breakout": breakout,
+        "zigzag": zigzag,
     }
