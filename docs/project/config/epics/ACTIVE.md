@@ -4,7 +4,14 @@
 
 ## Currently active
 
-**Epic R — Research Unified View** (correction — do now)
+**Epic V — Global Dashboard & IA restructure**
+
+- **Status:** [✓] Complete — V-1..V-11 all shipped 2026-07-12 (commits `8da2bc5..0b66e5c` on `newstart`). Backend 210 green, frontend 80 green, E2E smoke 18/18 (0 console errors). See build-log 2026-07-12 + ADR-3.
+- **Plan:** [`docs/superpowers/plans/2026-07-10-dashboard-ia-restructure.md`](../../../superpowers/plans/2026-07-10-dashboard-ia-restructure.md)
+- **Shipped:** Dashboard landing (EUR net-worth hero, allocation donut, portfolio-vs-^GSPC line, movers, action queue, staleness chips) · `GET /api/dashboard` + `portfolio_value_history` + `EURUSD=X` FX · Research grid pruned to one view with colour-coded grouped headers · Transactions→Journal (trades-first) · Configuration→Settings · English-only UI · Technical/ZigZag/Breakout card in the detail popup.
+- **Next focus:** Epic G frontend, then Epic S Phase 2 (see "Up next").
+
+**Epic R — Research Unified View** (correction — done)
 
 - **Status:** [✓] Complete — R-1..R-4 all shipped (frontend merged 2026-07-03)
 - **Spec:** [epic-R-research-unified/spec.md](epic-R-research-unified/spec.md) · full design: [`docs/superpowers/specs/2026-07-01-research-unified-view-design.md`](../../../superpowers/specs/2026-07-01-research-unified-view-design.md)
@@ -20,7 +27,7 @@
 
 **E2E evidence (2026-07-03, headless Chromium against live backend):** Research grid renders 561/561 real rows; toolbar + tuning (recommended max range = 5) present; MA200 column toggles on; row-click → detail sheet with Fundamentals card; **0 console errors**. Screenshots in session scratchpad.
 
-## Up next (after Epic R ships)
+## Up next (Epic R + V shipped)
 
 1. **Epic G — Sell Signals frontend.** Backend done (G-1..G-5). Remaining: **G-6** signals settings sub-section, **G-7** E2E smoke, bonus signals card in the detail sheet.
 2. **Epic S Phase 2 — Screener calibration.** Turn provisional gate/tech weights into tuned verdicts.
@@ -29,6 +36,8 @@
 
 ## Recently shipped
 
+- **Epic V — Global Dashboard & IA restructure** — `[STORY-V-1..11]`. New Dashboard landing tab (EUR net-worth hero, allocation donut, portfolio-vs-^GSPC performance, movers, action queue merging sell-signals + buy verdicts, staleness chips, single Sync), `GET /api/dashboard` aggregate + daily `portfolio_value_history` snapshots + `EURUSD=X` FX ingest, Research pruned to one grid with colour-coded grouped headers, Transactions→Journal (trades-first), Configuration→Settings, English-only UI, Technical/ZigZag/Breakout card in the detail popup. Charts hand-rolled SVG (no chart lib). E2E smoke `frontend/e2e/dashboard_smoke.py` 18/18 green.
+- **Epic R — Research Unified View** — `[STORY-R-1..4]`. Unified `research_overview` view + `/api/research/overview`, parameterized consolidation gates + `TuningPanel`, merged `ResearchGrid` (Screener retired), Fundamentals card in the detail popup.
 - **Epic S Phase 1 — Screener** — `[E-1]` commits (16 tasks). Fundamentals fetch + quality gates, `screen_signals`, ZigZag consolidation, breakout + S/R, provisional scoring, Screener grid + CSV. Tracked in `docs/superpowers/`; now registered as Epic S. **Live fix 2026-07-01:** fundamentals table was empty → fetched 555 symbols + rescored (verdicts spread 3 strong_buy / 55 buy / 129 watch / 193 neutral / 181 avoid).
 - **Epic H v1 — Security Detail Sheet** — `[STORY-H-1..8]`. Click any symbol → slide-in panel with position / transactions / indicators / bars. Bandaid version: chart + sell simulator + signal checklist deferred to follow-up or later epics.
 - **Epic D — Indicators** — `[STORY-D-1..9]`. MA / BB / RSI / MRSI / ATR / Vol MA, MRSI scaled to ±1 ratio range.

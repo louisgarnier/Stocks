@@ -108,3 +108,37 @@ Refactored the monolithic `/api/transactions/flex-import` endpoint into a 4-step
 **Bug fix bundled:** `backend/utils/ca_status.py` was opening its own hardcoded SQLite connection, bypassing the connection module's `DB_FILE` and breaking test isolation. Routed through `get_db_connection()`.
 
 **Commits:** SYNC-1 through SYNC-10 on branch `newstart`.
+
+---
+
+## 2026-07-12 — Epic V complete: Global Dashboard + IA restructure
+
+Shipped the 11-task Dashboard & Information-Architecture restructure (`[STORY-V-1..11]`, commits `8da2bc5..0b66e5c` on `newstart`), executed via subagent-driven development (implementer → task review → fix loop per task).
+
+**What shipped:**
+- **New Dashboard tab (default landing)** — EUR net-worth hero (FX-combined), allocation donut (Sector / Position / Currency toggle), portfolio-vs-^GSPC performance line, top/flop movers, action queue merging holding sell-signals + screener buy verdicts, staleness chips, single "Sync IBKR". All charts hand-rolled SVG (`components/dashboard/`).
+- **Backend aggregate** — `GET /api/dashboard?window=` (`routes/dashboard.py`); daily `portfolio_value_history` snapshots (`scripts/portfolio_history_compute.py`) replaying split-adjusted transactions × closes × FX, CASH-excluded; `EURUSD=X` FX ingest via `universe_seeders.seed_fx_symbols`; snapshot chained into syncs, isolated so it can't 500 an ingest.
+- **Research tab pruned** — Market Data panel + old Browse-Universe list retired; one grid remains, with a colour-coded grouped header row (IDENTITY/PRICE/INDICATORS/MOMENTUM/CONSOLIDATION/BREAKOUT/FUNDAMENTALS/SCORE).
+- **Transactions → Journal** — trades-first filter (CASH/EUR.USD hidden by default), guarded delete demoted to a danger-zone action.
+- **Configuration → Settings**, and a full French → English UI sweep.
+- **Detail popup** — new Technical signals card (momentum + MA-cross), ZigZag swing block, and conditional Breakout block (`security.py` + `SecurityDetailSheet.tsx`); zigzag compute isolated so a messy symbol can't 500 the popup.
+
+**Test evidence:**
+- Backend: `210 passed` (`backend/venv/bin/python -m pytest backend/tests/ -q`).
+- Frontend: `80/80` across 13 suites (`cd frontend && npx jest`).
+- **E2E smoke** (`frontend/e2e/dashboard_smoke.py`, headless Chromium vs live :3010/:8010) — all 18 assertions green, 0 console errors:
+  ```
+  Dashboard: NET WORTH · EUR (€117,850), donut + performance SVGs, ACTION QUEUE
+             with SELL SIGNALS + BUY CANDIDATES, movers  — PASS
+  Mover click → detail sheet with Technical signals + ZigZag (Task 9)  — PASS
+  Browse Universe: exactly one grid, "Market Data" absent (Task 6),
+             grouped header row, colSpans 13 == visible cols 13 (Task 10)  — PASS
+  Journal: EUR.USD FX leg hidden by default (Task 7)  — PASS
+  Console: 0 errors  — PASS
+  SMOKE PASSED — all assertions green.
+  ```
+  Screenshots: `e2e_1_dashboard.png` … `e2e_4_journal.png` (session scratchpad).
+
+**Notable fixes caught in review:** same-day trades dropped by reindex (Task 2); snapshot failure could 500 an ingest (Task 3); fetch race/unmount guard on Dashboard (Task 5); zigzag ZeroDivision/Type errors 500-ing the detail popup + untested breakout aliasing (Task 9); group-header fallback border referenced an undefined `var(--border)` under Tailwind v4 `@theme inline` → concrete `#e8eaed` (Task 10).
+
+**Deferred (backlog):** split auto-refetch prevention; ZigZag gate calibration (0/561 patterns — product decision); score calibration (Epic S Phase 2); Journal select-all still spans hidden CASH rows; detail popup Breakout mini-chart (mockup §⑥) not built (textual stats only).

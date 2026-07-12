@@ -20,3 +20,15 @@
 **Rejected alternative:** making breakout read `consolidation_patterns` — would alter the verbatim-ported detection semantics and couple two deliberately separate signals.
 
 **Follow-up (Phase B wireframe audit):** decide how the UI presents the two sources so they aren't mistaken for one detector.
+
+## 2026-07-12 — ADR-3: Dashboard valuation, FX, and hand-rolled charts (Epic V)
+
+**Context:** Epic V added a global Dashboard tab needing a single EUR net-worth figure, a portfolio-vs-benchmark performance line, and allocation/movers/action-queue cards, on a stack with no charting library and a mixed USD/EUR book.
+
+**Decisions:**
+1. **FX as a first-class tracked symbol** — EUR base currency is derived from an `EURUSD=X` bar series ingested through the normal market-data path, seeded via `tracked_universe` source `fx` (`universe_seeders.seed_fx_symbols`). `get_fx_rate(conn, on_date)` reads the at-or-before close, so historical snapshots convert at period-correct rates rather than today's spot.
+2. **Valuation excludes CASH legs** — `portfolio_history_compute` replays split-adjusted transactions × daily closes × FX into `portfolio_value_history`, deliberately excluding CASH-category legs (they are settlement artifacts, not marketable value). The Journal applies the same CASH-free filter (`visibleTransactions`) so trades-first view and net-worth agree.
+3. **Charts are hand-rolled SVG — no chart package.** The allocation donut and performance line are authored as raw `<svg>` in `components/dashboard/`, consistent with the existing SVG sparklines. Adding a charting dependency was rejected: the visuals are simple, and a new package needs architecture.md approval and ships client weight for no gain.
+4. **Snapshot compute is isolated from ingest** — chaining `portfolio_value_history` hydration into a sync must never 500 a successful IBKR pull; a snapshot failure returns 200 with a `portfolio_history.error` field (see Task 3).
+
+**Consequence:** net worth, performance, and allocation all trace to the same replayed-transaction + FX source; a missing price or FX bar degrades to a logged warning, not a wrong or crashing figure.

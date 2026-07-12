@@ -304,3 +304,23 @@ Positions tab → GET /api/positions → SELECT FROM positions_ibkr ORDER BY pos
 2. **`updated_transactions.py` has its own `get_db_connection()`** — inconsistent; should use `backend/database/connection.py` like the rest. Low priority.
 3. **`INSERT OR IGNORE` in `fetch_flex_trades.py`** — SQLite-specific; would block a future Postgres migration. Tracked in the parked Supabase plan.
 4. **Pre-existing test failures** in `test_database.py::test_database_initialization` (checks for non-existent `examples` table from a different project's template) and `test_api.py::test_health_endpoint` (asserts `status: healthy` but endpoint returns `ok`). Not in scope of any epic.
+
+---
+
+## Epic V — Dashboard & IA restructure (new modules)
+
+| Module | Responsibility |
+|---|---|
+| `backend/api/routes/dashboard.py` | `GET /api/dashboard?window=` — aggregates net_worth, allocation, performance, movers, action queue, as_of/staleness, fx_rate into one payload |
+| `backend/scripts/portfolio_history_compute.py` | `get_fx_rate(conn, on_date)`, `compute_history(conn, start)` — replays split-adjusted transactions × daily closes × FX into `portfolio_value_history` (CASH-excluded) |
+| `backend/scripts/universe_seeders.py::seed_fx_symbols` | seeds `EURUSD=X` into `tracked_universe` (source `fx`) so FX ingests through the normal market-data path |
+| `frontend/components/dashboard/` | Dashboard.tsx + NetWorthCard / AllocationDonut / PerformanceChart / ActionQueue / MoversCard / StalenessChips — hand-rolled SVG charts, last-request-wins fetch guard |
+| `frontend/lib/dashboard.ts` | dashboard fetch + response types |
+| `frontend/lib/journal.ts` | `visibleTransactions(rows, showCash)` — CASH/FX-leg filter shared by Journal |
+| `frontend/lib/research.ts::GROUP_COLORS` | per-group accent colours for the ResearchGrid grouped header row |
+| `frontend/components/security-detail/SecurityDetailSheet.tsx` | + Technical signals / ZigZag / Breakout card (consumes `technical`/`breakout`/`zigzag` blocks from `/api/security/{symbol}/detail`) |
+| `frontend/e2e/dashboard_smoke.py` | Playwright headless smoke — Epic V surface assertions (run on the framework py3.10 that has Playwright) |
+
+**New table:** `portfolio_value_history` (daily EUR/USD portfolio value snapshots).
+
+**Dependency additions:** `routes/dashboard.py` → `database/connection`, `scripts/portfolio_history_compute`; `portfolio_history_compute` → `database/connection`, `pandas`; `routes/security.py` → `scripts/consolidation_core` (`calculate_zigzag`, `load_params`), `pandas`.
