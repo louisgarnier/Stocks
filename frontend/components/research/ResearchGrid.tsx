@@ -52,7 +52,7 @@ const groupTh = (group: string): React.CSSProperties => ({
   color: '#94a3b8',
   padding: '6px 7px 4px',
   background: '#fafafb',
-  borderBottom: `2px solid ${GROUP_COLORS[group] ?? 'var(--border)'}`,
+  borderBottom: `2px solid ${GROUP_COLORS[group] ?? '#e8eaed'}`,
   whiteSpace: 'nowrap',
 })
 
