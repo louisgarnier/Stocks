@@ -1,10 +1,13 @@
 """Dashboard aggregate endpoint (Epic V). One call = every card's payload."""
+import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query
 
 from backend.database.connection import get_db_connection
 from backend.scripts.portfolio_history_compute import get_fx_rate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -24,7 +27,11 @@ def _latest_two_closes(conn, symbol):
 def get_dashboard(window: str = Query("6M")):
     conn = get_db_connection()
     try:
-        fx = get_fx_rate(conn) or 1.0
+        raw_fx = get_fx_rate(conn)
+        if raw_fx is None:
+            logger.warning("⚠️ [Dashboard] EURUSD=X rate unavailable — USD legs valued at parity; "
+                            "net worth may be inaccurate")
+        fx = raw_fx or 1.0
 
         positions = conn.execute(
             "SELECT p.symbol, p.quantity, p.cost_basis_price, COALESCE(p.currency,'USD') AS ccy, "
@@ -74,7 +81,7 @@ def get_dashboard(window: str = Query("6M")):
                       "position": _bucket(lambda h: h["symbol"]),
                       "currency": _bucket(lambda h: h["ccy"])}
 
-        cutoff = (datetime.now() - timedelta(days=WINDOWS.get(window, 182))).date().isoformat()
+        cutoff = (datetime.now() - timedelta(days=WINDOWS.get(window.upper(), 182))).date().isoformat()
         hist = conn.execute(
             "SELECT date, value_eur FROM portfolio_value_history WHERE date >= ? ORDER BY date",
             (cutoff,)).fetchall()
@@ -123,7 +130,7 @@ def get_dashboard(window: str = Query("6M")):
             "ibkr": _one("SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr'"),
         }
 
-        return {"as_of": as_of, "fx_rate": fx, "net_worth": net_worth,
+        return {"as_of": as_of, "fx_rate": raw_fx, "net_worth": net_worth,
                 "allocation": allocation, "performance": performance,
                 "movers": movers, "actions": {"sell": sell, "buy": buy}}
     finally:

@@ -12,7 +12,7 @@ import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetail
 import { SignalPill } from '@/components/positions/SignalPill';
 import { SignalsExpandPanel } from '@/components/positions/SignalsExpandPanel';
 import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/holding-signals';
-import { visibleTransactions } from '@/lib/journal';
+import { visibleTransactions, selectableIds } from '@/lib/journal';
 import { SyncRunsPanel } from '@/components/sync-runs/SyncRunsPanel';
 import { fetchSyncRuns, type SyncRun } from '@/lib/sync-runs';
 import { ResearchGrid } from '@/components/research/ResearchGrid';
@@ -945,14 +945,17 @@ export default function Dashboard() {
 
   const handleSelectAll = () => {
     if (!transactions?.data) return;
-    
-    if (selectedTransactions.size === transactions.data.length) {
+
+    // Select only the rows the table actually renders — CASH legs are hidden by
+    // default (showCash), so "select all" must not sweep up an unseen row.
+    const visibleIds = selectableIds(transactions.data, showCash);
+
+    if (selectedTransactions.size === visibleIds.length) {
       // Deselect all
       setSelectedTransactions(new Set());
     } else {
-      // Select all
-      const allIds = new Set(transactions.data.map(tx => tx.transaction_id));
-      setSelectedTransactions(allIds);
+      // Select all (visible only)
+      setSelectedTransactions(new Set(visibleIds));
     }
   };
 
@@ -1812,7 +1815,7 @@ export default function Dashboard() {
                         <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', width: '40px' }}>
                           <input
                             type="checkbox"
-                            checked={transactions.data.length > 0 && selectedTransactions.size === transactions.data.length}
+                            checked={visibleTxData.length > 0 && selectedTransactions.size === visibleTxData.length}
                             onChange={handleSelectAll}
                             style={{ cursor: 'pointer' }}
                           />

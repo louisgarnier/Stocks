@@ -72,7 +72,7 @@ export interface Actions {
 
 export interface DashboardPayload {
   as_of: AsOf
-  fx_rate: number
+  fx_rate: number | null
   net_worth: NetWorth
   allocation: Allocation
   performance: Performance
