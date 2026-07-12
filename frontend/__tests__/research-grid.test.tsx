@@ -116,3 +116,25 @@ test('search filters rows', async () => {
   expect(screen.queryByText('AAPL')).not.toBeInTheDocument()
   expect(screen.getByText('KO')).toBeInTheDocument()
 })
+
+test('renders a grouped, color-coded header row above the column headers', async () => {
+  render(<ResearchGrid onSelectSymbol={() => {}} />)
+  await waitFor(() => expect(screen.getByText('AAPL')).toBeInTheDocument())
+
+  const table = screen.getByRole('table')
+  const headerRows = table.querySelectorAll('thead tr')
+  // Group-header row must be a distinct row above the existing column-header row.
+  expect(headerRows.length).toBeGreaterThanOrEqual(2)
+  const groupRow = headerRows[0] as HTMLElement
+
+  // Scope to the group row: 'Momentum' should appear there as a group label,
+  // not collide with any data-cell text (which lives in tbody, not thead).
+  const momentumCell = within(groupRow).getByText('Momentum')
+  expect(momentumCell).toBeInTheDocument()
+
+  // With DEFAULT_VISIBLE columns, the Consolidation group has a run of 3
+  // consecutive visible columns (support_level, resistance_level,
+  // consolidation_quality) — its group cell must span all 3.
+  const consolidationCell = within(groupRow).getByText('Consolidation')
+  expect(consolidationCell.getAttribute('colspan')).toBe('3')
+})

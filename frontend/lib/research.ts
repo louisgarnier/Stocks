@@ -66,6 +66,16 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: 'verdict', label: 'Verdict', group: 'Score', align: 'r' },
 ]
 
+// Accent colors for the grouped header row's bottom border, keyed by ColumnDef.group.
+// Identity/Price/Fundamentals/Score are intentionally absent — they fall back to
+// var(--border) in the UI.
+export const GROUP_COLORS: Record<string, string> = {
+  Momentum: '#5b9bd5',
+  Indicators: '#8f7ee8',
+  Breakout: '#d9a441',
+  Consolidation: '#4fd08d',
+}
+
 // Default visible = the approved-mockup set (union of Screener + Browse Universe + key indicators).
 export const DEFAULT_VISIBLE: string[] = [
   'symbol', 'price', 'rsi_14', 'ma_50', 'momentum_60d',

@@ -20,6 +20,7 @@ import {
   ALL_COLUMNS,
   DEFAULT_VISIBLE,
   fetchResearchOverview,
+  GROUP_COLORS,
   loadVisibleColumns,
   saveVisibleColumns,
   type ColAlign,
@@ -40,6 +41,19 @@ const th = (align: ColAlign, sorted: boolean): React.CSSProperties => ({
   whiteSpace: 'nowrap',
   cursor: 'pointer',
   userSelect: 'none',
+})
+
+const groupTh = (group: string): React.CSSProperties => ({
+  textAlign: 'left',
+  fontSize: '9px',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: '#94a3b8',
+  padding: '6px 7px 4px',
+  background: '#fafafb',
+  borderBottom: `2px solid ${GROUP_COLORS[group] ?? 'var(--border)'}`,
+  whiteSpace: 'nowrap',
 })
 
 const td = (align: ColAlign): React.CSSProperties => ({
@@ -209,6 +223,23 @@ export function ResearchGrid({ onSelectSymbol }: { onSelectSymbol: (symbol: stri
     () => ALL_COLUMNS.filter((c) => visible.includes(c.key)),
     [visible],
   )
+
+  // Group header row: collapse maximal runs of *adjacent* visible columns that
+  // share the same `group` into one spanning cell. Walked defensively (not
+  // assumed) so a hidden middle column correctly splits a group into two runs
+  // instead of aggregating its total count across the whole table.
+  const groupRuns = useMemo(() => {
+    const runs: { group: string; span: number }[] = []
+    for (const col of visibleColumns) {
+      const last = runs[runs.length - 1]
+      if (last && last.group === col.group) {
+        last.span += 1
+      } else {
+        runs.push({ group: col.group, span: 1 })
+      }
+    }
+    return runs
+  }, [visibleColumns])
 
   const filtered = useMemo(() => {
     if (!rows) return []
@@ -412,6 +443,17 @@ export function ResearchGrid({ onSelectSymbol }: { onSelectSymbol: (symbol: stri
           >
             <Table style={{ fontSize: '13px' }}>
               <TableHeader>
+                <TableRow style={{ border: 'none' }}>
+                  {groupRuns.map((run, i) => (
+                    <TableHead
+                      key={`${run.group}-${i}`}
+                      colSpan={run.span}
+                      style={groupTh(run.group)}
+                    >
+                      {run.group}
+                    </TableHead>
+                  ))}
+                </TableRow>
                 <TableRow style={{ border: 'none' }}>
                   {visibleColumns.map((col) => (
                     <TableHead
