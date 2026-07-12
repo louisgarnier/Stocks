@@ -127,15 +127,31 @@ def test_detail_includes_technical_breakout_zigzag(temp_db):
     conn.execute("INSERT INTO screen_signals (symbol, date, momentum_5d, momentum_60d, ma_cross_status) "
                  "VALUES ('NVDA','2026-07-09', 2.63, 7.12, 'All Bullish')")
     conn.execute("INSERT INTO breakout_signals (symbol, date, breakout_status, breakout_direction, "
+                 "breakout_strength, breakout_volume_ratio, "
                  "consolidation_bottom, consolidation_top) "
-                 "VALUES ('NVDA','2026-07-09','breakout_detected','bullish', 190.0, 200.0)")
+                 "VALUES ('NVDA','2026-07-09','breakout_detected','bullish', 3.04, 1.87, 190.0, 200.0)")
     conn.commit(); conn.close()
 
     resp = client.get("/api/security/NVDA/detail")
     body = resp.json()
     assert body["technical"]["ma_cross_status"] == "All Bullish"
     assert body["breakout"]["support"] == 190.0
-    assert isinstance(body["zigzag"]["swings"], list)  # may be empty on short seeds
+    # breakout_strength/breakout_volume_ratio are aliased to strength/volume_ratio —
+    # use distinct values so a future swap of the two columns fails this test.
+    assert body["breakout"]["strength"] == 3.04
+    assert body["breakout"]["volume_ratio"] == 1.87
+
+    # market_data seeded by _seed_security (30 daily bars, deterministic uptrend
+    # crossing the 6% zigzag deviation) always yields at least one swing; guard
+    # the response shape without depending on the exact swing count.
+    swings = body["zigzag"]["swings"]
+    assert isinstance(swings, list)
+    assert len(swings) >= 1
+    for s in swings:
+        assert set(s) >= {"date", "price", "type"}
+        assert isinstance(s["date"], str)
+        assert isinstance(s["price"], (int, float))
+        assert isinstance(s["type"], str)
 
 
 def test_detail_technical_and_breakout_null_when_absent(temp_db):

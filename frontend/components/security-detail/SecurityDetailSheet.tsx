@@ -429,7 +429,7 @@ function TechnicalSignalsCard({ data }: { data: SecurityDetail }) {
                 value={breakout.status === "no_consolidation_patterns" ? "no pattern" : breakout.direction}
                 colorClass={breakoutCellColor}
               />
-              <Stat label="Volume spike" value={t.volume_spike ? "yes" : "no"} />
+              <Stat label="Volume spike" value={t.volume_spike == null ? "—" : t.volume_spike ? "yes" : "no"} />
               <Stat
                 label={`MRSI vs ${data.universe?.benchmark ?? "benchmark"}`}
                 value={t.mrsi != null ? `${t.mrsi > 0 ? "+" : ""}${t.mrsi.toFixed(3)}` : "—"}

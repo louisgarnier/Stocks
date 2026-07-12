@@ -173,18 +173,22 @@ async def get_security_detail(symbol: str):
         }
 
     params = load_params(conn)
-    df = pd.read_sql_query(
-        "SELECT time, high, low, close FROM market_data WHERE symbol = ? ORDER BY time ASC",
-        conn, params=[sym],
-    )
     swings = []
-    if len(df) >= 20:
-        df["time"] = pd.to_datetime(df["time"])
-        pts = calculate_zigzag(df.tail(41).iloc[:-1].copy(), params) or []
-        swings = [
-            {"date": str(p["date"].date()), "price": round(float(p["price"]), 2), "type": p["type"]}
-            for p in pts
-        ]
+    try:
+        df = pd.read_sql_query(
+            "SELECT time, high, low, close FROM market_data WHERE symbol = ? ORDER BY time ASC",
+            conn, params=[sym],
+        )
+        if len(df) >= 20:
+            df["time"] = pd.to_datetime(df["time"])
+            pts = calculate_zigzag(df.tail(41).iloc[:-1].copy(), params) or []
+            swings = [
+                {"date": str(p["date"].date()), "price": round(float(p["price"]), 2), "type": p["type"]}
+                for p in pts
+            ]
+    except Exception as e:
+        logger.warning(f"⚠️ [SecurityDetail] zigzag compute failed for {sym}: {e}")
+        swings = []
     zigzag = {
         "deviation_pct": params["zigzag_deviation"],
         "window_days": params["lookback_days"],
