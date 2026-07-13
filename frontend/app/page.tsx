@@ -19,6 +19,7 @@ import { ResearchGrid } from '@/components/research/ResearchGrid';
 import { Dashboard as DashboardTab } from '@/components/dashboard/Dashboard';
 import { SyncToolbar } from '@/components/research/SyncToolbar';
 import { TuningPanel } from '@/components/research/TuningPanel';
+import { useSync } from '@/lib/sync-context';
 
 interface HealthResponse {
   status: string;
@@ -273,6 +274,11 @@ export default function Dashboard() {
   const [showTuning, setShowTuning] = useState<boolean>(false);
   const [researchKey, setResearchKey] = useState<number>(0);
   const refreshResearch = () => setResearchKey((k) => k + 1);
+  const { syncVersion } = useSync();
+  useEffect(() => {
+    // A sync finished (from the toolbar OR the dashboard) — refresh the grid.
+    if (syncVersion > 0) setResearchKey((k) => k + 1);
+  }, [syncVersion]);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   type SyncStepStatus = 'pending' | 'ok' | 'error';
@@ -1356,7 +1362,7 @@ export default function Dashboard() {
                     ⚙ {showTuning ? 'Hide' : 'Tune'} parameters
                   </button>
                 </div>
-                <SyncToolbar onSynced={refreshResearch} />
+                <SyncToolbar />
                 {showTuning && <TuningPanel onRerun={refreshResearch} />}
                 <ResearchGrid key={researchKey} onSelectSymbol={setSelectedSymbol} />
               </div>

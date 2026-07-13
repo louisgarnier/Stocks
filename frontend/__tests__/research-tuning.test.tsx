@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TuningPanel } from '../components/research/TuningPanel'
 import { SyncToolbar } from '../components/research/SyncToolbar'
+import { SyncProvider } from '../lib/sync-context'
 
 jest.mock('../lib/research', () => ({
   ...jest.requireActual('../lib/research'),
@@ -59,7 +60,11 @@ describe('TuningPanel', () => {
 describe('SyncToolbar', () => {
   test('Fundamentals button posts to the fundamentals sync endpoint', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) }) as unknown as typeof fetch
-    render(<SyncToolbar />)
+    render(
+      <SyncProvider>
+        <SyncToolbar />
+      </SyncProvider>,
+    )
     fireEvent.click(screen.getByRole('button', { name: /Fundamentals/i }))
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
