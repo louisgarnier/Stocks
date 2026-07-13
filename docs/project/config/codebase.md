@@ -357,5 +357,5 @@ Positions tab → GET /api/positions → SELECT FROM positions_ibkr ORDER BY pos
 | `backend/database/schema.sql` → `cash_balances` | latest Flex CashReport snapshot per currency (DELETE+INSERT; empty report keeps last snapshot) |
 | `backend/scripts/fetch_flex_trades.py` | `parse_cash_from_xml()` (skips BASE_SUMMARY, prefers endingSettledCash) + `save_cash_balances()` |
 | `backend/api/routes/sync.py` | non-blocking `cash` step chained after `positions` in `/api/sync/ibkr` and `/api/sync/full` |
-| `backend/api/routes/dashboard.py` | net worth = stocks + cash (EUR direct, USD via EURUSD); new `net_worth.cash_eur`; day-change % rebased on total incl. cash |
+| `backend/api/routes/dashboard.py` | net worth = stocks + cash (EUR direct, USD via EURUSD); new `net_worth.cash_eur`; day-change % rebased on total incl. cash; allocation buckets include Cash (own slice in sector/position, folded per-currency in currency view, pct over total incl. cash) |
 | `frontend/components/dashboard/NetWorthCard.tsx` | Cash cell shows the tracked amount (was "not tracked yet") |
