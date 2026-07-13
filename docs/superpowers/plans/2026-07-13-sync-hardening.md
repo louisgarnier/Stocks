@@ -261,7 +261,7 @@ Create `frontend/lib/sync-context.tsx`:
 ```tsx
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 export type StepKey = 'fundamentals' | 'technical' | 'compute' | 'all' | 'ibkr';
@@ -307,33 +307,34 @@ async function runTechnicalSteps(): Promise<void> {
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<Record<StepKey, StepState>>(INITIAL);
   const [syncVersion, setSyncVersion] = useState(0);
+  // Synchronous single-flight guard. A ref (not derived from state) so the
+  // check is race-free and idempotent under React StrictMode's dev double-
+  // invocation — the async work is fired from the event handler, NOT from
+  // inside a setState updater (updaters must stay pure).
+  const runningRef = useRef(false);
 
   const anyRunning = useMemo(() => Object.values(state).some((s) => s.running), [state]);
 
-  const run = useCallback(
-    (key: StepKey, label: string, fn: () => Promise<void>) => {
-      // Guard: never start a step while ANY step is running (no overlap).
-      setState((prev) => {
-        if (Object.values(prev).some((s) => s.running)) return prev;
-        // fire the work exactly once, outside the state updater
-        queueMicrotask(async () => {
-          toast(`${label} sync started`);
-          try {
-            await fn();
-            setState((s) => ({ ...s, [key]: { running: false, status: 'Done ✓', error: false } }));
-            setSyncVersion((v) => v + 1);
-            toast.success(`${label} sync complete`);
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            setState((s) => ({ ...s, [key]: { running: false, status: 'Failed', error: true } }));
-            toast.error(`${label} sync failed`, { description: msg });
-          }
-        });
-        return { ...prev, [key]: { running: true, status: 'Running…', error: false } };
-      });
-    },
-    [],
-  );
+  const run = useCallback((key: StepKey, label: string, fn: () => Promise<void>) => {
+    if (runningRef.current) return; // ignore overlapping starts
+    runningRef.current = true;
+    setState((s) => ({ ...s, [key]: { running: true, status: 'Running…', error: false } }));
+    toast(`${label} sync started`);
+    void (async () => {
+      try {
+        await fn();
+        setState((s) => ({ ...s, [key]: { running: false, status: 'Done ✓', error: false } }));
+        setSyncVersion((v) => v + 1);
+        toast.success(`${label} sync complete`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setState((s) => ({ ...s, [key]: { running: false, status: 'Failed', error: true } }));
+        toast.error(`${label} sync failed`, { description: msg });
+      } finally {
+        runningRef.current = false;
+      }
+    })();
+  }, []);
 
   const value = useMemo<SyncContextValue>(
     () => ({
