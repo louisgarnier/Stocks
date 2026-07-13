@@ -4,6 +4,14 @@
 
 ## Currently active
 
+**Epic G — Sell signals on holdings**
+
+- **Status:** [✓] Complete — G-1..G-5 shipped earlier; G-6 (Sell Signals settings card) + G-7 (E2E smoke) shipped 2026-07-13. Frontend 101 green (18 suites), tsc clean, E2E 18/18 ALL GREEN (0 console errors). See build-log 2026-07-13.
+- **Plan:** [`docs/plans/2026-07-13-story-g6-signal-settings.md`](../../../plans/2026-07-13-story-g6-signal-settings.md)
+- **Shipped:** Settings → Sell Signals card (11 toggles in 3 groups, % thresholds for trailing_drawdown/stop_loss, immediate save, "Recompute signals now") · `e2e/signals_smoke.py`.
+- **Next:** Epic S Phase 2 — screener calibration (per ROADMAP).
+
+
 **Epic SH — Sync Hardening**
 
 - **Status:** [✓] Complete — SH-1..SH-5 shipped 2026-07-13 (commits `545933e..` on `newstart`). Backend 214 green, frontend 89 green (16 suites), tsc clean, E2E smoke all-green (0 console errors). See build-log 2026-07-13 + ADR-4.

@@ -359,3 +359,11 @@ Positions tab → GET /api/positions → SELECT FROM positions_ibkr ORDER BY pos
 | `backend/api/routes/sync.py` | non-blocking `cash` step chained after `positions` in `/api/sync/ibkr` and `/api/sync/full` |
 | `backend/api/routes/dashboard.py` | net worth = stocks + cash (EUR direct, USD via EURUSD); new `net_worth.cash_eur`; day-change % rebased on total incl. cash; allocation buckets include Cash (own slice in sector/position, folded per-currency in currency view, pct over total incl. cash) |
 | `frontend/components/dashboard/NetWorthCard.tsx` | Cash cell shows the tracked amount (was "not tracked yet") |
+
+## 2026-07-13 — Epic G-6/G-7 (signal settings UI + E2E)
+
+| Module | Responsibility |
+|---|---|
+| `frontend/lib/holding-signals.ts` | + `SignalSetting`, `SIGNAL_GROUPS` (3 groups × 11 signaux, triggers, threshold units), `fetchSignalSettings()`, `updateSignalSetting()` |
+| `frontend/components/settings/SignalSettingsCard.tsx` | Sell Signals card (Settings tab): toggles, % thresholds (clamp 1–95, %↔fraction), save immédiat + revert optimiste, bouton recompute → `/api/sync/holding-signals` |
+| `frontend/e2e/signals_smoke.py` | G-7 smoke: card, toggle/threshold API round-trips (état restauré), recompute, Positions pills/panel, 0 console errors |
