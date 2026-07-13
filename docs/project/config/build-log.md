@@ -174,3 +174,13 @@ Fixed three related sync-subsystem failures found by hands-on Epic V testing (`[
 **Note:** `layout.tsx` carries a "check with user before modifying" banner; the modification (wrapping `{children}` in `<Providers>`) was explicitly named in the user-approved plan.
 
 **Follow-up (logged, backlog):** two raw `sqlite3.connect()` call sites lack the busy-timeout (inherit WAL); route through `get_db_connection()` when next touched.
+
+## 2026-07-13 — Epic G complete (G-6 signal settings + G-7 E2E)
+
+**G-6 — Sell Signals settings card** (Settings tab, approved mockup): 11 signal toggles in 3 groups (Trend breaks / Volume & momentum / Risk), %-threshold inputs for trailing_drawdown & stop_loss (display % ↔ stored fraction, clamped 1–95), immediate save with "✓ Saved" hint + optimistic revert on failure, "↻ Recompute signals now" → POST /api/sync/holding-signals. Backend endpoints pre-existed (G-1..G-4).
+
+**G-7 — E2E smoke** `frontend/e2e/signals_smoke.py`: ALL GREEN — card renders (11 switches, badge matches API), toggle + threshold round-trip through the API and restore, recompute advances last_evaluated_at, Positions pills + expand panel work, 0 console errors.
+
+**Test evidence:** frontend 101 passed (18 suites) + tsc clean; E2E 18/18 PASS.
+
+Also today (out-of-epic): trading-day-aware staleness chips; IBKR cash balances in net worth + allocation donut (see codebase.md 2026-07-13 entries).
