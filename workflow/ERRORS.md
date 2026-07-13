@@ -63,3 +63,13 @@
 **Root cause:** Sync progress lived in `SyncToolbar`'s local `useState`, and the toolbar was conditionally rendered (`{activeTab === 'browse-universe' && …}`) so it unmounted on tab switch — destroying the progress state and orphaning the awaited fetch chain. The backend `sync_runs` table existed but was never used for live status.
 
 **Prevention rule:** Long-running operations belong in the app-level `SyncProvider` (mounted above the tabs in `layout.tsx`), never in a conditionally-rendered tab component. The provider owns the fetch + progress (survives navigation) and a `useRef` single-flight guard (prevents double-start). Regression test: the persistence case in `frontend/__tests__/synctoolbar.test.tsx`.
+
+## 2026-07-13 — Staleness chips called fresh Friday data "4d stale" on Monday
+
+**Symptom:** user refreshed prices + indicators Monday midday; syncs succeeded ("562 symbols · 0 new bars") but the dashboard chip still showed amber "● prices 4d".
+
+**Root cause:** the chip conflated two facts (data date vs last check) into one wall-clock delta. `relativeStaleness` parsed the bare bar date `2026-07-10` as midnight UTC and diffed against now → Monday 14:49 CEST is ~85h → `round(85/24)` = "4d", amber because >24h — even though Friday's bar was the freshest completed trading day possible (weekend + US market not yet closed Monday).
+
+**Fix:** backend `as_of` entries are now `{date, checked_at, level}` — `checked_at` from `sync_runs.finished_at` per action, `level` computed by `backend/api/utils/trading_days.py` against the last *completed* trading day (22:00 UTC cutoff, weekends rolled back; holidays unmodeled → amber for a day, honest-but-conservative). Frontend chips show the data date + "checked Xh ago" subline. Regression tests: `backend/tests/test_trading_days.py` (Monday-premarket/weekend cases), `test_dashboard_as_of_entries_are_rich_objects`.
+
+**Prevention rule:** freshness UI for market data must compare against the last completed trading day, never a wall-clock delta from a date-only string; and always display "data as-of" separately from "last checked" — a single relative age can't express both.
