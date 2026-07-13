@@ -349,3 +349,13 @@ Positions tab → GET /api/positions → SELECT FROM positions_ibkr ORDER BY pos
 | `backend/api/routes/dashboard.py` | `as_of` entries are now `{date, checked_at, level}`; `checked_at` = `MAX(sync_runs.finished_at)` per action (prices→market_data, signals→screen/analytics, fundamentals→fundamentals, ibkr→ibkr) |
 | `frontend/lib/dashboard.ts` | `AsOfEntry` type; `shortDate()` + `relativeTime()` replace `relativeStaleness` (staleness level now comes from backend) |
 | `frontend/components/dashboard/StalenessChips.tsx` | Option A two-line chips: data date + "checked Xh ago" subline; click-to-refresh and per-chip syncing state unchanged |
+
+## 2026-07-13 — IBKR cash balances in net worth
+
+| Module | Responsibility |
+|---|---|
+| `backend/database/schema.sql` → `cash_balances` | latest Flex CashReport snapshot per currency (DELETE+INSERT; empty report keeps last snapshot) |
+| `backend/scripts/fetch_flex_trades.py` | `parse_cash_from_xml()` (skips BASE_SUMMARY, prefers endingSettledCash) + `save_cash_balances()` |
+| `backend/api/routes/sync.py` | non-blocking `cash` step chained after `positions` in `/api/sync/ibkr` and `/api/sync/full` |
+| `backend/api/routes/dashboard.py` | net worth = stocks + cash (EUR direct, USD via EURUSD); new `net_worth.cash_eur`; day-change % rebased on total incl. cash |
+| `frontend/components/dashboard/NetWorthCard.tsx` | Cash cell shows the tracked amount (was "not tracked yet") |
