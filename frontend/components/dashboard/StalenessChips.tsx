@@ -1,6 +1,6 @@
 'use client';
 
-import { relativeStaleness, type AsOf } from '@/lib/dashboard';
+import { shortDate, relativeTime, type AsOf } from '@/lib/dashboard';
 import { useSync, type StepKey } from '@/lib/sync-context';
 
 const LABELS: Record<keyof AsOf, string> = {
@@ -37,7 +37,7 @@ export function StalenessChips({
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
       {keys.map((key) => {
-        const { label, level } = relativeStaleness(asOf[key]);
+        const { date, checked_at, level } = asOf[key];
         const step = STEP_FOR[key];
         const running = state[step].running;
         const disabled = anyRunning || (key === 'ibkr' && !!ibkrExternalSyncing);
@@ -54,9 +54,15 @@ export function StalenessChips({
             onClick={ACTION[step]}
             disabled={disabled}
             title={`Refresh ${LABELS[key]}`}
-            className={`rounded-full px-2.5 py-1 ${cls} ${disabled ? 'cursor-default opacity-70' : 'cursor-pointer hover:brightness-95'}`}
+            className={`rounded-xl px-3 py-1.5 text-left leading-tight ${cls} ${disabled ? 'cursor-default opacity-70' : 'cursor-pointer hover:brightness-95'}`}
           >
-            {running ? '…' : '●'} {LABELS[key]} {running ? 'syncing' : label}
+            <span className="block">
+              {running ? '…' : '●'} {LABELS[key]}{' '}
+              <span className="font-semibold">{running ? 'syncing' : shortDate(date)}</span>
+            </span>
+            <span className="block text-[10px] opacity-75">
+              {running ? ' ' : `checked ${relativeTime(checked_at)}`}
+            </span>
           </button>
         );
       })}

@@ -3,11 +3,14 @@ import { SyncProvider } from '@/lib/sync-context';
 import { StalenessChips } from '@/components/dashboard/StalenessChips';
 import type { AsOf } from '@/lib/dashboard';
 
+const entry = (date: string | null, checked_at: string | null,
+               level: 'fresh' | 'stale' | 'unknown') => ({ date, checked_at, level });
+
 const asOf: AsOf = {
-  prices: '2026-07-10',
-  signals: '2026-07-10',
-  fundamentals: '2026-07-10',
-  ibkr: '2026-07-12',
+  prices: entry('2026-07-10', new Date(Date.now() - 2 * 36e5).toISOString(), 'fresh'),
+  signals: entry('2026-07-10', new Date(Date.now() - 2 * 36e5).toISOString(), 'fresh'),
+  fundamentals: entry('2026-07-08T09:00:00+00:00', new Date(Date.now() - 72 * 36e5).toISOString(), 'stale'),
+  ibkr: entry(null, null, 'unknown'),
 };
 
 beforeEach(() => {
@@ -49,4 +52,37 @@ test('the IBKR chip is disabled while an external (header) IBKR sync is running,
   );
   expect(screen.getByRole('button', { name: /IBKR/ })).toBeDisabled();
   expect(screen.getByRole('button', { name: /prices/ })).not.toBeDisabled();
+});
+
+test('chips show the data date, not a relative age', () => {
+  render(
+    <SyncProvider>
+      <StalenessChips asOf={asOf} />
+    </SyncProvider>,
+  );
+  expect(screen.getByRole('button', { name: /prices/ })).toHaveTextContent('07-10');
+  expect(screen.getByRole('button', { name: /fundamentals/ })).toHaveTextContent('07-08');
+});
+
+test('chips show a checked-ago subline and handle no-data', () => {
+  render(
+    <SyncProvider>
+      <StalenessChips asOf={asOf} />
+    </SyncProvider>,
+  );
+  expect(screen.getByRole('button', { name: /prices/ })).toHaveTextContent(/checked 2h ago/);
+  const ibkr = screen.getByRole('button', { name: /IBKR/ });
+  expect(ibkr).toHaveTextContent('—');
+  expect(ibkr).toHaveTextContent(/never/);
+});
+
+test('level drives the chip color class', () => {
+  render(
+    <SyncProvider>
+      <StalenessChips asOf={asOf} />
+    </SyncProvider>,
+  );
+  expect(screen.getByRole('button', { name: /prices/ }).className).toMatch(/text-success/);
+  expect(screen.getByRole('button', { name: /fundamentals/ }).className).toMatch(/text-warning/);
+  expect(screen.getByRole('button', { name: /IBKR/ }).className).toMatch(/text-muted-foreground/);
 });

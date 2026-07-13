@@ -1,11 +1,17 @@
 // Types + fetch helper for the Dashboard tab (Epic V / Task 5).
 // Mirrors backend/api/routes/dashboard.py `GET /api/dashboard` verbatim.
 
+export interface AsOfEntry {
+  date: string | null
+  checked_at: string | null
+  level: 'fresh' | 'stale' | 'unknown'
+}
+
 export interface AsOf {
-  prices: string | null
-  signals: string | null
-  fundamentals: string | null
-  ibkr: string | null
+  prices: AsOfEntry
+  signals: AsOfEntry
+  fundamentals: AsOfEntry
+  ibkr: AsOfEntry
 }
 
 export interface NetWorth {
@@ -123,15 +129,20 @@ export function formatPct(v: number | null | undefined, digits = 1): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`
 }
 
-/** Renders an ISO date or timestamp as a short relative-time label, e.g. "3h ago", "07-09". */
-export function relativeStaleness(iso: string | null): { label: string; level: 'fresh' | 'stale' | 'unknown' } {
-  if (!iso) return { label: 'no data', level: 'unknown' }
+/** "2026-07-10" or full ISO timestamp → "07-10"; null → "—". */
+export function shortDate(iso: string | null): string {
+  if (!iso) return '—'
+  const m = iso.match(/^\d{4}-(\d{2})-(\d{2})/)
+  return m ? `${m[1]}-${m[2]}` : iso
+}
+
+/** Relative time since an ISO timestamp, e.g. "<1h", "2h ago", "3d ago". */
+export function relativeTime(iso: string | null): string {
+  if (!iso) return 'never'
   const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return { label: iso, level: 'unknown' }
+  if (Number.isNaN(then)) return iso
   const hours = (Date.now() - then) / 36e5
-  const level: 'fresh' | 'stale' = hours <= 24 ? 'fresh' : 'stale'
-  if (hours < 1) return { label: '<1h', level }
-  if (hours < 48) return { label: `${Math.round(hours)}h`, level }
-  const days = Math.round(hours / 24)
-  return { label: `${days}d`, level }
+  if (hours < 1) return '<1h'
+  if (hours < 48) return `${Math.round(hours)}h ago`
+  return `${Math.round(hours / 24)}d ago`
 }

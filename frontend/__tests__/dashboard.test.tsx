@@ -12,7 +12,12 @@ function renderDashboard(props: { onSelectSymbol: (symbol: string) => void }) {
 
 function makePayload(valueEur: number) {
   return {
-    as_of: { prices: '2026-07-09', signals: '2026-07-09', fundamentals: '2026-07-10T14:21:00Z', ibkr: '2026-07-10T09:09:00Z' },
+    as_of: {
+      prices: { date: '2026-07-09', checked_at: '2026-07-10T08:00:00Z', level: 'fresh' },
+      signals: { date: '2026-07-09', checked_at: '2026-07-10T08:00:00Z', level: 'fresh' },
+      fundamentals: { date: '2026-07-10T14:21:00Z', checked_at: '2026-07-10T14:21:00Z', level: 'fresh' },
+      ibkr: { date: '2026-07-10T09:09:00Z', checked_at: '2026-07-10T09:09:00Z', level: 'fresh' },
+    },
     fx_rate: 1.1,
     net_worth: { value_eur: valueEur, day_change_eur: 614, day_change_pct: 0.52, unrealized_pnl_eur: 29911, positions: 18, usd_exposure_pct: 87.1 },
     allocation: { sector: [{ label: 'Technology', value_eur: 57815, pct: 48.9 }], position: [], currency: [] },
