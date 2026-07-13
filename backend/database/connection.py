@@ -19,15 +19,22 @@ SCHEMA_FILE = Path(__file__).parent / "schema.sql"
 def get_db_connection():
     """
     Get a database connection.
-    
+
+    WAL mode lets readers see the last committed snapshot while a writer holds
+    an open transaction (a long analytics sync no longer blocks the dashboard
+    read); the busy-timeout waits on brief lock contention instead of raising
+    'database is locked'.
+
     Returns:
         sqlite3.Connection: Database connection
     """
     # Ensure database directory exists
     DB_DIR.mkdir(parents=True, exist_ok=True)
-    
-    conn = sqlite3.connect(DB_FILE)
+
+    conn = sqlite3.connect(DB_FILE, timeout=30.0)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    conn.execute("PRAGMA journal_mode=WAL")  # concurrent read-during-write
+    conn.execute("PRAGMA busy_timeout=30000")  # wait up to 30s, don't error
     conn.execute("PRAGMA foreign_keys = ON")  # Enable CASCADE delete
     return conn
 
