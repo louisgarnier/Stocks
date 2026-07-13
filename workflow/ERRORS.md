@@ -73,3 +73,11 @@
 **Fix:** backend `as_of` entries are now `{date, checked_at, level}` — `checked_at` from `sync_runs.finished_at` per action, `level` computed by `backend/api/utils/trading_days.py` against the last *completed* trading day (22:00 UTC cutoff, weekends rolled back; holidays unmodeled → amber for a day, honest-but-conservative). Frontend chips show the data date + "checked Xh ago" subline. Regression tests: `backend/tests/test_trading_days.py` (Monday-premarket/weekend cases), `test_dashboard_as_of_entries_are_rich_objects`.
 
 **Prevention rule:** freshness UI for market data must compare against the last completed trading day, never a wall-clock delta from a date-only string; and always display "data as-of" separately from "last checked" — a single relative age can't express both.
+
+## 2026-07-13 — IBKR Flex 1001 en boucle après édition de query, puis verrou 1025
+
+**Symptom:** après ajout de la section Cash Report à la query 1398454, chaque `SendRequest` renvoie `1001 - Statement could not be generated`; après ~10 tentatives rapprochées, IBKR bascule en `1025 - Too many failed attempts` (verrou temporaire côté IBKR).
+
+**Root cause:** un 1001 qui persiste immédiatement après modification d'une query est un problème de **configuration de la query** (section mal paramétrée), pas un aléa transitoire — et le retenter en boucle déclenche le rate-limit 1025 qui bloque ensuite TOUTES les requêtes (même une query valide) jusqu'à expiration du verrou.
+
+**Prevention rule:** si 1001 persiste au-delà de 2 tentatives après une édition de query → STOP les appels API; valider la query via le bouton "Run" de l'interface web IBKR d'abord. Ne jamais mettre de boucle de retry serrée sur l'API Flex (espacer ≥ 5 min, max 2-3 tentatives). Après un 1025, attendre 15-30 min sans AUCUN appel avant de retenter.
