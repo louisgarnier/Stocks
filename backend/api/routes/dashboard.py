@@ -59,14 +59,27 @@ def get_dashboard(window: str = Query("6M")):
             if ccy == "USD":
                 usd_eur += mv
 
+        cash_eur = 0.0
+        for ccy, amount in conn.execute("SELECT currency, amount FROM cash_balances"):
+            if ccy == "EUR":
+                cash_eur += amount
+            elif ccy == "USD":
+                cash_eur += amount / fx
+                usd_eur += amount / fx
+            else:
+                logger.warning(f"⚠️ [Dashboard] cash balance in unsupported currency {ccy} ignored")
+        total_with_cash = total_eur + cash_eur
+
         day_change = total_eur - prev_total_eur
         net_worth = {
-            "value_eur": round(total_eur, 2),
+            "value_eur": round(total_with_cash, 2),
+            "cash_eur": round(cash_eur, 2),
             "day_change_eur": round(day_change, 2),
-            "day_change_pct": round(day_change / prev_total_eur * 100, 2) if prev_total_eur else 0.0,
+            "day_change_pct": round(day_change / (prev_total_eur + cash_eur) * 100, 2)
+                              if (prev_total_eur + cash_eur) else 0.0,
             "unrealized_pnl_eur": round(total_eur - cost_eur, 2) if cost_eur else None,
             "positions": len(holdings),
-            "usd_exposure_pct": round(usd_eur / total_eur * 100, 1) if total_eur else 0.0,
+            "usd_exposure_pct": round(usd_eur / total_with_cash * 100, 1) if total_with_cash else 0.0,
         }
 
         def _bucket(key_fn):

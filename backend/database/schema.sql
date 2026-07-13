@@ -399,6 +399,16 @@ WHERE u.enabled = 1;
 -- Backward-compat alias: existing /api/screener/overview reads this.
 CREATE VIEW IF NOT EXISTS screener_overview AS SELECT * FROM research_overview;
 
+-- Latest IBKR cash balances per currency (Flex CashReport snapshot).
+-- Replaced wholesale on each IBKR sync; an empty CashReport keeps the
+-- last snapshot rather than wiping it.
+CREATE TABLE IF NOT EXISTS cash_balances (
+    currency TEXT PRIMARY KEY,
+    amount REAL NOT NULL,
+    report_date TEXT,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Daily portfolio valuation (Epic V dashboard). Rebuilt by
 -- portfolio_history_compute.compute_history; safe to delete and recompute.
 CREATE TABLE IF NOT EXISTS portfolio_value_history (

@@ -214,7 +214,7 @@ def test_sync_full_runs_all_five_steps(temp_db, stub_flex_http, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert [s["name"] for s in body["steps"]] == ["positions", "transactions", "corporate_actions", "splits", "indicators", "holding_signals", "screen", "portfolio_history"]
+    assert [s["name"] for s in body["steps"]] == ["positions", "cash", "transactions", "corporate_actions", "splits", "indicators", "holding_signals", "screen", "portfolio_history"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
@@ -312,14 +312,14 @@ def test_sync_full_includes_indicators_step(temp_db, stub_flex_http, monkeypatch
     assert resp.status_code == 200, resp.text
     body = resp.json()
     step_names = [s["name"] for s in body["steps"]]
-    assert step_names == ["positions", "transactions", "corporate_actions", "splits",
+    assert step_names == ["positions", "cash", "transactions", "corporate_actions", "splits",
                           "indicators", "holding_signals", "screen", "portfolio_history"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 
 
 def test_sync_ibkr_runs_only_ibkr_steps(temp_db, stub_flex_http, monkeypatch):
-    """/api/sync/ibkr runs the four IBKR-side steps and stops — no analytics."""
+    """/api/sync/ibkr runs the five IBKR-side steps and stops — no analytics."""
     monkeypatch.setenv("IBKR_FLEX_TOKEN", "fake-token")
     monkeypatch.setenv("IBKR_QUERY_ID_last_month", "9999")
 
@@ -338,7 +338,7 @@ def test_sync_ibkr_runs_only_ibkr_steps(temp_db, stub_flex_http, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     step_names = [s["name"] for s in body["steps"]]
-    assert step_names == ["positions", "transactions", "corporate_actions", "splits"]
+    assert step_names == ["positions", "cash", "transactions", "corporate_actions", "splits"]
     for s in body["steps"]:
         assert s["status"] == "ok", s
 

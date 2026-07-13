@@ -10,8 +10,10 @@ from backend.api.utils.logger import logger
 from backend.database.connection import get_db_connection
 from backend.scripts.fetch_flex_trades import (
     fetch_flex_response,
+    parse_cash_from_xml,
     parse_positions_from_xml,
     parse_trades_from_xml,
+    save_cash_balances,
     save_positions_ibkr,
     insert_flex_trades,
 )
@@ -162,6 +164,7 @@ def sync_full():
 
     if not _run(steps, "positions", lambda: _step_positions(xml)):
         return _wrap(steps)
+    _run(steps, "cash", lambda: _step_cash(xml))
     if not _run(steps, "transactions", lambda: _step_transactions(xml)):
         return _wrap(steps)
     if not _run(steps, "corporate_actions", _step_corporate_actions):
@@ -198,6 +201,7 @@ def sync_ibkr():
 
         if not _run(steps, "positions", lambda: _step_positions(xml)):
             return _finalize_run(run, steps)
+        _run(steps, "cash", lambda: _step_cash(xml))
         if not _run(steps, "transactions", lambda: _step_transactions(xml)):
             return _finalize_run(run, steps)
         if not _run(steps, "corporate_actions", _step_corporate_actions):
@@ -335,6 +339,10 @@ def _step_positions(xml: str) -> dict:
     result = save_positions_ibkr(parse_positions_from_xml(xml))
     _sync_positions_to_universe()
     return result
+
+
+def _step_cash(xml: str) -> dict:
+    return save_cash_balances(parse_cash_from_xml(xml))
 
 
 def _step_transactions(xml: str) -> dict:

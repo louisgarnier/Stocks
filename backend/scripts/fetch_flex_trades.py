@@ -348,6 +348,61 @@ def save_positions_ibkr(positions: list[dict]) -> dict:
     }
 
 
+def parse_cash_from_xml(xml_content: str) -> list[dict]:
+    """
+    Parse per-currency cash balances from the Flex CashReport section.
+
+    Skips the BASE_SUMMARY aggregate row; prefers endingSettledCash over
+    endingCash. Returns [] when the query has no CashReport section.
+    """
+    balances = []
+    try:
+        root = ET.fromstring(xml_content)
+        for el in root.findall(".//CashReportCurrency"):
+            ccy = el.get("currency", "")
+            if not ccy or ccy == "BASE_SUMMARY":
+                continue
+            raw = el.get("endingSettledCash") or el.get("endingCash")
+            if raw is None or raw == "":
+                continue
+            balances.append({
+                "currency": ccy,
+                "amount": safe_float(raw),
+                "report_date": el.get("toDate", ""),
+            })
+        logger.info(f"📊 Found {len(balances)} cash balance rows in CashReport")
+    except ET.ParseError as e:
+        logger.error(f"❌ Failed to parse cash XML: {e}")
+    return balances
+
+
+def save_cash_balances(balances: list[dict]) -> dict:
+    """
+    Save cash balances to cash_balances (DELETE + INSERT snapshot).
+
+    An empty list is a no-op: a Flex response without CashReport must not
+    wipe the last known snapshot.
+    """
+    if not balances:
+        logger.warning("⚠️ No cash balances in Flex response — keeping last snapshot")
+        return {"cash_rows": 0, "skipped": True}
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.now().astimezone().isoformat()
+    cursor.execute("DELETE FROM cash_balances")
+    for b in balances:
+        cursor.execute(
+            "INSERT INTO cash_balances (currency, amount, report_date, last_updated) "
+            "VALUES (?, ?, ?, ?)",
+            (b["currency"], b["amount"], b["report_date"], now))
+    conn.commit()
+    conn.close()
+    logger.info(f"✅ Saved {len(balances)} cash balances: "
+                + ", ".join(f"{b['currency']} {b['amount']:.2f}" for b in balances))
+    return {"cash_rows": len(balances), "last_updated": now}
+
+
 def convert_date_format(date_str: str) -> str:
     """
     Convert date from YYYYMMDD to YYYY-MM-DD format.

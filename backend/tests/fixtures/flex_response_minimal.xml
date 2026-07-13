@@ -14,6 +14,17 @@
                       positionValue="1050.00" fifoPnlUnrealized="44.00"
                       currency="USD" assetCategory="STK"/>
       </OpenPositions>
+      <CashReport>
+        <CashReportCurrency accountId="TEST" currency="BASE_SUMMARY"
+                            endingCash="3202.55" endingSettledCash="3202.55"
+                            toDate="20260131"/>
+        <CashReportCurrency accountId="TEST" currency="EUR"
+                            endingCash="1500.25" endingSettledCash="1500.25"
+                            toDate="20260131"/>
+        <CashReportCurrency accountId="TEST" currency="USD"
+                            endingCash="1876.10" endingSettledCash="1850.00"
+                            toDate="20260131"/>
+      </CashReport>
     </FlexStatement>
   </FlexStatements>
 </FlexQueryResponse>
