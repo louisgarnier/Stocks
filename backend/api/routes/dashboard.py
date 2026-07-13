@@ -1,9 +1,10 @@
 """Dashboard aggregate endpoint (Epic V). One call = every card's payload."""
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Query
 
+from backend.api.utils.trading_days import freshness_level
 from backend.database.connection import get_db_connection
 from backend.scripts.portfolio_history_compute import get_fx_rate
 
@@ -123,11 +124,26 @@ def get_dashboard(window: str = Query("6M")):
         def _one(sql):
             row = conn.execute(sql).fetchone()
             return row[0] if row else None
+        def _chip(kind, date_sql, checked_sql):
+            data_date = _one(date_sql)
+            checked_at = _one(checked_sql) if checked_sql else None
+            now = datetime.now(timezone.utc)
+            return {"date": data_date, "checked_at": checked_at,
+                    "level": freshness_level(kind, data_date, checked_at, now)}
+
         as_of = {
-            "prices": _one("SELECT MAX(time) FROM market_data"),
-            "signals": _one("SELECT MAX(date) FROM screen_signals"),
-            "fundamentals": _one("SELECT MAX(fetched_at) FROM fundamentals"),
-            "ibkr": _one("SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr'"),
+            "prices": _chip("prices",
+                "SELECT MAX(time) FROM market_data",
+                "SELECT MAX(finished_at) FROM sync_runs WHERE action='market_data'"),
+            "signals": _chip("signals",
+                "SELECT MAX(date) FROM screen_signals",
+                "SELECT MAX(finished_at) FROM sync_runs WHERE action IN ('screen','analytics')"),
+            "fundamentals": _chip("fundamentals",
+                "SELECT MAX(fetched_at) FROM fundamentals",
+                "SELECT MAX(finished_at) FROM sync_runs WHERE action='fundamentals'"),
+            "ibkr": _chip("ibkr",
+                "SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr'",
+                "SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr'"),
         }
 
         return {"as_of": as_of, "fx_rate": raw_fx, "net_worth": net_worth,

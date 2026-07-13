@@ -24,6 +24,9 @@ def _seed(temp_db):
     conn.execute("INSERT INTO fundamentals (symbol, sector) VALUES ('TEST', 'Technology')")
     conn.execute("INSERT INTO holding_signals (symbol, signal_type, fired, last_evaluated_at) "
                  "VALUES ('TEST','stop_loss',1,datetime('now'))")
+    conn.execute("INSERT INTO sync_runs (started_at, finished_at, action, status) "
+                 "VALUES ('2026-07-09T08:00:00+00:00','2026-07-09T08:01:00+00:00',"
+                 "'market_data','success')")
     conn.commit(); conn.close()
 
 
@@ -119,3 +122,22 @@ def test_dashboard_missing_fx_logs_warning_and_null_rate(temp_db, caplog):
     b = r.json()
     assert b["fx_rate"] is None
     assert any("EURUSD=X rate unavailable" in rec.message for rec in caplog.records)
+
+
+def test_dashboard_as_of_entries_are_rich_objects(temp_db):
+    _seed(temp_db)
+    b = client.get("/api/dashboard").json()
+    prices = b["as_of"]["prices"]
+    assert prices["date"] == "2026-07-09"            # newest seeded bar
+    assert prices["checked_at"] == "2026-07-09T08:01:00+00:00"
+    assert prices["level"] in ("fresh", "stale")     # depends on wall clock
+    for key in ("signals", "fundamentals", "ibkr"):
+        assert set(b["as_of"][key]) == {"date", "checked_at", "level"}
+
+
+def test_dashboard_as_of_unknown_without_data(temp_db):
+    _seed(temp_db)
+    b = client.get("/api/dashboard").json()
+    # No screen_signals / ibkr sync_runs seeded → no data date.
+    assert b["as_of"]["signals"]["level"] == "unknown"
+    assert b["as_of"]["ibkr"]["date"] is None
