@@ -340,3 +340,12 @@ Positions tab → GET /api/positions → SELECT FROM positions_ibkr ORDER BY pos
 | `frontend/components/dashboard/Dashboard.tsx` | "Sync all" button (runAll) beside the chips; refetches on `syncVersion` |
 
 **Follow-up (logged):** `fetch_corporate_actions.py` + `routes/updated_transactions.py` open raw `sqlite3.connect()` — they inherit WAL (persistent file property) but lack the busy-timeout; route through `get_db_connection()` when next touched.
+
+## 2026-07-13 — Trading-day-aware staleness chips
+
+| Module | Responsibility |
+|---|---|
+| `backend/api/utils/trading_days.py` | `last_completed_trading_day(now)`, `close_of(day)` (22:00 UTC cutoff), `freshness_level(kind, data_date, checked_at, now)` → fresh/stale/unknown per chip; holidays unmodeled (amber for a day) |
+| `backend/api/routes/dashboard.py` | `as_of` entries are now `{date, checked_at, level}`; `checked_at` = `MAX(sync_runs.finished_at)` per action (prices→market_data, signals→screen/analytics, fundamentals→fundamentals, ibkr→ibkr) |
+| `frontend/lib/dashboard.ts` | `AsOfEntry` type; `shortDate()` + `relativeTime()` replace `relativeStaleness` (staleness level now comes from backend) |
+| `frontend/components/dashboard/StalenessChips.tsx` | Option A two-line chips: data date + "checked Xh ago" subline; click-to-refresh and per-chip syncing state unchanged |
