@@ -75,6 +75,62 @@ export function formatSignalValue(s: HoldingSignal, currency: string): string {
   }
 }
 
+export interface SignalSetting {
+  signal_type: string
+  enabled: boolean
+  threshold: number | null
+}
+
+export interface SignalGroupDef {
+  title: string
+  signals: { type: string; trigger: string; thresholdUnit?: string }[]
+}
+
+export const SIGNAL_GROUPS: SignalGroupDef[] = [
+  {
+    title: 'Trend breaks',
+    signals: [
+      { type: 'ma50_break', trigger: 'close < MA50' },
+      { type: 'ma100_break', trigger: 'close < MA100' },
+      { type: 'ma150_break', trigger: 'close < MA150' },
+      { type: 'ma200_break', trigger: 'close < MA200' },
+      { type: 'death_cross', trigger: 'MA50 crosses below MA150' },
+    ],
+  },
+  {
+    title: 'Volume & momentum',
+    signals: [
+      { type: 'volume_dryup', trigger: '5d avg vol < 50% of 20d avg' },
+      { type: 'distribution_day', trigger: 'down day, vol > 1.5× 20d avg' },
+      { type: 'rsi_weakness', trigger: 'RSI(14) drops below 50' },
+      { type: 'mrsi_flip', trigger: 'MRSI crosses below 0' },
+    ],
+  },
+  {
+    title: 'Risk',
+    signals: [
+      { type: 'trailing_drawdown', trigger: 'close down', thresholdUnit: '% from 30-day high' },
+      { type: 'stop_loss', trigger: 'close down', thresholdUnit: '% below cost basis' },
+    ],
+  },
+]
+
+export async function fetchSignalSettings(): Promise<SignalSetting[]> {
+  const res = await fetch('/api/proxy/api/holding-signals/settings')
+  if (!res.ok) throw new Error(`fetchSignalSettings: HTTP ${res.status}`)
+  const data = await res.json()
+  return data.items
+}
+
+export async function updateSignalSetting(setting: SignalSetting): Promise<void> {
+  const res = await fetch('/api/proxy/api/holding-signals/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(setting),
+  })
+  if (!res.ok) throw new Error(`updateSignalSetting: HTTP ${res.status}`)
+}
+
 export async function fetchHoldingSignals(): Promise<SignalsBySymbol> {
   const res = await fetch('/api/proxy/api/holding-signals')
   if (!res.ok) throw new Error(`fetchHoldingSignals: HTTP ${res.status}`)
