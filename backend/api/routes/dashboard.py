@@ -59,15 +59,19 @@ def get_dashboard(window: str = Query("6M")):
             if ccy == "USD":
                 usd_eur += mv
 
-        cash_eur = 0.0
+        cash_eur, cash_by_ccy = 0.0, {}
         for ccy, amount in conn.execute("SELECT currency, amount FROM cash_balances"):
             if ccy == "EUR":
-                cash_eur += amount
+                in_eur = amount
             elif ccy == "USD":
-                cash_eur += amount / fx
-                usd_eur += amount / fx
+                in_eur = amount / fx
+                usd_eur += in_eur
             else:
                 logger.warning(f"⚠️ [Dashboard] cash balance in unsupported currency {ccy} ignored")
+                continue
+            if in_eur:
+                cash_by_ccy[ccy] = cash_by_ccy.get(ccy, 0.0) + in_eur
+                cash_eur += in_eur
         total_with_cash = total_eur + cash_eur
 
         day_change = total_eur - prev_total_eur
@@ -82,18 +86,21 @@ def get_dashboard(window: str = Query("6M")):
             "usd_exposure_pct": round(usd_eur / total_with_cash * 100, 1) if total_with_cash else 0.0,
         }
 
-        def _bucket(key_fn):
+        def _bucket(key_fn, extra=None):
             agg = {}
             for h in holdings:
                 agg[key_fn(h)] = agg.get(key_fn(h), 0.0) + h["mv_eur"]
+            for label, v in (extra or {}).items():
+                agg[label] = agg.get(label, 0.0) + v
             return sorted(
                 ({"label": k, "value_eur": round(v, 2),
-                  "pct": round(v / total_eur * 100, 1) if total_eur else 0.0}
+                  "pct": round(v / total_with_cash * 100, 1) if total_with_cash else 0.0}
                  for k, v in agg.items()),
                 key=lambda x: -x["value_eur"])
-        allocation = {"sector": _bucket(lambda h: h["sector"]),
-                      "position": _bucket(lambda h: h["symbol"]),
-                      "currency": _bucket(lambda h: h["ccy"])}
+        cash_bucket = {"Cash": cash_eur} if cash_eur else None
+        allocation = {"sector": _bucket(lambda h: h["sector"], cash_bucket),
+                      "position": _bucket(lambda h: h["symbol"], cash_bucket),
+                      "currency": _bucket(lambda h: h["ccy"], cash_by_ccy)}
 
         cutoff = (datetime.now() - timedelta(days=WINDOWS.get(window.upper(), 182))).date().isoformat()
         hist = conn.execute(

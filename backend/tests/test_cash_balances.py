@@ -81,6 +81,31 @@ def test_net_worth_includes_cash(temp_db):
     assert abs(b["net_worth"]["day_change_eur"] - 100.0) < 0.1
 
 
+def test_allocation_includes_cash_bucket(temp_db):
+    _seed_position_and_cash(temp_db)
+    b = client.get("/api/dashboard").json()
+    # Stocks 1100 EUR (Technology missing → "Other") + cash 2500 EUR = 3600 EUR total.
+    sector = {i["label"]: i for i in b["allocation"]["sector"]}
+    assert abs(sector["Cash"]["value_eur"] - 2500.0) < 0.1
+    assert abs(sector["Cash"]["pct"] - 69.4) < 0.1          # 2500/3600
+    position = {i["label"]: i for i in b["allocation"]["position"]}
+    assert "Cash" in position and abs(position["TEST"]["pct"] - 30.6) < 0.1
+    # Currency view folds cash into its currency: EUR = 1500 cash, USD = stocks 1100 + cash 1000.
+    currency = {i["label"]: i for i in b["allocation"]["currency"]}
+    assert abs(currency["EUR"]["value_eur"] - 1500.0) < 0.1
+    assert abs(currency["USD"]["value_eur"] - 2100.0) < 0.1
+
+
+def test_allocation_without_cash_has_no_cash_bucket(temp_db):
+    _seed_position_and_cash(temp_db)
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute("DELETE FROM cash_balances")
+    conn.commit(); conn.close()
+    b = client.get("/api/dashboard").json()
+    assert all(i["label"] != "Cash" for i in b["allocation"]["sector"])
+    assert abs(b["allocation"]["sector"][0]["pct"] - 100.0) < 0.1
+
+
 def test_net_worth_without_cash_rows(temp_db):
     """No cash_balances rows → cash_eur is 0.0 and value_eur is stocks only."""
     conn = sqlite3.connect(str(temp_db))
