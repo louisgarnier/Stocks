@@ -35,6 +35,10 @@ out/
 *.sqlite3
 backend/database/*.db
 backend/database/*.sqlite
+# SQLite WAL sidecar files (created once the DB is in WAL mode)
+*.db-wal
+*.db-shm
+*.db-journal
 
 # IDE
 .vscode/

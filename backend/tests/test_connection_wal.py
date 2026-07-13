@@ -1,8 +1,4 @@
 """WAL + busy-timeout: a read must not block behind a concurrent write."""
-import sqlite3
-import threading
-import time
-
 from backend.database import connection as conn_mod
 
 
