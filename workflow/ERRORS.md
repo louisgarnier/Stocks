@@ -47,3 +47,19 @@
 **FIXED 2026-07-10:** `sync_fundamentals` in `backend/api/routes/sync.py` changed from `async def` to plain `def`, so FastAPI runs it in its threadpool and the event loop stays free. Regression test: `test_sync_fundamentals_does_not_block_other_requests` in `backend/tests/test_sync_fundamentals.py`. Live-verified: /health answered in ~5ms while a real 561-symbol sync was in flight.
 
 **Watch out — same latent bug elsewhere:** other sync endpoints (`/api/sync/screen`, `/api/sync/analytics`, `/api/sync/market-data`, …) are still `async def` running blocking work directly; they block the loop for their duration (seen: 15s during analytics). Apply the same `def` fix if any of them grows long enough to matter.
+
+## 2026-07-13 — Dashboard stuck on "Loading dashboard…" during a sync
+
+**Symptom:** Starting a prices/signals sync makes the Dashboard hang on "Loading dashboard…" until the sync finishes.
+
+**Root cause:** SQLite was in `delete` (rollback-journal) mode. A writer holds an EXCLUSIVE lock for its whole transaction, so the dashboard's read (`GET /api/dashboard`) is blocked (then errors after the busy-timeout) while a 561-symbol analytics sync writes.
+
+**Prevention rule:** All connections go through `get_db_connection()`, which sets `PRAGMA journal_mode=WAL` + `PRAGMA busy_timeout=30000` (Epic SH, ADR-4). WAL allows concurrent read-during-write. NEVER open `sqlite3.connect()` directly — you skip the busy-timeout (and, before the DB was ever put in WAL, would skip WAL too). Regression test: `backend/tests/test_connection_wal.py`.
+
+## 2026-07-13 — Sync appears to stop when leaving the Browse Universe tab
+
+**Symptom:** Start a sync from the Research toolbar, switch tabs, come back — the progress is gone and the toolbar looks idle, as if the sync stopped.
+
+**Root cause:** Sync progress lived in `SyncToolbar`'s local `useState`, and the toolbar was conditionally rendered (`{activeTab === 'browse-universe' && …}`) so it unmounted on tab switch — destroying the progress state and orphaning the awaited fetch chain. The backend `sync_runs` table existed but was never used for live status.
+
+**Prevention rule:** Long-running operations belong in the app-level `SyncProvider` (mounted above the tabs in `layout.tsx`), never in a conditionally-rendered tab component. The provider owns the fetch + progress (survives navigation) and a `useRef` single-flight guard (prevents double-start). Regression test: the persistence case in `frontend/__tests__/synctoolbar.test.tsx`.

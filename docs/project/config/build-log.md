@@ -142,3 +142,35 @@ Shipped the 11-task Dashboard & Information-Architecture restructure (`[STORY-V-
 **Notable fixes caught in review:** same-day trades dropped by reindex (Task 2); snapshot failure could 500 an ingest (Task 3); fetch race/unmount guard on Dashboard (Task 5); zigzag ZeroDivision/Type errors 500-ing the detail popup + untested breakout aliasing (Task 9); group-header fallback border referenced an undefined `var(--border)` under Tailwind v4 `@theme inline` → concrete `#e8eaed` (Task 10).
 
 **Deferred (backlog):** split auto-refetch prevention; ZigZag gate calibration (0/561 patterns — product decision); score calibration (Epic S Phase 2); Journal select-all still spans hidden CASH rows; detail popup Breakout mini-chart (mockup §⑥) not built (textual stats only).
+
+---
+
+## 2026-07-13 — Epic SH complete: Sync Hardening
+
+Fixed three related sync-subsystem failures found by hands-on Epic V testing (`[STORY-SH-1..5]`, commits `545933e..` on `newstart`), via subagent-driven development (implementer → review → fix per task).
+
+**Root cause (shared):** sync was fragile, tab-scoped UI state over a rollback-journal database.
+
+**What shipped:**
+- **SH-1 — WAL + busy-timeout** (`connection.py`): SQLite runs `journal_mode=WAL` + `busy_timeout=30000`, so a running sync no longer blocks the dashboard read. Real read-during-write concurrency test.
+- **SH-2 — `SyncProvider`** (`lib/sync-context.tsx` + `providers.tsx` + `layout.tsx`): app-level context above the tabs owns sync orchestration; a `useRef` single-flight guard (StrictMode-safe) blocks double-starts; `syncVersion` bumps on success.
+- **SH-3 — `SyncToolbar`** consumes the provider (no local state); the research grid refetches on `syncVersion`. Progress now persists across tab switches (regression-tested via unmount/remount).
+- **SH-4 — Dashboard sync hub:** staleness chips are actionable buttons + a "Sync all" button; per-chip syncing state; dashboard refetches on completion.
+- **SH-5 — this:** E2E smoke extended + docs (ADR-4, two ERRORS entries).
+
+**Test evidence:**
+- Backend `214 passed`; frontend `89 passed` across 16 suites; `tsc --noEmit` clean.
+- **E2E smoke** (`frontend/e2e/dashboard_smoke.py`, headless Chromium vs live :3010/:8010) — all assertions green, 0 console errors, including:
+  ```
+  Sync hub: Dashboard has 'Sync all' + actionable prices/signals chips  — PASS
+  Sync survives navigation + dashboard stays live (WAL):
+    started a signals recompute, left to Browse Universe, returned mid-sync
+    → dashboard still rendered net worth (not stuck on "Loading…")        — PASS
+    (info) 'Syncing…' still visible after round-trip: True
+  Console: 0 errors                                                        — PASS
+  ```
+  Screenshot `e2e_5_sync_hub.png`: signals chip "… syncing", "Syncing…" button active, full dashboard rendered during the write — the WAL + provider win, visually confirmed.
+
+**Note:** `layout.tsx` carries a "check with user before modifying" banner; the modification (wrapping `{children}` in `<Providers>`) was explicitly named in the user-approved plan.
+
+**Follow-up (logged, backlog):** two raw `sqlite3.connect()` call sites lack the busy-timeout (inherit WAL); route through `get_db_connection()` when next touched.

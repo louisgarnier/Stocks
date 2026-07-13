@@ -101,7 +101,36 @@ with sync_playwright() as p:
     page.screenshot(path=f"{SHOT}/e2e_4_journal.png", full_page=True)
     check("EUR.USD" not in jrn, "EUR.USD FX leg hidden by default (Task 7)")
 
-    # ---- 5. Zero console errors across the whole walk ----------------------
+    # ---- 5. Sync hub: chips are actionable + a Sync-all button (Epic SH) ---
+    print("== Sync hub (Dashboard) ==")
+    page.locator("button:has-text('Dashboard')").first.click()
+    page.wait_for_timeout(2500)
+    check(page.locator("button:has-text('Sync all')").count() == 1, "Dashboard has a 'Sync all' button")
+    check(page.locator("button", has_text="prices").count() >= 1, "prices staleness chip is a button (actionable)")
+    check(page.locator("button", has_text="signals").count() >= 1, "signals staleness chip is a button (actionable)")
+
+    # ---- 6. WAL + provider: start a sync, leave & return — dashboard stays live
+    # Clicking the signals chip runs a CPU-bound recompute (POST /api/sync/screen).
+    # With WAL the dashboard read must NOT block behind that write, and the app-level
+    # provider must outlive the tab switch. We assert the robust, non-flaky win:
+    # the dashboard still renders its net-worth hero (never stuck on "Loading…")
+    # after starting a sync and navigating away and back.
+    print("== Sync survives navigation + dashboard stays live (WAL) ==")
+    page.locator("button", has_text="signals").first.click()  # kick off a real recompute
+    page.wait_for_timeout(600)
+    page.locator("button:has-text('Browse Universe')").first.click()  # leave immediately
+    page.wait_for_timeout(700)
+    page.locator("button:has-text('Dashboard')").first.click()  # come back mid-sync
+    page.wait_for_timeout(1500)
+    back = page.inner_text("body")
+    check("NET WORTH" in back, "dashboard still renders (net worth) while a sync runs — not stuck on Loading (WAL win)")
+    check("Loading dashboard" not in back, "dashboard is not stuck on 'Loading dashboard…' during a sync")
+    # Soft signal (logged, not asserted — a fast recompute may already be done):
+    still_syncing = page.locator("button:has-text('Syncing')").count()
+    print(f"  (info) 'Syncing…' still visible after round-trip: {still_syncing >= 1}")
+    page.screenshot(path=f"{SHOT}/e2e_5_sync_hub.png", full_page=True)
+
+    # ---- 7. Zero console errors across the whole walk ----------------------
     print("== Console health ==")
     check(len(console_errors) == 0, f"no console errors (saw {len(console_errors)}: {console_errors[:3]})")
 

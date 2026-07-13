@@ -4,6 +4,14 @@
 
 ## Currently active
 
+**Epic SH — Sync Hardening**
+
+- **Status:** [✓] Complete — SH-1..SH-5 shipped 2026-07-13 (commits `545933e..` on `newstart`). Backend 214 green, frontend 89 green (16 suites), tsc clean, E2E smoke all-green (0 console errors). See build-log 2026-07-13 + ADR-4.
+- **Plan:** [`docs/superpowers/plans/2026-07-13-sync-hardening.md`](../../../superpowers/plans/2026-07-13-sync-hardening.md)
+- **Why:** hands-on Epic V testing surfaced three sync-subsystem failures sharing one root (fragile tab-scoped state over a rollback-journal DB): dashboard froze during a sync, sync lost on tab-switch, refresh buttons on a different tab from the chips.
+- **Shipped:** SQLite WAL + busy-timeout (reads don't block writes) · app-level `SyncProvider` (survives navigation, single-flight guard) · `SyncToolbar` consumes it · Dashboard sync hub (actionable chips + "Sync all").
+- **Next:** Epic S Phase 2 — evidence-based verdict calibration (brainstorm parked; decisions banked: fundamentals judgment-only, primary metric excess-vs-^GSPC with risk-adjusted secondary lens).
+
 **Epic V — Global Dashboard & IA restructure**
 
 - **Status:** [✓] Complete — V-1..V-11 all shipped 2026-07-12 (commits `8da2bc5..0b66e5c` on `newstart`). Backend 210 green, frontend 80 green, E2E smoke 18/18 (0 console errors). See build-log 2026-07-12 + ADR-3.
@@ -36,6 +44,7 @@
 
 ## Recently shipped
 
+- **Epic SH — Sync Hardening** — `[STORY-SH-1..5]`. SQLite WAL + busy-timeout (sync no longer blocks the dashboard read), app-level `SyncProvider` (sync survives tab navigation + single-flight guard), `SyncToolbar` consumes it, Dashboard sync hub (actionable staleness chips + "Sync all"). Found by hands-on Epic V testing. E2E smoke green, 0 console errors.
 - **Epic V — Global Dashboard & IA restructure** — `[STORY-V-1..11]`. New Dashboard landing tab (EUR net-worth hero, allocation donut, portfolio-vs-^GSPC performance, movers, action queue merging sell-signals + buy verdicts, staleness chips, single Sync), `GET /api/dashboard` aggregate + daily `portfolio_value_history` snapshots + `EURUSD=X` FX ingest, Research pruned to one grid with colour-coded grouped headers, Transactions→Journal (trades-first), Configuration→Settings, English-only UI, Technical/ZigZag/Breakout card in the detail popup. Charts hand-rolled SVG (no chart lib). E2E smoke `frontend/e2e/dashboard_smoke.py` 18/18 green.
 - **Epic R — Research Unified View** — `[STORY-R-1..4]`. Unified `research_overview` view + `/api/research/overview`, parameterized consolidation gates + `TuningPanel`, merged `ResearchGrid` (Screener retired), Fundamentals card in the detail popup.
 - **Epic S Phase 1 — Screener** — `[E-1]` commits (16 tasks). Fundamentals fetch + quality gates, `screen_signals`, ZigZag consolidation, breakout + S/R, provisional scoring, Screener grid + CSV. Tracked in `docs/superpowers/`; now registered as Epic S. **Live fix 2026-07-01:** fundamentals table was empty → fetched 555 symbols + rescored (verdicts spread 3 strong_buy / 55 buy / 129 watch / 193 neutral / 181 avoid).

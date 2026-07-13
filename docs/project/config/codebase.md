@@ -324,3 +324,19 @@ Positions tab → GET /api/positions → SELECT FROM positions_ibkr ORDER BY pos
 **New table:** `portfolio_value_history` (daily EUR/USD portfolio value snapshots).
 
 **Dependency additions:** `routes/dashboard.py` → `database/connection`, `scripts/portfolio_history_compute`; `portfolio_history_compute` → `database/connection`, `pandas`; `routes/security.py` → `scripts/consolidation_core` (`calculate_zigzag`, `load_params`), `pandas`.
+
+---
+
+## Epic SH — Sync Hardening (new modules / changes)
+
+| Module | Responsibility |
+|---|---|
+| `backend/database/connection.py` | `get_db_connection()` now opens with `timeout=30` + `PRAGMA journal_mode=WAL` + `PRAGMA busy_timeout=30000` (concurrent read-during-write); `row_factory`/`foreign_keys` preserved |
+| `frontend/lib/sync-context.tsx` | `SyncProvider` + `useSync()` — app-level sync orchestration (fundamentals/technical/compute/all/ibkr), `useRef` single-flight guard, `syncVersion` success counter. Exports `StepKey`, `StepState` |
+| `frontend/app/providers.tsx` | `'use client'` wrapper mounting `SyncProvider` above the app |
+| `frontend/app/layout.tsx` | wraps `{children}` in `<Providers>` |
+| `frontend/components/research/SyncToolbar.tsx` | now consumes `useSync()` (no local state, no `onSynced` prop) — progress persists across tab switches |
+| `frontend/components/dashboard/StalenessChips.tsx` | chips are actionable buttons wired to the provider (prices→technical, signals→compute, fundamentals→fundamentals, ibkr→ibkr) with per-chip syncing state |
+| `frontend/components/dashboard/Dashboard.tsx` | "Sync all" button (runAll) beside the chips; refetches on `syncVersion` |
+
+**Follow-up (logged):** `fetch_corporate_actions.py` + `routes/updated_transactions.py` open raw `sqlite3.connect()` — they inherit WAL (persistent file property) but lack the busy-timeout; route through `get_db_connection()` when next touched.

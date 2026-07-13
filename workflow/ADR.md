@@ -32,3 +32,14 @@
 4. **Snapshot compute is isolated from ingest** — chaining `portfolio_value_history` hydration into a sync must never 500 a successful IBKR pull; a snapshot failure returns 200 with a `portfolio_history.error` field (see Task 3).
 
 **Consequence:** net worth, performance, and allocation all trace to the same replayed-transaction + FX source; a missing price or FX bar degrades to a logged warning, not a wrong or crashing figure.
+
+## 2026-07-13 — ADR-4: Sync concurrency (WAL) + app-level sync orchestration (Epic SH)
+
+**Context:** Testing Epic V surfaced three failures that shared one root — sync was built as fragile, tab-scoped UI state over a rollback-journal database: (a) a running analytics sync blocked the dashboard read (stuck "Loading dashboard…"); (b) leaving the Browse Universe tab lost all sync progress and risked double-starts; (c) the refresh buttons lived on a different tab from the staleness chips.
+
+**Decisions:**
+1. **SQLite runs in WAL mode with a 30s busy-timeout**, set on every connection from `get_db_connection()`. WAL lets a reader (the dashboard) see the last committed snapshot while a writer (a sync) holds an open transaction — reads no longer block behind writes. WAL is a persistent file property, so even the few call sites that still open `sqlite3.connect()` directly (`fetch_corporate_actions.py`, `updated_transactions.py`) inherit WAL; they only lack the busy-timeout (tracked follow-up).
+2. **Sync orchestration lives in an app-level React context (`SyncProvider`), mounted above the tabs in `layout.tsx`** — not in tab-scoped component state. A running sync's awaited fetch and its progress survive tab navigation; a synchronous `useRef` single-flight guard (checked in the event handler, not a `setState` updater — StrictMode-safe) prevents overlapping runs; `syncVersion` increments on success so the dashboard and research grid refetch only when data actually changed.
+3. **The Dashboard is the sync hub:** the staleness chips are actionable buttons (prices→Technical, signals→Compute, fundamentals→Fundamentals, IBKR→ibkr) and a "Sync all" runs the analytics chain (Technical→Fundamentals→Compute). The header's existing IBKR/Flex button is deliberately untouched (always mounted, richer flow).
+
+**Consequence:** the dashboard stays live during a sync, a sync can't be silently abandoned or double-started by navigation, and refresh happens where the staleness is shown. Live-verified: dashboard rendered net worth while a signals recompute wrote, and "Syncing…" persisted across a tab round-trip (E2E smoke, 0 console errors).
