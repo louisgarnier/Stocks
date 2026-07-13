@@ -43,3 +43,14 @@
 3. **The Dashboard is the sync hub:** the staleness chips are actionable buttons (prices→Technical, signals→Compute, fundamentals→Fundamentals, IBKR→ibkr) and a "Sync all" runs the analytics chain (Technical→Fundamentals→Compute). The header's existing IBKR/Flex button is deliberately untouched (always mounted, richer flow).
 
 **Consequence:** the dashboard stays live during a sync, a sync can't be silently abandoned or double-started by navigation, and refresh happens where the staleness is shown. Live-verified: dashboard rendered net worth while a signals recompute wrote, and "Syncing…" persisted across a tab round-trip (E2E smoke, 0 console errors).
+
+## 2026-07-13 — Freshness is a server-side, trading-day contract (staleness chips)
+
+**Context:** the chips showed "prices 4d" on a Monday even though Friday's bar was the freshest completed trading day and syncs had just succeeded — a wall-clock delta over a date-only string can't distinguish "data is old" from "markets were closed", nor "data as-of" from "last checked".
+
+**Decisions:**
+1. **`as_of` is a rich contract, not a string:** each chip gets `{date, checked_at, level}` — `date` = newest data, `checked_at` = last relevant `sync_runs.finished_at`, `level` computed server-side.
+2. **Freshness compares against the last completed trading day** (`backend/api/utils/trading_days.py`, single 22:00 UTC all-markets-closed cutoff, weekends rolled back). fresh = expected bar present AND verified by a sync after that day's close. Holidays deliberately unmodeled (YAGNI): one amber day, honest-but-conservative.
+3. **The frontend renders, it doesn't reason:** chips display the date and a relative "checked Xh ago"; the old client-side `relativeStaleness` heuristic is deleted so there's exactly one freshness authority.
+
+**Consequence:** weekend/premarket states read green with the true data date; a chip can now honestly say "data is current but nobody has checked since Friday" (amber). Regression-tested in `test_trading_days.py` + dashboard route tests.
