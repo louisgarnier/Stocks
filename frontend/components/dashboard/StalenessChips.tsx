@@ -1,6 +1,7 @@
 'use client';
 
 import { relativeStaleness, type AsOf } from '@/lib/dashboard';
+import { useSync, type StepKey } from '@/lib/sync-context';
 
 const LABELS: Record<keyof AsOf, string> = {
   prices: 'prices',
@@ -9,12 +10,30 @@ const LABELS: Record<keyof AsOf, string> = {
   ibkr: 'IBKR',
 };
 
+// Which provider step each chip triggers.
+const STEP_FOR: Record<keyof AsOf, StepKey> = {
+  prices: 'technical',
+  signals: 'compute',
+  fundamentals: 'fundamentals',
+  ibkr: 'ibkr',
+};
+
 export function StalenessChips({ asOf }: { asOf: AsOf }) {
+  const { state, anyRunning, runTechnical, runCompute, runFundamentals, runIbkr } = useSync();
+  const ACTION: Record<StepKey, () => void> = {
+    technical: runTechnical,
+    compute: runCompute,
+    fundamentals: runFundamentals,
+    ibkr: runIbkr,
+    all: () => {},
+  };
   const keys = Object.keys(LABELS) as (keyof AsOf)[];
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
       {keys.map((key) => {
         const { label, level } = relativeStaleness(asOf[key]);
+        const step = STEP_FOR[key];
+        const running = state[step].running;
         const cls =
           level === 'fresh'
             ? 'bg-success/15 text-success'
@@ -22,9 +41,16 @@ export function StalenessChips({ asOf }: { asOf: AsOf }) {
               ? 'bg-warning/15 text-warning'
               : 'bg-muted text-muted-foreground';
         return (
-          <span key={key} className={`rounded-full px-2.5 py-1 ${cls}`}>
-            ● {LABELS[key]} {label}
-          </span>
+          <button
+            key={key}
+            type="button"
+            onClick={ACTION[step]}
+            disabled={anyRunning}
+            title={`Refresh ${LABELS[key]}`}
+            className={`rounded-full px-2.5 py-1 ${cls} ${anyRunning ? 'cursor-default opacity-70' : 'cursor-pointer hover:brightness-95'}`}
+          >
+            {running ? '…' : '●'} {LABELS[key]} {running ? 'syncing' : label}
+          </button>
         );
       })}
     </div>

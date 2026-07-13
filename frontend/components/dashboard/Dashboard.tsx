@@ -13,6 +13,7 @@ import { PerformanceChart } from './PerformanceChart';
 import { ActionQueue } from './ActionQueue';
 import { MoversCard } from './MoversCard';
 import { StalenessChips } from './StalenessChips';
+import { useSync } from '@/lib/sync-context';
 
 interface Props {
   onSelectSymbol: (symbol: string) => void
@@ -25,6 +26,7 @@ export function Dashboard({ onSelectSymbol }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const requestSeq = useRef(0);
+  const { runAll, anyRunning, syncVersion } = useSync();
 
   useEffect(() => {
     const seq = ++requestSeq.current;
@@ -46,7 +48,7 @@ export function Dashboard({ onSelectSymbol }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activeWindow]);
+  }, [activeWindow, syncVersion]);
 
   if (error) {
     return (
@@ -64,7 +66,17 @@ export function Dashboard({ onSelectSymbol }: Props) {
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <StalenessChips asOf={data.as_of} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <StalenessChips asOf={data.as_of} />
+        <button
+          type="button"
+          onClick={runAll}
+          disabled={anyRunning}
+          className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {anyRunning ? 'Syncing…' : 'Sync all'}
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1fr_1.3fr]">
         <NetWorthCard data={data.net_worth} />

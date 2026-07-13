@@ -1,5 +1,14 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { Dashboard } from '@/components/dashboard/Dashboard';
+import { SyncProvider } from '@/lib/sync-context';
+
+function renderDashboard(props: { onSelectSymbol: (symbol: string) => void }) {
+  return render(
+    <SyncProvider>
+      <Dashboard {...props} />
+    </SyncProvider>,
+  );
+}
 
 function makePayload(valueEur: number) {
   return {
@@ -20,7 +29,7 @@ beforeEach(() => {
 });
 
 test('renders net worth, action queue and movers from the API', async () => {
-  render(<Dashboard onSelectSymbol={() => {}} />);
+  renderDashboard({ onSelectSymbol: () => {} });
   await waitFor(() => expect(screen.getByText(/€118,339/)).toBeInTheDocument());
   expect(screen.getByText('RGTI')).toBeInTheDocument();
   expect(screen.getByText('SPG')).toBeInTheDocument();
@@ -30,7 +39,7 @@ test('renders net worth, action queue and movers from the API', async () => {
 
 test('clicking a mover calls onSelectSymbol', async () => {
   const onSelect = jest.fn();
-  render(<Dashboard onSelectSymbol={onSelect} />);
+  renderDashboard({ onSelectSymbol: onSelect });
   await waitFor(() => screen.getByText('SOFI'));
   screen.getByText('SOFI').click();
   expect(onSelect).toHaveBeenCalledWith('SOFI');
@@ -45,7 +54,7 @@ test('out-of-order responses: latest window request wins', async () => {
     });
   }) as jest.Mock;
 
-  render(<Dashboard onSelectSymbol={() => {}} />);
+  renderDashboard({ onSelectSymbol: () => {} });
 
   // Initial mount triggers the 6M fetch. Resolve it so the window pills render
   // (Dashboard shows a full-page loading state until the first response lands).
