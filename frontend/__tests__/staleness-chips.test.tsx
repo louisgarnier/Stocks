@@ -40,3 +40,13 @@ test('a chip shows a syncing state while its step runs', async () => {
     expect(screen.getByRole('button', { name: /signals/ })).toHaveTextContent(/syncing|…/i),
   );
 });
+
+test('the IBKR chip is disabled while an external (header) IBKR sync is running, other chips are not', () => {
+  render(
+    <SyncProvider>
+      <StalenessChips asOf={asOf} ibkrExternalSyncing={true} />
+    </SyncProvider>,
+  );
+  expect(screen.getByRole('button', { name: /IBKR/ })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /prices/ })).not.toBeDisabled();
+});

@@ -17,9 +17,10 @@ import { useSync } from '@/lib/sync-context';
 
 interface Props {
   onSelectSymbol: (symbol: string) => void
+  ibkrExternalSyncing?: boolean
 }
 
-export function Dashboard({ onSelectSymbol }: Props) {
+export function Dashboard({ onSelectSymbol, ibkrExternalSyncing }: Props) {
   const [activeWindow, setActiveWindow] = useState<DashboardWindow>('6M');
   const [allocMode, setAllocMode] = useState<AllocationMode>('sector');
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -67,7 +68,7 @@ export function Dashboard({ onSelectSymbol }: Props) {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StalenessChips asOf={data.as_of} />
+        <StalenessChips asOf={data.as_of} ibkrExternalSyncing={ibkrExternalSyncing} />
         <button
           type="button"
           onClick={runAll}

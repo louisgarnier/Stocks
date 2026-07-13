@@ -1,10 +1,23 @@
 """Tests for sync pipeline routes."""
+import inspect
 import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 from backend.api.main import app
+from backend.api.routes import sync as sync_routes
 
 client = TestClient(app)
+
+
+def test_blocking_sync_endpoints_run_in_threadpool():
+    """These endpoints call blocking I/O (yfinance ingest, requests.get flex
+    pulls, DB writes) with no internal await; they MUST be plain `def` so
+    FastAPI dispatches them to its threadpool, not `async def` — an `async def`
+    would run the blocking work directly on the event loop and hang every other
+    request (including GET /api/dashboard) for the sync's whole duration."""
+    for name in ("sync_ibkr", "sync_market_data", "sync_fundamentals", "sync_analytics", "sync_screen"):
+        fn = getattr(sync_routes, name)
+        assert not inspect.iscoroutinefunction(fn), f"{name} must be plain def, not async def"
 
 
 def test_get_positions_returns_raw_ibkr_only(temp_db):

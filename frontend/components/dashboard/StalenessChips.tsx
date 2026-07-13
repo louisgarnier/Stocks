@@ -18,7 +18,13 @@ const STEP_FOR: Record<keyof AsOf, StepKey> = {
   ibkr: 'ibkr',
 };
 
-export function StalenessChips({ asOf }: { asOf: AsOf }) {
+export function StalenessChips({
+  asOf,
+  ibkrExternalSyncing,
+}: {
+  asOf: AsOf
+  ibkrExternalSyncing?: boolean
+}) {
   const { state, anyRunning, runTechnical, runCompute, runFundamentals, runIbkr } = useSync();
   const ACTION: Record<StepKey, () => void> = {
     technical: runTechnical,
@@ -34,6 +40,7 @@ export function StalenessChips({ asOf }: { asOf: AsOf }) {
         const { label, level } = relativeStaleness(asOf[key]);
         const step = STEP_FOR[key];
         const running = state[step].running;
+        const disabled = anyRunning || (key === 'ibkr' && !!ibkrExternalSyncing);
         const cls =
           level === 'fresh'
             ? 'bg-success/15 text-success'
@@ -45,9 +52,9 @@ export function StalenessChips({ asOf }: { asOf: AsOf }) {
             key={key}
             type="button"
             onClick={ACTION[step]}
-            disabled={anyRunning}
+            disabled={disabled}
             title={`Refresh ${LABELS[key]}`}
-            className={`rounded-full px-2.5 py-1 ${cls} ${anyRunning ? 'cursor-default opacity-70' : 'cursor-pointer hover:brightness-95'}`}
+            className={`rounded-full px-2.5 py-1 ${cls} ${disabled ? 'cursor-default opacity-70' : 'cursor-pointer hover:brightness-95'}`}
           >
             {running ? '…' : '●'} {LABELS[key]} {running ? 'syncing' : label}
           </button>

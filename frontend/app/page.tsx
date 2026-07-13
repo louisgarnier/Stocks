@@ -274,7 +274,7 @@ export default function Dashboard() {
   const [showTuning, setShowTuning] = useState<boolean>(false);
   const [researchKey, setResearchKey] = useState<number>(0);
   const refreshResearch = () => setResearchKey((k) => k + 1);
-  const { syncVersion } = useSync();
+  const { syncVersion, anyRunning } = useSync();
   useEffect(() => {
     // A sync finished (from the toolbar OR the dashboard) — refresh the grid.
     if (syncVersion > 0) setResearchKey((k) => k + 1);
@@ -1223,7 +1223,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
               onClick={() => handleFlexImport()}
-              disabled={flexLoading}
+              disabled={flexLoading || anyRunning}
               title="Test API connection, fetch latest IBKR holdings and transactions"
               style={{
                 padding: '8px 16px',
@@ -1341,7 +1341,7 @@ export default function Dashboard() {
         <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
 
           {/* Tab: Dashboard — net worth, allocation, performance, action queue, movers */}
-          {activeTab === 'dashboard' && <DashboardTab onSelectSymbol={setSelectedSymbol} />}
+          {activeTab === 'dashboard' && <DashboardTab onSelectSymbol={setSelectedSymbol} ibkrExternalSyncing={flexLoading} />}
 
           {/* Tab: Browse Universe — searchable table of every tracked symbol */}
           {activeTab === 'browse-universe' && (

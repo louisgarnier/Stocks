@@ -176,7 +176,7 @@ def sync_full():
 
 
 @router.post("/ibkr")
-async def sync_ibkr():
+def sync_ibkr():
     """IBKR-only pipeline: positions, transactions, corporate_actions, splits.
 
     Independent of yfinance and local compute. A failure here never blocks
@@ -407,7 +407,7 @@ def _sync_positions_to_universe() -> None:
 
 
 @router.post("/market-data")
-async def sync_market_data():
+def sync_market_data():
     """Pull yfinance bars for all enabled symbols in tracked_universe → market_data."""
     logger.info("📈 Sync step: market-data")
     with record_run("market_data") as run:

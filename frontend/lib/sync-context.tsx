@@ -58,9 +58,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     if (runningRef.current) return; // ignore overlapping starts
     runningRef.current = true;
     setState((s) => ({ ...s, [key]: { running: true, status: 'Running…', error: false } }));
-    toast(`${label} sync started`);
     void (async () => {
       try {
+        toast(`${label} sync started`);
         await fn();
         setState((s) => ({ ...s, [key]: { running: false, status: 'Done ✓', error: false } }));
         setSyncVersion((v) => v + 1);
