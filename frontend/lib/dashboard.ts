@@ -16,6 +16,7 @@ export interface AsOf {
 
 export interface NetWorth {
   value_eur: number
+  cash_eur: number
   day_change_eur: number
   day_change_pct: number
   unrealized_pnl_eur: number | null

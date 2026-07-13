@@ -47,8 +47,8 @@ export function NetWorthCard({ data }: { data: NetWorth }) {
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Cash</div>
-            <div className="text-base font-bold text-muted-foreground">
-              — <span className="text-[10px]">(not tracked yet)</span>
+            <div className="text-base font-bold tabular-nums">
+              {formatEur(data.cash_eur)}
             </div>
           </div>
         </div>

@@ -19,7 +19,7 @@ function makePayload(valueEur: number) {
       ibkr: { date: '2026-07-10T09:09:00Z', checked_at: '2026-07-10T09:09:00Z', level: 'fresh' },
     },
     fx_rate: 1.1,
-    net_worth: { value_eur: valueEur, day_change_eur: 614, day_change_pct: 0.52, unrealized_pnl_eur: 29911, positions: 18, usd_exposure_pct: 87.1 },
+    net_worth: { value_eur: valueEur, cash_eur: 2450.3, day_change_eur: 614, day_change_pct: 0.52, unrealized_pnl_eur: 29911, positions: 18, usd_exposure_pct: 87.1 },
     allocation: { sector: [{ label: 'Technology', value_eur: 57815, pct: 48.9 }], position: [], currency: [] },
     performance: { portfolio: [{ date: '2026-01-02', value: 100 }, { date: '2026-07-09', value: 118.4 }], benchmark: [{ date: '2026-01-02', value: 100 }, { date: '2026-07-09', value: 111.2 }] },
     movers: [{ symbol: 'SOFI', close: 18.62, prev_close: 17.73, change_pct: 5.02, day_pnl_eur: 573 }],
