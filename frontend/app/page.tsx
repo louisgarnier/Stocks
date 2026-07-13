@@ -10,6 +10,7 @@ import { RefreshCcw, X, Plus, Database } from "lucide-react";
 import { toast } from "sonner";
 import { SecurityDetailSheet } from "@/components/security-detail/SecurityDetailSheet";
 import { SignalPill } from '@/components/positions/SignalPill';
+import { SignalSettingsCard } from '@/components/settings/SignalSettingsCard';
 import { SignalsExpandPanel } from '@/components/positions/SignalsExpandPanel';
 import { fetchHoldingSignals, countFired, type SignalsBySymbol } from '@/lib/holding-signals';
 import { visibleTransactions, selectableIds } from '@/lib/journal';
@@ -1489,6 +1490,9 @@ export default function Dashboard() {
                     </p>
                   </CardContent>
                 </Card>
+
+                {/* Sell Signals settings (STORY-G-6) */}
+                <SignalSettingsCard />
 
               </div>
 
