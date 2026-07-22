@@ -168,6 +168,15 @@ function renderCell(col: ColumnDef, r: ResearchRow): React.ReactNode {
     case 'ma_cross_status':
     case 'breakout_status':
       return raw ? String(raw) : '—'
+    // Boolean flags render as a compact ✓ / – rather than "true"/"false".
+    case 'trend_aligned':
+    case 'above_ma50':
+    case 'above_ma200':
+    case 'is_8d_consec':
+    case 'volume_spike':
+    case 'near_52w_high':
+      if (raw === null || raw === undefined) return '—'
+      return raw ? <span style={{ color: '#15803d', fontWeight: 700 }}>✓</span> : <span style={{ color: '#cbd5e1' }}>–</span>
     default:
       if (typeof raw === 'number') return num(raw, 2)
       if (raw === null || raw === undefined) return '—'
