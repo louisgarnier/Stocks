@@ -36,6 +36,8 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: 'sector', label: 'Sector', group: 'Identity', align: 'l' },
   // Price
   { key: 'price', label: 'Price', group: 'Price', align: 'r' },
+  { key: 'volume', label: 'Volume', group: 'Price', align: 'r' },
+  { key: 'volume_ratio', label: 'Vol vs avg', group: 'Price', align: 'r' },
   // Indicators
   { key: 'ma_50', label: 'MA50', group: 'Indicators', align: 'r' },
   { key: 'ma_100', label: 'MA100', group: 'Indicators', align: 'r' },

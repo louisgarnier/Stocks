@@ -157,13 +157,22 @@ function renderCell(col: ColumnDef, r: ResearchRow): React.ReactNode {
       return num(raw as number | null, 1)
     case 'mrsi':
       return num(raw as number | null, 3)
-    case 'market_cap': {
+    case 'market_cap':
+    case 'volume': {
       const v = raw as number | null
       if (v === null || v === undefined) return '—'
       if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`
       if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`
       if (v >= 1e6) return `${(v / 1e6).toFixed(0)}M`
+      if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
       return String(v)
+    }
+    case 'volume_ratio': {
+      const v = raw as number | null
+      if (v === null || v === undefined) return '—'
+      // >1.5× normal volume reads as notable; tint it.
+      const color = v >= 1.5 ? '#b45309' : '#64748b'
+      return <span style={{ color, fontWeight: v >= 1.5 ? 600 : 400 }}>{`${v.toFixed(2)}×`}</span>
     }
     case 'ma_cross_status':
     case 'breakout_status':

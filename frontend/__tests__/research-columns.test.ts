@@ -31,7 +31,8 @@ describe('research column persistence', () => {
   // must be selectable in the grid. Guards against fields drifting into the
   // export but being un-addable as a column (the original "gaps" complaint).
   const CSV_FIELDS = [
-    'symbol', 'name', 'sector', 'price', 'indicator_date', 'ma_50', 'ma_100',
+    'symbol', 'name', 'sector', 'price', 'volume', 'volume_ratio',
+    'indicator_date', 'ma_50', 'ma_100',
     'ma_150', 'ma_200', 'bb_upper_20', 'bb_lower_20', 'bb_width', 'rsi_14',
     'mrsi', 'atr_14', 'volume_ma_20', 'signal_date', 'momentum_5d',
     'momentum_20d', 'momentum_60d', 'multi_factor_momentum', 'above_ma50',

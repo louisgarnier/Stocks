@@ -13,12 +13,13 @@ def _seed(temp_db):
     )
     conn.execute("INSERT INTO screen_signals (symbol, date, momentum_60d, above_ma50) VALUES ('AAPL','2026-07-01', 12.0, 1)")
     conn.execute("INSERT INTO fundamentals (symbol, gates_passed, gates_total, roic) VALUES ('AAPL', 6, 7, 0.55)")
-    # two indicator rows; the view must surface the LATEST one
-    conn.execute("INSERT INTO indicators (symbol, time, ma_50, rsi_14, atr_14) VALUES ('AAPL','2026-06-01', 100.0, 40.0, 2.0)")
-    conn.execute("INSERT INTO indicators (symbol, time, ma_50, rsi_14, atr_14) VALUES ('AAPL','2026-06-30', 141.2, 62.5, 3.4)")
-    # market_data for latest-close (price) — latest is 2026-06-30 @ 145.5
-    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) VALUES ('AAPL','2026-06-01', 1,1,1, 130.0, 10)")
-    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) VALUES ('AAPL','2026-06-30', 1,1,1, 145.5, 10)")
+    # two indicator rows; the view must surface the LATEST one.
+    # volume_ma_20 on the latest row backs the volume_ratio calc (2000 / 1000 = 2.0).
+    conn.execute("INSERT INTO indicators (symbol, time, ma_50, rsi_14, atr_14, volume_ma_20) VALUES ('AAPL','2026-06-01', 100.0, 40.0, 2.0, 500.0)")
+    conn.execute("INSERT INTO indicators (symbol, time, ma_50, rsi_14, atr_14, volume_ma_20) VALUES ('AAPL','2026-06-30', 141.2, 62.5, 3.4, 1000.0)")
+    # market_data for latest-close (price) + raw volume — latest is 2026-06-30 @ 145.5, vol 2000
+    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) VALUES ('AAPL','2026-06-01', 1,1,1, 130.0, 800)")
+    conn.execute("INSERT INTO market_data (symbol, time, open, high, low, close, volume) VALUES ('AAPL','2026-06-30', 1,1,1, 145.5, 2000)")
     conn.commit()
     conn.close()
 
@@ -36,8 +37,10 @@ def test_research_view_joins_latest_indicators(temp_db):
     assert row["ma_50"] == 141.2
     assert row["rsi_14"] == 62.5
     assert row["atr_14"] == 3.4
-    # latest close price
+    # latest close price + raw volume, and volume vs 20-day avg (2000 / 1000)
     assert row["price"] == 145.5
+    assert row["volume"] == 2000
+    assert row["volume_ratio"] == 2.0
 
 
 def test_research_overview_json(temp_db):
