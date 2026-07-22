@@ -157,8 +157,7 @@ function renderCell(col: ColumnDef, r: ResearchRow): React.ReactNode {
       return num(raw as number | null, 1)
     case 'mrsi':
       return num(raw as number | null, 3)
-    case 'market_cap':
-    case 'volume': {
+    case 'market_cap': {
       const v = raw as number | null
       if (v === null || v === undefined) return '—'
       if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`
@@ -166,6 +165,12 @@ function renderCell(col: ColumnDef, r: ResearchRow): React.ReactNode {
       if (v >= 1e6) return `${(v / 1e6).toFixed(0)}M`
       if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
       return String(v)
+    }
+    case 'volume': {
+      // Exact share count with thousands separators (e.g. 2,383,900), not abbreviated.
+      const v = raw as number | null
+      if (v === null || v === undefined) return '—'
+      return Math.round(v).toLocaleString('en-US')
     }
     case 'volume_ratio': {
       const v = raw as number | null
