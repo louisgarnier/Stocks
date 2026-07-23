@@ -151,19 +151,26 @@ def get_dashboard(window: str = Query("6M")):
             return {"date": data_date, "checked_at": checked_at,
                     "level": freshness_level(kind, data_date, checked_at, now)}
 
+        # Chips must reflect the last SUCCESSFUL refresh, not the last attempt:
+        # a failed sync writes a sync_runs row too, so an unfiltered MAX(finished_at)
+        # would falsely bump the "checked" line (and, for IBKR whose data date IS the
+        # run time, the whole chip) to green right after a sync that changed nothing.
+        # 'partial' counts — it means the step's data was written (e.g. positions/trades
+        # ok, only best-effort cash failed).
+        OK = "status IN ('success','partial')"
         as_of = {
             "prices": _chip("prices",
                 "SELECT MAX(time) FROM market_data",
-                "SELECT MAX(finished_at) FROM sync_runs WHERE action='market_data'"),
+                f"SELECT MAX(finished_at) FROM sync_runs WHERE action='market_data' AND {OK}"),
             "signals": _chip("signals",
                 "SELECT MAX(date) FROM screen_signals",
-                "SELECT MAX(finished_at) FROM sync_runs WHERE action IN ('screen','analytics')"),
+                f"SELECT MAX(finished_at) FROM sync_runs WHERE action IN ('screen','analytics') AND {OK}"),
             "fundamentals": _chip("fundamentals",
                 "SELECT MAX(fetched_at) FROM fundamentals",
-                "SELECT MAX(finished_at) FROM sync_runs WHERE action='fundamentals'"),
+                f"SELECT MAX(finished_at) FROM sync_runs WHERE action='fundamentals' AND {OK}"),
             "ibkr": _chip("ibkr",
-                "SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr'",
-                "SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr'"),
+                f"SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr' AND {OK}",
+                f"SELECT MAX(finished_at) FROM sync_runs WHERE action='ibkr' AND {OK}"),
         }
 
         return {"as_of": as_of, "fx_rate": raw_fx, "net_worth": net_worth,

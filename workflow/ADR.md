@@ -54,3 +54,14 @@
 3. **The frontend renders, it doesn't reason:** chips display the date and a relative "checked Xh ago"; the old client-side `relativeStaleness` heuristic is deleted so there's exactly one freshness authority.
 
 **Consequence:** weekend/premarket states read green with the true data date; a chip can now honestly say "data is current but nobody has checked since Friday" (amber). Regression-tested in `test_trading_days.py` + dashboard route tests.
+
+## 2026-07-22 — ADR-5: Cash is a dedicated Flex query, decoupled from positions/trades
+
+**Context:** the IBKR pipeline pulled positions + trades + cash from one query (`1398454`). Adding the CashReport section made that query too heavy for IBKR to generate reliably — chronic `1001 - Statement could not be generated` (the query intermittently fails on IBKR's side even after minutes of rest, while lighter queries on the same token/account generate first try). Every 1001 froze the ENTIRE dashboard refresh (positions, trades, cash, corporate actions, splits), even though positions/trades were available via a reliable query. Stale cash then made net worth read wrong with no visible failure.
+
+**Decisions:**
+1. **Cash has its own Flex query** (`IBKR_QUERY_ID_cash` = `1579843`, CashReport only, Last Business Day). Positions/trades stay on the lightened `1398454` (OpenPositions + Trades, no CashReport). `_step_cash()` fetches `fetch_flex_response("cash")` rather than parsing the shared positions XML.
+2. **The cash step is best-effort** — called without the early-return guard, so a cash-query failure logs and continues; positions/trades/CA/splits still commit. `_finalize_run` reports the run as `partial` (not `error`) when only best-effort steps fail.
+3. **A lighter positions query generates more reliably** — removing CashReport from `1398454` was the root fix for its 1001 flakiness; the dedicated cash query isolates the remaining risk to a step that can fail alone.
+
+**Consequence:** an IBKR cash hiccup degrades to "cash may lag" instead of "dashboard frozen." Live-verified 2026-07-23: user-triggered refresh ran `5 ok · 0 error`, cash updated EUR 9,035→3,982 (matching IBKR), net worth reconciled. See `workflow/ERRORS.md` (2026-07-22 entry) and project `CLAUDE.md` (IBKR over-query rule).

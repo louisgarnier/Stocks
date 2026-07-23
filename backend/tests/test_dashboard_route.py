@@ -141,3 +141,39 @@ def test_dashboard_as_of_unknown_without_data(temp_db):
     # No screen_signals / ibkr sync_runs seeded → no data date.
     assert b["as_of"]["signals"]["level"] == "unknown"
     assert b["as_of"]["ibkr"]["date"] is None
+
+
+def test_dashboard_ibkr_chip_ignores_failed_syncs(temp_db):
+    """Regression: a FAILED ibkr sync must not refresh the IBKR chip.
+
+    The chip's date/checked_at must reflect the last SUCCESSFUL (or partial)
+    sync, not the last attempt. Otherwise a failed sync makes the dashboard
+    falsely report IBKR data as freshly updated (green) when nothing changed.
+    """
+    _seed(temp_db)
+    conn = sqlite3.connect(str(temp_db))
+    # A good sync at 12:00, then TWO failed attempts afterward at 13:00 / 14:00.
+    conn.execute("INSERT INTO sync_runs (started_at, finished_at, action, status) "
+                 "VALUES ('2026-07-09T11:59:00+00:00','2026-07-09T12:00:00+00:00','ibkr','partial')")
+    conn.execute("INSERT INTO sync_runs (started_at, finished_at, action, status) "
+                 "VALUES ('2026-07-09T13:00:00+00:00','2026-07-09T13:00:01+00:00','ibkr','error')")
+    conn.execute("INSERT INTO sync_runs (started_at, finished_at, action, status) "
+                 "VALUES ('2026-07-09T14:00:00+00:00','2026-07-09T14:00:01+00:00','ibkr','error')")
+    conn.commit(); conn.close()
+
+    ibkr = client.get("/api/dashboard").json()["as_of"]["ibkr"]
+    # Must anchor to the 12:00 success, NOT the 14:00 failure.
+    assert ibkr["date"] == "2026-07-09T12:00:00+00:00"
+    assert ibkr["checked_at"] == "2026-07-09T12:00:00+00:00"
+
+
+def test_dashboard_prices_checked_at_ignores_failed_syncs(temp_db):
+    """A failed market_data sync must not bump the prices chip's 'checked' line."""
+    _seed(temp_db)  # seeds one successful market_data run finishing 2026-07-09T08:01:00
+    conn = sqlite3.connect(str(temp_db))
+    conn.execute("INSERT INTO sync_runs (started_at, finished_at, action, status) "
+                 "VALUES ('2026-07-09T20:00:00+00:00','2026-07-09T20:00:01+00:00','market_data','error')")
+    conn.commit(); conn.close()
+
+    prices = client.get("/api/dashboard").json()["as_of"]["prices"]
+    assert prices["checked_at"] == "2026-07-09T08:01:00+00:00"  # the success, not the 20:00 error

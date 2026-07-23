@@ -164,7 +164,7 @@ def sync_full():
 
     if not _run(steps, "positions", lambda: _step_positions(xml)):
         return _wrap(steps)
-    _run(steps, "cash", lambda: _step_cash(xml))
+    _run(steps, "cash", _step_cash)
     if not _run(steps, "transactions", lambda: _step_transactions(xml)):
         return _wrap(steps)
     if not _run(steps, "corporate_actions", _step_corporate_actions):
@@ -201,7 +201,7 @@ def sync_ibkr():
 
         if not _run(steps, "positions", lambda: _step_positions(xml)):
             return _finalize_run(run, steps)
-        _run(steps, "cash", lambda: _step_cash(xml))
+        _run(steps, "cash", _step_cash)
         if not _run(steps, "transactions", lambda: _step_transactions(xml)):
             return _finalize_run(run, steps)
         if not _run(steps, "corporate_actions", _step_corporate_actions):
@@ -341,8 +341,15 @@ def _step_positions(xml: str) -> dict:
     return result
 
 
-def _step_cash(xml: str) -> dict:
-    return save_cash_balances(parse_cash_from_xml(xml))
+def _step_cash() -> dict:
+    """Fetch cash from its OWN dedicated Flex query (IBKR_QUERY_ID_cash).
+
+    Decoupled from the positions/trades query so a cash-query failure can
+    never block the positions/trades refresh — this step is called
+    best-effort (no early-return guard at the call sites). See ADR.md:
+    the CashReport section made the shared last_month query flaky (1001).
+    """
+    return save_cash_balances(parse_cash_from_xml(fetch_flex_response("cash")))
 
 
 def _step_transactions(xml: str) -> dict:
